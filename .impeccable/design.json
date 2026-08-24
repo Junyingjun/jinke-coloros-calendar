@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-24T22:10:00+08:00",
+  "title": "Design System: 今刻",
+  "extensions": {
+    "colorMeta": {
+      "canvas-warm": { "role": "neutral", "displayName": "Canvas Warm", "canonical": "oklch(0.965 0.006 80)", "tonalRamp": ["oklch(0.15 0.006 80)", "oklch(0.27 0.006 80)", "oklch(0.39 0.006 80)", "oklch(0.51 0.006 80)", "oklch(0.63 0.006 80)", "oklch(0.75 0.006 80)", "oklch(0.87 0.006 80)", "oklch(0.965 0.006 80)"] },
+      "phone-porcelain": { "role": "neutral", "displayName": "Phone Porcelain", "canonical": "oklch(0.982 0.005 82)", "tonalRamp": ["oklch(0.15 0.005 82)", "oklch(0.27 0.005 82)", "oklch(0.39 0.005 82)", "oklch(0.51 0.005 82)", "oklch(0.63 0.005 82)", "oklch(0.75 0.005 82)", "oklch(0.87 0.005 82)", "oklch(0.982 0.005 82)"] },
+      "ink-primary": { "role": "neutral", "displayName": "Ink Primary", "canonical": "oklch(0.23 0.012 70)", "tonalRamp": ["oklch(0.15 0.012 70)", "oklch(0.27 0.012 70)", "oklch(0.39 0.012 70)", "oklch(0.51 0.012 70)", "oklch(0.63 0.012 70)", "oklch(0.75 0.012 70)", "oklch(0.87 0.012 70)", "oklch(0.95 0.012 70)"] },
+      "signal-vermilion": { "role": "primary", "displayName": "Signal Vermilion", "canonical": "oklch(0.67 0.205 32)", "tonalRamp": ["oklch(0.15 0.08 32)", "oklch(0.27 0.11 32)", "oklch(0.39 0.14 32)", "oklch(0.51 0.17 32)", "oklch(0.63 0.20 32)", "oklch(0.75 0.16 32)", "oklch(0.87 0.09 32)", "oklch(0.95 0.04 32)"] },
+      "success": { "role": "success", "displayName": "Completion Green", "canonical": "oklch(0.61 0.135 150)", "tonalRamp": ["oklch(0.15 0.05 150)", "oklch(0.27 0.075 150)", "oklch(0.39 0.10 150)", "oklch(0.51 0.125 150)", "oklch(0.63 0.13 150)", "oklch(0.75 0.10 150)", "oklch(0.87 0.06 150)", "oklch(0.95 0.03 150)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Page Display", "purpose": "Dates and primary screen headings." },
+      "title": { "displayName": "Section Title", "purpose": "Section hierarchy without decorative type." },
+      "body": { "displayName": "Task Body", "purpose": "Task names and primary content." },
+      "label": { "displayName": "Metadata Label", "purpose": "Times, repeat rules and compact state." }
+    },
+    "shadows": [
+      { "name": "device-ambient", "value": "0 36px 90px rgba(57,45,32,0.20), 0 4px 18px rgba(57,45,32,0.08)", "purpose": "Browser prototype device frame only." },
+      { "name": "floating-control", "value": "0 18px 42px rgba(62,45,29,0.13), 0 2px 8px rgba(62,45,29,0.07)", "purpose": "Bottom navigation, sheets and transient feedback." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Scale and opacity arrival." },
+      { "name": "ease-standard", "value": "cubic-bezier(0.32, 0.72, 0, 1)", "purpose": "ColorOS-style sheets and shared surfaces." },
+      { "name": "duration-fast", "value": "160ms", "purpose": "Press and compact state feedback." },
+      { "name": "duration-sheet", "value": "260ms", "purpose": "Sheet arrival and departure." }
+    ],
+    "breakpoints": [
+      { "name": "phone-full", "value": "699px" },
+      { "name": "expanded-full", "value": "700px–999px, aspect ratio ≤ 1.25" },
+      { "name": "dual-simulator", "value": "1000px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Calm full-width confirmation control.",
+      "html": "<button class=\"ds-btn-primary\">创建任务</button>",
+      "css": ".ds-btn-primary{min-height:52px;padding:0 16px;border:0;border-radius:18px;background:#211C17;color:#FEFDFB;font:700 14px -apple-system,system-ui;transition:transform 170ms cubic-bezier(.22,1,.36,1)}.ds-btn-primary:hover{background:#342E28}.ds-btn-primary:active{transform:scale(.96)}.ds-btn-primary:focus-visible{outline:3px solid rgba(249,85,58,.28);outline-offset:2px}"
+    },
+    {
+      "name": "Voice Button",
+      "kind": "button",
+      "refersTo": "button-voice",
+      "description": "The single high-emphasis creation entry.",
+      "html": "<button class=\"ds-btn-voice\" aria-label=\"语音创建事项\"><svg width=\"27\" height=\"27\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><rect x=\"9\" y=\"3\" width=\"6\" height=\"12\" rx=\"3\"/><path d=\"M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6\"/></svg></button>",
+      "css": ".ds-btn-voice{width:64px;height:64px;border:0;border-radius:50%;display:grid;place-items:center;background:#F9553A;color:#FDFBF9;box-shadow:0 13px 28px rgba(249,85,58,.24);transition:transform 180ms cubic-bezier(.22,1,.36,1)}.ds-btn-voice:hover{background:#EB472F}.ds-btn-voice:active{transform:scale(.93)}.ds-btn-voice:focus-visible{outline:3px solid rgba(249,85,58,.28);outline-offset:3px}"
+    },
+    {
+      "name": "Task Check",
+      "kind": "button",
+      "description": "A shape-first completion state that never depends on color alone.",
+      "html": "<button class=\"ds-task-check\" aria-label=\"已完成\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.3\"><path d=\"m6.5 12.5 3.4 3.3 7.6-8\"/></svg></button>",
+      "css": ".ds-task-check{width:26px;height:26px;border:1.5px solid #211C17;border-radius:50%;display:grid;place-items:center;background:#211C17;color:#FEFDFB;transition:transform 180ms cubic-bezier(.22,1,.36,1)}.ds-task-check:hover{background:#342E28}.ds-task-check:active{transform:scale(.88)}.ds-task-check:focus-visible{outline:3px solid rgba(249,85,58,.28);outline-offset:2px}"
+    },
+    {
+      "name": "Critical Item",
+      "kind": "card",
+      "refersTo": "critical-row",
+      "description": "Actionable important task with deadline and compact progress.",
+      "html": "<button class=\"ds-critical\"><span><strong>完成语音日历第一版</strong><small>原型、通知策略、离线语音</small></span><b>剩 15 天</b></button>",
+      "css": ".ds-critical{width:100%;padding:16px;border:1px solid #DDD8D3;border-radius:18px;display:flex;justify-content:space-between;gap:12px;background:#FEFDFB;color:#211C17;text-align:left;font-family:-apple-system,system-ui;transition:transform 170ms cubic-bezier(.22,1,.36,1),background 170ms}.ds-critical strong{display:block;font-size:15px}.ds-critical small{display:block;margin-top:5px;color:#8A857E}.ds-critical b{padding:5px 8px;border-radius:9px;background:#F1EFEA;color:#5A544D;font-size:11px;white-space:nowrap}.ds-critical:hover{background:#F9F7F3}.ds-critical:active{transform:scale(.98)}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "description": "Keyboard fallback for voice capture.",
+      "html": "<input class=\"ds-input\" placeholder=\"也可以直接输入安排\" />",
+      "css": ".ds-input{width:100%;min-height:48px;padding:0 14px;border:1px solid #DDD8D3;border-radius:15px;background:#FEFDFB;color:#211C17;font:500 14px -apple-system,system-ui}.ds-input:hover{border-color:#CFC7C0}.ds-input:focus{outline:3px solid rgba(249,85,58,.2);border-color:#F9553A}"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "bottom-navigation",
+      "description": "Two destinations with one centered creation action.",
+      "html": "<nav class=\"ds-nav\"><button>今日</button><span>语音</span><button>关键</button></nav>",
+      "css": ".ds-nav{height:82px;padding:8px 12px;border:1px solid #DDD8D3;border-radius:34px;display:grid;grid-template-columns:1fr 82px 1fr;align-items:center;background:#FEFDFB;color:#211C17;box-shadow:0 18px 42px rgba(62,45,29,.13);font:650 11px -apple-system,system-ui}.ds-nav button{height:58px;border:0;background:transparent;color:inherit;border-radius:20px}.ds-nav button:hover{background:#F1EFEA}.ds-nav button:active{transform:scale(.96)}.ds-nav span{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:#F9553A;color:#FDFBF9}"
+    }
+  ],
+  "narrative": {
+    "northStar": "掌心里的系统时刻",
+    "overview": "今刻是一件安静、迅速、可信的个人工具。日视图维持稳定的空间记忆，周/月只以临时检视层出现。视觉惊喜来自精确层级、形变和触感，不来自装饰。",
+    "keyCharacteristics": ["430 × 956 普通手机与 860 × 956 展开屏同步预览", "展开屏双栏信息架构", "日视图优先", "中央语音入口", "150–260ms 系统级动效", "44px 以上触控目标"],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Signal Vermilion 在任一屏幕的占比不得超过 10%。", "section": "colors" },
+      { "name": "The Warm Neutral Rule", "body": "禁止使用纯黑或纯白。", "section": "colors" },
+      { "name": "The Native Voice Rule", "body": "所有按钮、标签和数据使用同一系统字体栈。", "section": "typography" },
+      { "name": "The Soft Arrival Rule", "body": "新状态以 0.96→1 缩放和淡入出现，150–260ms 完成。", "section": "elevation" },
+      { "name": "The Flat-at-Rest Rule", "body": "日程列表和普通内容静止时无阴影。", "section": "elevation" }
+    ],
+    "dos": ["Do 让今天成为默认答案。", "Do 使用 20px 水平边距和 44px 最小触控区。", "Do 使用支持 reduced-motion 的系统级动效。"],
+    "donts": ["Don't 做传统日历的密集网格首页。", "Don't 制造多层级、标签堆叠和卡片海洋。", "Don't 使用夸张插画、霓虹渐变、玻璃拟态或装饰性动效。", "Don't 让周视图和月视图抢走今天。"]
+  }
+}

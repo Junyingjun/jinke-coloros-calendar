@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">今刻</string>
+    <string name="ddl_channel_name">DDL 关键事项</string>
+    <string name="update_channel_name">版本更新</string>
+</resources>

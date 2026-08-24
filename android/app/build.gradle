@@ -1,0 +1,76 @@
+plugins {
+    id "com.android.application"
+}
+
+def signingProperties = new Properties()
+def signingPropertiesPath = System.getenv("JINKE_KEYSTORE_PROPERTIES")
+if (signingPropertiesPath) {
+    def signingPropertiesFile = file(signingPropertiesPath)
+    if (signingPropertiesFile.exists()) {
+        signingPropertiesFile.withInputStream { signingProperties.load(it) }
+    }
+}
+
+android {
+    namespace "com.junyingjun.jinke"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.junyingjun.jinke"
+        minSdk 28
+        targetSdk 36
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            if (!signingProperties.isEmpty()) {
+                storeFile file(signingProperties["storeFile"])
+                storePassword signingProperties["storePassword"]
+                keyAlias signingProperties["keyAlias"]
+                keyPassword signingProperties["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (!signingProperties.isEmpty()) signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+tasks.register("syncWebAssets", Copy) {
+    from("../..") {
+        include "index.html"
+        include "styles.css"
+        include "data.jsx"
+        include "primitives.jsx"
+        include "screens.jsx"
+        include "app.jsx"
+        include "manifest.webmanifest"
+        include "project-identity.json"
+        include "assets/**"
+        include "vendor/**"
+    }
+    into("src/main/assets/www")
+}
+
+tasks.named("preBuild").configure { dependsOn("syncWebAssets") }

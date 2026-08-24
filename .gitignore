@@ -1,0 +1,12 @@
+.toolchains/
+.mobile-preview/
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/src/main/assets/www/
+release/*.apk
+*.jks
+*.keystore
+keystore.properties
+.DS_Store
+Thumbs.db

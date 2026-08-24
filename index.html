@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#171512" />
+    <title>今刻 · 语音日历</title>
+    <script>
+      (() => {
+        let mode = "dark";
+        try { mode = localStorage.getItem("jinke-theme") || "dark"; } catch {}
+        const resolved = mode === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        document.querySelector('meta[name="theme-color"]').content = resolved === "dark" ? "#171512" : "#F8F6F2";
+      })();
+    </script>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/app-icon-512.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="./vendor/react.production.min.js"></script>
+    <script src="./vendor/react-dom.production.min.js"></script>
+    <script src="./vendor/babel.min.js"></script>
+    <script>
+      (async () => {
+        const files = ["./data.jsx", "./primitives.jsx", "./screens.jsx", "./app.jsx"];
+        try {
+          for (const file of files) {
+            const response = await fetch(file);
+            if (!response.ok) throw new Error(`Failed to load ${file}: ${response.status}`);
+            const source = await response.text();
+            const compiled = Babel.transform(source, { presets: ["env", ["react", { runtime: "classic" }]], sourceMaps: "inline" }).code;
+            try {
+              window.eval(`${compiled}\n//# sourceURL=${file}`);
+            } catch (error) {
+              const imports = compiled.split("\n").filter((line) => line.trim().startsWith("import ")).slice(0, 3).join(" | ");
+              throw new Error(`${file}: ${error.message}${imports ? ` · ${imports}` : ""}`);
+            }
+          }
+        } catch (error) {
+          console.error(error);
+          document.body.dataset.loadError = String(error.message || error);
+        }
+      })();
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+      }
+    </script>
+  </body>
+</html>
