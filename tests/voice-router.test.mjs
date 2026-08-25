@@ -97,7 +97,9 @@ assert.equal(route("周一到周五每天十一点点外卖").task.title, "点�
 assert.equal(route("周一到周五每天十一点点外卖").task.time, "11:00");
 assert.equal(route("周一到周五每天十一点点外卖").task.repeat, "工作日");
 assert.deepEqual(Array.from(route("周一到周五每天十一点点外卖").task.repeatDays), [1, 2, 3, 4, 5]);
-assert.equal(route("每天九点提前30小时提醒我写日志").task.reminder, "提前23小时59分钟", "daily voice reminders must stay inside 24 hours");
+assert.equal(route("每天九点提前30小时提醒我写日志").task.reminder, "提前23小时55分钟", "daily voice reminders must stay inside 24 hours on the five-minute grid");
+assert.equal(route("每天十一点三分写日志").task.time, "11:05", "voice minutes must snap to the five-minute grid");
+assert.equal(route("每天十一点十二分写日志").task.time, "11:10", "voice minutes must use the nearest five-minute value");
 
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-28", "2026-08-24"), true, "workday tasks must show on Friday");
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-29", "2026-08-24"), false, "workday tasks must not leak into Saturday");
@@ -225,7 +227,14 @@ assert.match(appSource, /const \[renewDays, setRenewDays\] = useState\(7\)/, "re
 assert.match(screensSource, /<Stepper label="续期天数"/, "renewal days must be editable");
 assert.match(screensSource, /function WeekdayPicker[\s\S]*WEEKDAY_BUTTONS\.map/, "repeat editing must use a seven-day multi-select control");
 assert.match(screensSource, /repeatLabelFromDays\(next\)/, "weekday selections must automatically derive their schedule label");
-assert.match(screensSource, /function ReminderPicker[\s\S]*Math\.min\(1439/, "daily reminder editing must enforce a sub-24-hour limit");
+assert.match(screensSource, /function ReminderPicker[\s\S]*Math\.min\(1435/, "daily reminder editing must enforce a sub-24-hour five-minute limit");
+assert.match(screensSource, /label=\{`\$\{label\}分钟`\}[\s\S]*max=\{55\} step=\{5\}/, "clock minutes must advance in five-minute steps");
+assert.match(screensSource, /label="提前分钟"[\s\S]*max=\{55\} step=\{5\}/, "reminder minutes must advance in five-minute steps");
+assert.match(stylesSource, /-webkit-tap-highlight-color:\s*transparent/, "WebView must suppress the Android system tap rectangle");
+assert.match(stylesSource, /\.reminder-time-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/, "phone DDL reminder time must use a non-overflowing single column");
+assert.match(stylesSource, /\.reminder-rule-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/, "phone DDL reminder rules must stack without horizontal overflow");
+assert.match(stylesSource, /\.phone-shell-expanded \.critical-reminder-screen \.reminder-rule-grid\s*\{[^}]*repeat\(2/, "expanded devices may restore the two-column reminder rule layout");
+assert.match(screensSource, /key:\s*"background"[\s\S]*backgroundConfigured\s*\?\s*"已配置"\s*:\s*"点击管理"/, "ColorOS background management must report live or neutral state instead of a false failure");
 assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.repeat\}/, "repeat must never summon a text keyboard");
 assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.reminder/, "reminder must never summon a text keyboard");
 assert.doesNotMatch(screensSource, /<select|type="(?:number|date|time)"/, "all finite choices must use the app's own controls instead of native Android pickers");

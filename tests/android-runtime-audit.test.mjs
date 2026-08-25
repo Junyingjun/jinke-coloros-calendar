@@ -36,6 +36,9 @@ assert.match(activity, /getSystemCapabilities/, "native bridge must expose live 
 assert.match(activity, /ACTION_REQUEST_SCHEDULE_EXACT_ALARM/, "exact-alarm settings must be actionable");
 assert.match(activity, /ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS/, "battery restriction settings must be actionable");
 assert.match(activity, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/, "APK update installation permission must be actionable");
+assert.match(activity, /backgroundConfigured/, "native capabilities must expose the ColorOS background configuration state");
+assert.match(activity, /openBackgroundSettings[\s\S]*com\.oplus\.safecenter[\s\S]*com\.coloros\.safecenter/, "background management must deep-link through known OPlus and ColorOS settings");
+assert.match(activity, /BACKGROUND_SETTINGS_OPENED/, "returning from the OEM background settings must not keep showing a false failure");
 
 const requiredModelFiles = [
   "am/final.mdl",

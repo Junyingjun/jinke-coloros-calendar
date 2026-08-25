@@ -44,7 +44,8 @@ function Stepper({ label, value, min, max, step = 1, onChange, format = (item) =
 function parseClock(value, fallback = "09:00") {
   const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
   const source = match || fallback.match(/^(\d{1,2}):(\d{2})$/);
-  return { hour: Number(source?.[1] || 9), minute: Number(source?.[2] || 0) };
+  const minute = Math.min(55, Math.max(0, Math.round(Number(source?.[2] || 0) / 5) * 5));
+  return { hour: Number(source?.[1] || 9), minute };
 }
 
 function TimePicker({ label, value, onChange, allowUnset = true }) {
@@ -57,7 +58,7 @@ function TimePicker({ label, value, onChange, allowUnset = true }) {
       {enabled || !allowUnset ? <div className="time-stepper-row">
         <Stepper label={`${label}小时`} value={clock.hour} min={0} max={23} onChange={(hour) => update(hour, clock.minute)} format={(item) => String(item).padStart(2, "0")} />
         <span className="time-colon">:</span>
-        <Stepper label={`${label}分钟`} value={clock.minute} min={0} max={59} onChange={(minute) => update(clock.hour, minute)} format={(item) => String(item).padStart(2, "0")} />
+        <Stepper label={`${label}分钟`} value={clock.minute} min={0} max={55} step={5} onChange={(minute) => update(clock.hour, minute)} format={(item) => String(item).padStart(2, "0")} />
       </div> : <span className="picker-empty">未设置</span>}
     </div>
   );
@@ -69,12 +70,12 @@ function reminderToMinutes(value) {
   if (text === "到点提醒") return 0;
   const hours = Number(text.match(/(\d+)\s*小时/)?.[1] || 0);
   const minutes = Number(text.match(/(\d+)\s*分钟/)?.[1] || 0);
-  return Math.min(1439, hours * 60 + minutes);
+  return Math.min(1435, Math.max(0, Math.round((hours * 60 + minutes) / 5) * 5));
 }
 
 function reminderFromMinutes(totalMinutes) {
   if (totalMinutes === null) return "不提醒";
-  const safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  const safe = Math.min(1435, Math.max(0, Math.round((Number(totalMinutes) || 0) / 5) * 5));
   if (safe === 0) return "到点提醒";
   const hours = Math.floor(safe / 60);
   const minutes = safe % 60;
@@ -87,14 +88,14 @@ function ReminderPicker({ value, onChange }) {
   const safe = total || 0;
   const hours = Math.floor(safe / 60);
   const minutes = safe % 60;
-  const update = (nextHours, nextMinutes) => onChange(reminderFromMinutes(Math.min(1439, nextHours * 60 + nextMinutes)));
+  const update = (nextHours, nextMinutes) => onChange(reminderFromMinutes(Math.min(1435, nextHours * 60 + nextMinutes)));
   return (
     <div className="jinke-reminder-picker" aria-label="提前提醒">
       <div className="picker-head"><span>提醒</span><button type="button" aria-pressed={enabled} className={enabled ? "enabled" : ""} onClick={() => onChange(enabled ? "不提醒" : "到点提醒")}>{enabled ? "已开启" : "不提醒"}</button></div>
       {enabled ? <>
         <div className="reminder-stepper-row">
           <div><small>小时</small><Stepper label="提前小时" value={hours} min={0} max={23} onChange={(next) => update(next, minutes)} /></div>
-          <div><small>分钟</small><Stepper label="提前分钟" value={minutes} min={0} max={59} onChange={(next) => update(hours, next)} /></div>
+          <div><small>分钟</small><Stepper label="提前分钟" value={minutes} min={0} max={55} step={5} onChange={(next) => update(hours, next)} /></div>
         </div>
         <output className="reminder-summary">{reminderFromMinutes(safe)}</output>
       </> : null}
@@ -685,7 +686,7 @@ function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
     { key: null, title: "离线中文识别", note: "Vosk 中文模型随 APK 内置", status: known ? (capabilities?.offlineSpeechReady ? "已加载" : capabilities?.offlineSpeechBundled ? "已内置" : "组件缺失") : "APK 内置", ok: capabilities?.offlineSpeechBundled },
     { key: "notifications", title: "通知", note: "锁屏和通知中心提醒", status: state(capabilities?.notifications), ok: capabilities?.notifications },
     { key: "exactAlarm", title: "精确闹钟", note: "按设定时间触发 DDL 提醒", status: state(capabilities?.exactAlarm), ok: capabilities?.exactAlarm },
-    { key: "background", title: "ColorOS 后台运行", note: "需在系统中允许自启动和后台活动", status: "需系统确认", ok: false },
+    { key: "background", title: "ColorOS 后台运行", note: "自启动和后台活动由 ColorOS 管理", status: capabilities?.backgroundConfigured ? "已配置" : "点击管理", ok: true },
     { key: "battery", title: "电池优化", note: "后台提醒不被系统休眠", status: state(capabilities?.batteryUnrestricted, "不限制", "受限制"), ok: capabilities?.batteryUnrestricted },
     { key: "installUpdates", title: "安装更新", note: "从 GitHub 安装新版 APK", status: state(capabilities?.installUpdates, "已允许", "未允许"), ok: capabilities?.installUpdates },
     { key: null, title: "联网", note: "节日资料和版本检测", status: state(capabilities?.network, "可用", "当前离线"), ok: capabilities?.network },
@@ -760,7 +761,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.7";
+const JINKE_FALLBACK_VERSION = "1.0.8";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

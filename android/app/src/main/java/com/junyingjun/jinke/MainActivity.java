@@ -36,6 +36,8 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final int REQUEST_NOTIFICATIONS = 9022;
     private static final int REQUEST_MICROPHONE = 9023;
+    private static final String SYSTEM_PREFS = "jinke-system-state";
+    private static final String BACKGROUND_SETTINGS_OPENED = "background-settings-opened";
     private WebView webView;
     private OfflineSpeechEngine offlineSpeechEngine;
     private boolean openSpeechAfterPermission;
@@ -196,12 +198,15 @@ public class MainActivity extends Activity {
             PowerManager powerManager = getSystemService(PowerManager.class);
             boolean batteryUnrestricted = powerManager != null
                     && powerManager.isIgnoringBatteryOptimizations(getPackageName());
+            boolean backgroundConfigured = batteryUnrestricted || getSharedPreferences(SYSTEM_PREFS, MODE_PRIVATE)
+                    .getBoolean(BACKGROUND_SETTINGS_OPENED, false);
             boolean installUpdates = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
                     || getPackageManager().canRequestPackageInstalls();
             payload.put("microphone", microphone);
             payload.put("notifications", notifications);
             payload.put("exactAlarm", exactAlarm);
             payload.put("batteryUnrestricted", batteryUnrestricted);
+            payload.put("backgroundConfigured", backgroundConfigured);
             payload.put("installUpdates", installUpdates);
             payload.put("network", hasValidatedNetwork());
             payload.put("offlineSpeechBundled", true);
@@ -261,12 +266,46 @@ public class MainActivity extends Activity {
                     Uri.parse("package:" + getPackageName())));
             return;
         }
+        if ("background".equals(capability)) {
+            openBackgroundSettings();
+            return;
+        }
         if ("installUpdates".equals(capability) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getPackageName())));
             return;
         }
         openAppDetails();
+    }
+
+    private void openBackgroundSettings() {
+        Intent[] colorOsIntents = new Intent[]{
+                new Intent().setClassName("com.oplus.safecenter", "com.oplus.safecenter.permission.startup.StartupAppListActivity"),
+                new Intent().setClassName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"),
+                new Intent().setClassName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"),
+                new Intent().setClassName("com.oplus.battery", "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity")
+                        .putExtra("packageName", getPackageName()),
+                new Intent().setClassName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaue.PowerUsageModelActivity")
+                        .putExtra("packageName", getPackageName())
+        };
+        for (Intent intent : colorOsIntents) {
+            try {
+                startActivity(intent);
+                markBackgroundSettingsOpened();
+                return;
+            } catch (Exception ignored) {
+                // ColorOS component names vary by version; continue through the known fallbacks.
+            }
+        }
+        markBackgroundSettingsOpened();
+        openAppDetails();
+    }
+
+    private void markBackgroundSettingsOpened() {
+        getSharedPreferences(SYSTEM_PREFS, MODE_PRIVATE)
+                .edit()
+                .putBoolean(BACKGROUND_SETTINGS_OPENED, true)
+                .apply();
     }
 
     private void openAppDetails() {

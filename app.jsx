@@ -128,7 +128,7 @@ function parseTime(text) {
   if (period === "中午" && hour < 11) hour += 12;
   if (period === "凌晨" && hour === 12) hour = 0;
   hour = Math.min(Math.max(hour, 0), 23);
-  minute = Math.min(Math.max(minute, 0), 59);
+  minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
   return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, source: match[0].trim() };
 }
 
@@ -216,7 +216,7 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
 }
 
 function formatDailyReminder(totalMinutes) {
-  const safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  const safe = Math.min(1435, Math.max(0, Math.round((Number(totalMinutes) || 0) / 5) * 5));
   if (safe === 0) return "到点提醒";
   const hours = Math.floor(safe / 60);
   const minutes = safe % 60;

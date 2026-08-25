@@ -922,9 +922,10 @@ function parseClock(value) {
   var fallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "09:00";
   var match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
   var source = match || fallback.match(/^(\d{1,2}):(\d{2})$/);
+  var minute = Math.min(55, Math.max(0, Math.round(Number((source === null || source === void 0 ? void 0 : source[2]) || 0) / 5) * 5));
   return {
     hour: Number((source === null || source === void 0 ? void 0 : source[1]) || 9),
-    minute: Number((source === null || source === void 0 ? void 0 : source[2]) || 0)
+    minute: minute
   };
 }
 function TimePicker(_ref6) {
@@ -968,7 +969,8 @@ function TimePicker(_ref6) {
     label: "".concat(label, "\u5206\u949F"),
     value: clock.minute,
     min: 0,
-    max: 59,
+    max: 55,
+    step: 5,
     onChange: function onChange(minute) {
       return update(clock.hour, minute);
     },
@@ -986,11 +988,11 @@ function reminderToMinutes(value) {
   if (text === "到点提醒") return 0;
   var hours = Number(((_text$match = text.match(/(\d+)\s*小时/)) === null || _text$match === void 0 ? void 0 : _text$match[1]) || 0);
   var minutes = Number(((_text$match2 = text.match(/(\d+)\s*分钟/)) === null || _text$match2 === void 0 ? void 0 : _text$match2[1]) || 0);
-  return Math.min(1439, hours * 60 + minutes);
+  return Math.min(1435, Math.max(0, Math.round((hours * 60 + minutes) / 5) * 5));
 }
 function reminderFromMinutes(totalMinutes) {
   if (totalMinutes === null) return "不提醒";
-  var safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  var safe = Math.min(1435, Math.max(0, Math.round((Number(totalMinutes) || 0) / 5) * 5));
   if (safe === 0) return "到点提醒";
   var hours = Math.floor(safe / 60);
   var minutes = safe % 60;
@@ -1005,7 +1007,7 @@ function ReminderPicker(_ref7) {
   var hours = Math.floor(safe / 60);
   var minutes = safe % 60;
   var update = function update(nextHours, nextMinutes) {
-    return onChange(reminderFromMinutes(Math.min(1439, nextHours * 60 + nextMinutes)));
+    return onChange(reminderFromMinutes(Math.min(1435, nextHours * 60 + nextMinutes)));
   };
   return React.createElement("div", {
     className: "jinke-reminder-picker",
@@ -1033,7 +1035,8 @@ function ReminderPicker(_ref7) {
     label: "\u63D0\u524D\u5206\u949F",
     value: minutes,
     min: 0,
-    max: 59,
+    max: 55,
+    step: 5,
     onChange: function onChange(next) {
       return update(hours, next);
     }
@@ -2290,9 +2293,9 @@ function PermissionsScreen(_ref28) {
   }, {
     key: "background",
     title: "ColorOS 后台运行",
-    note: "需在系统中允许自启动和后台活动",
-    status: "需系统确认",
-    ok: false
+    note: "自启动和后台活动由 ColorOS 管理",
+    status: capabilities !== null && capabilities !== void 0 && capabilities.backgroundConfigured ? "已配置" : "点击管理",
+    ok: true
   }, {
     key: "battery",
     title: "电池优化",
@@ -2470,7 +2473,7 @@ function CriticalReminderScreen(_ref29) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.7";
+var JINKE_FALLBACK_VERSION = "1.0.8";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2868,7 +2871,7 @@ function parseTime(text) {
   if (period === "中午" && hour < 11) hour += 12;
   if (period === "凌晨" && hour === 12) hour = 0;
   hour = Math.min(Math.max(hour, 0), 23);
-  minute = Math.min(Math.max(minute, 0), 59);
+  minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
   return {
     value: "".concat(String(hour).padStart(2, "0"), ":").concat(String(minute).padStart(2, "0")),
     source: match[0].trim()
@@ -3004,7 +3007,7 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
   };
 }
 function formatDailyReminder(totalMinutes) {
-  var safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  var safe = Math.min(1435, Math.max(0, Math.round((Number(totalMinutes) || 0) / 5) * 5));
   if (safe === 0) return "到点提醒";
   var hours = Math.floor(safe / 60);
   var minutes = safe % 60;
