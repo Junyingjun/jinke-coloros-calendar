@@ -264,8 +264,13 @@ assert.doesNotMatch(screensSource, /已加入 ColorOS 白名单|\["通知权限"
 assert.doesNotMatch(screensSource, /sherpa-onnx|Zipformer/, "voice settings must not claim unbundled recognizers or models");
 assert.match(screensSource, /Vosk Offline[\s\S]*vosk-model-small-cn-0\.22[\s\S]*Vosk Android 0\.3\.75/, "voice settings must describe the engine and model actually packaged in the APK");
 assert.match(primitivesSource, /function SwipeTaskActions[\s\S]*swipe-edit[\s\S]*编辑[\s\S]*swipe-delete[\s\S]*删除/, "every task row must expose edit and delete after a left swipe");
-assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*inset: 0[^}]*padding-left: 60%/, "swipe actions must fully cover the task row behind the revealed controls");
+assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*inset: 0[^}]*padding-left: calc\(60% \+ 6px\)[^}]*gap: 6px[^}]*background: transparent/, "swipe actions must expose a real transparent gap instead of a filler patch");
+assert.match(stylesSource, /\.swipe-action[^{]*\{[^}]*border-radius: var\(--radius-md\)/, "daily and critical swipe actions must use matching independent rounded controls");
 assert.match(primitivesSource, /closeFromOutside[\s\S]*document\.addEventListener\("pointerdown"/, "tapping outside an open swipe row must close it");
+assert.match(primitivesSource, /sheet-drag-handle[\s\S]*onPointerMove=\{onHandlePointerMove\}[\s\S]*finishHandleGesture/, "every bottom sheet handle must support direct downward dragging");
+assert.match(stylesSource, /@keyframes sheet-arrive[\s\S]*?translateY\(100%\)/, "bottom sheets must enter from the bottom edge");
+assert.match(stylesSource, /@keyframes sheet-dismiss[\s\S]*?translateY\(calc\(100% \+ 24px\)\)/, "bottom sheets must leave toward the bottom edge");
+assert.match(appSource, /secondaryBackTarget === "more"[\s\S]*setOverlay\("more"\)/, "menu child screens must return to the menu sheet instead of the main screen");
 assert.match(appSource, /jinke-seed-migration-v2[\s\S]*legacyDailyIds[\s\S]*legacyCriticalIds/, "upgrades must remove legacy built-in task seeds while preserving custom entries");
 assert.match(appSource, /jinke-voice-note-migration-v3[\s\S]*replace\(\/\^语音创建/, "upgrades must remove the old synthetic voice-created note label");
 assert.match(screensSource, /左滑删除演示，点下方语音键创建第一项日程/, "daily demo must guide the first real task");

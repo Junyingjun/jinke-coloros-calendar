@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $sourceApk = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $releaseDir = Join-Path $projectRoot "release"
-$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.13.apk"
+$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.14.apk"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 

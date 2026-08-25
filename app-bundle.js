@@ -779,23 +779,117 @@ function BottomNav(_ref8) {
   }, "\u5173\u952E")));
 }
 function Sheet(_ref9) {
+  var _sheetRef$current2;
   var children = _ref9.children,
     onClose = _ref9.onClose,
     labelledBy = _ref9.labelledBy,
     label = _ref9.label;
+  var _React$useState3 = React.useState(0),
+    _React$useState4 = _slicedToArray(_React$useState3, 2),
+    dragY = _React$useState4[0],
+    setDragY = _React$useState4[1];
+  var _React$useState5 = React.useState(false),
+    _React$useState6 = _slicedToArray(_React$useState5, 2),
+    dragging = _React$useState6[0],
+    setDragging = _React$useState6[1];
+  var _React$useState7 = React.useState(false),
+    _React$useState8 = _slicedToArray(_React$useState7, 2),
+    dismissing = _React$useState8[0],
+    setDismissing = _React$useState8[1];
+  var sheetRef = React.useRef(null);
+  var dragRef = React.useRef(null);
+  var dismissingRef = React.useRef(false);
+  React.useEffect(function () {
+    var dismiss = function dismiss(event) {
+      var _window$matchMedia, _window;
+      if (dismissingRef.current) return;
+      dismissingRef.current = true;
+      setDragging(false);
+      setDismissing(true);
+      var detail = event.detail || {};
+      var reduced = (_window$matchMedia = (_window = window).matchMedia) === null || _window$matchMedia === void 0 || (_window$matchMedia = _window$matchMedia.call(_window, "(prefers-reduced-motion: reduce)")) === null || _window$matchMedia === void 0 ? void 0 : _window$matchMedia.matches;
+      window.setTimeout(function () {
+        var _detail$complete;
+        if (detail.completed) return;
+        detail.completed = true;
+        (_detail$complete = detail.complete) === null || _detail$complete === void 0 || _detail$complete.call(detail);
+      }, reduced ? 1 : 230);
+    };
+    window.addEventListener("jinke-sheet-dismiss", dismiss);
+    return function () {
+      return window.removeEventListener("jinke-sheet-dismiss", dismiss);
+    };
+  }, []);
+  var onHandlePointerDown = function onHandlePointerDown(event) {
+    var _event$currentTarget$4, _event$currentTarget4;
+    if (event.button !== undefined && event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastY: event.clientY,
+      lastAt: performance.now(),
+      velocity: 0
+    };
+    setDragging(true);
+    (_event$currentTarget$4 = (_event$currentTarget4 = event.currentTarget).setPointerCapture) === null || _event$currentTarget$4 === void 0 || _event$currentTarget$4.call(_event$currentTarget4, event.pointerId);
+  };
+  var onHandlePointerMove = function onHandlePointerMove(event) {
+    var gesture = dragRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    var next = Math.max(0, event.clientY - gesture.startY);
+    var now = performance.now();
+    var elapsed = Math.max(1, now - gesture.lastAt);
+    gesture.velocity = (event.clientY - gesture.lastY) / elapsed;
+    gesture.lastY = event.clientY;
+    gesture.lastAt = now;
+    setDragY(next);
+    event.preventDefault();
+  };
+  var finishHandleGesture = function finishHandleGesture(event) {
+    var _sheetRef$current, _event$currentTarget$5, _event$currentTarget5, _event$currentTarget$6, _event$currentTarget6;
+    var cancelled = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+    var gesture = dragRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    var height = Math.max(1, ((_sheetRef$current = sheetRef.current) === null || _sheetRef$current === void 0 ? void 0 : _sheetRef$current.getBoundingClientRect().height) || 1);
+    var shouldDismiss = !cancelled && (dragY >= Math.min(120, height * 0.16) || gesture.velocity > 0.55);
+    dragRef.current = null;
+    setDragging(false);
+    if ((_event$currentTarget$5 = (_event$currentTarget5 = event.currentTarget).hasPointerCapture) !== null && _event$currentTarget$5 !== void 0 && _event$currentTarget$5.call(_event$currentTarget5, event.pointerId)) (_event$currentTarget$6 = (_event$currentTarget6 = event.currentTarget).releasePointerCapture) === null || _event$currentTarget$6 === void 0 || _event$currentTarget$6.call(_event$currentTarget6, event.pointerId);
+    if (shouldDismiss) onClose();else setDragY(0);
+  };
+  var scrimOpacity = Math.max(0, 1 - dragY / Math.max(240, (((_sheetRef$current2 = sheetRef.current) === null || _sheetRef$current2 === void 0 ? void 0 : _sheetRef$current2.offsetHeight) || 480) * 0.7));
   return React.createElement(React.Fragment, null, React.createElement("button", {
-    className: "scrim",
+    className: "scrim ".concat(dismissing ? "is-dismissing" : ""),
+    style: {
+      "--scrim-drag-opacity": scrimOpacity
+    },
     "aria-label": "\u5173\u95ED",
     onClick: onClose
   }), React.createElement("section", {
-    className: "sheet",
+    ref: sheetRef,
+    className: "sheet ".concat(dragging ? "is-dragging" : "", " ").concat(dismissing ? "is-dismissing" : ""),
+    style: {
+      "--sheet-drag-y": "".concat(dragY, "px")
+    },
     role: "dialog",
     "aria-modal": "true",
     "aria-labelledby": labelledBy || undefined,
     "aria-label": label || undefined
-  }, React.createElement("div", {
+  }, React.createElement("button", {
+    className: "sheet-drag-handle",
+    type: "button",
+    "aria-label": "\u5411\u4E0B\u62D6\u52A8\u5173\u95ED",
+    onPointerDown: onHandlePointerDown,
+    onPointerMove: onHandlePointerMove,
+    onPointerUp: function onPointerUp(event) {
+      return finishHandleGesture(event);
+    },
+    onPointerCancel: function onPointerCancel(event) {
+      return finishHandleGesture(event, true);
+    }
+  }, React.createElement("span", {
     className: "sheet-handle"
-  }), children));
+  })), children));
 }
 function BackHeader(_ref10) {
   var title = _ref10.title,
@@ -2753,7 +2847,7 @@ function CriticalReminderScreen(_ref31) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.13";
+var JINKE_FALLBACK_VERSION = "1.0.14";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3923,41 +4017,45 @@ function MobileDesignApp() {
     setSecondary = _useState8[1];
   var _useState9 = useState(null),
     _useState10 = _slicedToArray(_useState9, 2),
-    overlay = _useState10[0],
-    setOverlay = _useState10[1];
-  var _useState11 = useState("day"),
+    secondaryBackTarget = _useState10[0],
+    setSecondaryBackTarget = _useState10[1];
+  var _useState11 = useState(null),
     _useState12 = _slicedToArray(_useState11, 2),
-    viewMode = _useState12[0],
-    setViewMode = _useState12[1];
-  var _useState13 = useState(function () {
-      return localDateKey();
-    }),
+    overlay = _useState12[0],
+    setOverlay = _useState12[1];
+  var _useState13 = useState("day"),
     _useState14 = _slicedToArray(_useState13, 2),
-    todayDateKey = _useState14[0],
-    setTodayDateKey = _useState14[1];
+    viewMode = _useState14[0],
+    setViewMode = _useState14[1];
   var _useState15 = useState(function () {
       return localDateKey();
     }),
     _useState16 = _slicedToArray(_useState15, 2),
-    selectedDateKey = _useState16[0],
-    setSelectedDateKey = _useState16[1];
+    todayDateKey = _useState16[0],
+    setTodayDateKey = _useState16[1];
   var _useState17 = useState(function () {
-      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray);
+      return localDateKey();
     }),
     _useState18 = _slicedToArray(_useState17, 2),
-    dailyTasks = _useState18[0],
-    setDailyTasks = _useState18[1];
+    selectedDateKey = _useState18[0],
+    setSelectedDateKey = _useState18[1];
   var _useState19 = useState(function () {
+      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray);
+    }),
+    _useState20 = _slicedToArray(_useState19, 2),
+    dailyTasks = _useState20[0],
+    setDailyTasks = _useState20[1];
+  var _useState21 = useState(function () {
       return readStoredJson("jinke-daily-completions", Object.fromEntries(APP_DATA.dailyTasks.map(function (task) {
         return ["".concat(task.id, ":").concat(localDateKey()), Boolean(task.done)];
       })), function (value) {
         return value && _typeof(value) === "object" && !Array.isArray(value);
       });
     }),
-    _useState20 = _slicedToArray(_useState19, 2),
-    dailyCompletionByDate = _useState20[0],
-    setDailyCompletionByDate = _useState20[1];
-  var _useState21 = useState(function () {
+    _useState22 = _slicedToArray(_useState21, 2),
+    dailyCompletionByDate = _useState22[0],
+    setDailyCompletionByDate = _useState22[1];
+  var _useState23 = useState(function () {
       var anchorDateKey = localDateKey();
       return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map(function (task) {
         return withCriticalReminderDefaults(task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? _objectSpread(_objectSpread({}, task), {}, {
@@ -3965,10 +4063,10 @@ function MobileDesignApp() {
         }) : task);
       });
     }),
-    _useState22 = _slicedToArray(_useState21, 2),
-    criticalTasks = _useState22[0],
-    setCriticalTasks = _useState22[1];
-  var _useState23 = useState(function () {
+    _useState24 = _slicedToArray(_useState23, 2),
+    criticalTasks = _useState24[0],
+    setCriticalTasks = _useState24[1];
+  var _useState25 = useState(function () {
       var value = "10:00";
       try {
         value = localStorage.getItem("jinke-ddl-reminder-time") || value;
@@ -3976,10 +4074,10 @@ function MobileDesignApp() {
       window.JINKE_DDL_REMINDER_TIME = value;
       return value;
     }),
-    _useState24 = _slicedToArray(_useState23, 2),
-    ddlReminderTime = _useState24[0],
-    setDdlReminderTime = _useState24[1];
-  var _useState25 = useState(function () {
+    _useState26 = _slicedToArray(_useState25, 2),
+    ddlReminderTime = _useState26[0],
+    setDdlReminderTime = _useState26[1];
+  var _useState27 = useState(function () {
       var value = 5;
       try {
         value = Math.max(1, Number(localStorage.getItem("jinke-ddl-reminder-multiple")) || value);
@@ -3987,10 +4085,10 @@ function MobileDesignApp() {
       window.JINKE_DDL_REMINDER_MULTIPLE = value;
       return value;
     }),
-    _useState26 = _slicedToArray(_useState25, 2),
-    ddlReminderMultiple = _useState26[0],
-    setDdlReminderMultiple = _useState26[1];
-  var _useState27 = useState(function () {
+    _useState28 = _slicedToArray(_useState27, 2),
+    ddlReminderMultiple = _useState28[0],
+    setDdlReminderMultiple = _useState28[1];
+  var _useState29 = useState(function () {
       var value = 5;
       try {
         var stored = localStorage.getItem("jinke-ddl-reminder-final-days");
@@ -3999,86 +4097,88 @@ function MobileDesignApp() {
       window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
       return value;
     }),
-    _useState28 = _slicedToArray(_useState27, 2),
-    ddlReminderFinalDays = _useState28[0],
-    setDdlReminderFinalDays = _useState28[1];
-  var _useState29 = useState(function () {
+    _useState30 = _slicedToArray(_useState29, 2),
+    ddlReminderFinalDays = _useState30[0],
+    setDdlReminderFinalDays = _useState30[1];
+  var _useState31 = useState(function () {
       return readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray);
     }),
-    _useState30 = _slicedToArray(_useState29, 2),
-    history = _useState30[0],
-    setHistory = _useState30[1];
-  var _useState31 = useState(null),
     _useState32 = _slicedToArray(_useState31, 2),
-    deleteTarget = _useState32[0],
-    setDeleteTarget = _useState32[1];
+    history = _useState32[0],
+    setHistory = _useState32[1];
   var _useState33 = useState(null),
     _useState34 = _slicedToArray(_useState33, 2),
-    selectedDaily = _useState34[0],
-    setSelectedDaily = _useState34[1];
+    deleteTarget = _useState34[0],
+    setDeleteTarget = _useState34[1];
   var _useState35 = useState(null),
     _useState36 = _slicedToArray(_useState35, 2),
-    dailyDraft = _useState36[0],
-    setDailyDraft = _useState36[1];
+    selectedDaily = _useState36[0],
+    setSelectedDaily = _useState36[1];
   var _useState37 = useState(null),
     _useState38 = _slicedToArray(_useState37, 2),
-    selectedCritical = _useState38[0],
-    setSelectedCritical = _useState38[1];
+    dailyDraft = _useState38[0],
+    setDailyDraft = _useState38[1];
   var _useState39 = useState(null),
     _useState40 = _slicedToArray(_useState39, 2),
-    criticalDraft = _useState40[0],
-    setCriticalDraft = _useState40[1];
-  var _useState41 = useState(7),
+    selectedCritical = _useState40[0],
+    setSelectedCritical = _useState40[1];
+  var _useState41 = useState(null),
     _useState42 = _slicedToArray(_useState41, 2),
-    renewDays = _useState42[0],
-    setRenewDays = _useState42[1];
-  var _useState43 = useState("listening"),
+    criticalDraft = _useState42[0],
+    setCriticalDraft = _useState42[1];
+  var _useState43 = useState(7),
     _useState44 = _slicedToArray(_useState43, 2),
-    voicePhase = _useState44[0],
-    setVoicePhase = _useState44[1];
-  var _useState45 = useState(""),
+    renewDays = _useState44[0],
+    setRenewDays = _useState44[1];
+  var _useState45 = useState("listening"),
     _useState46 = _slicedToArray(_useState45, 2),
-    transcript = _useState46[0],
-    setTranscript = _useState46[1];
-  var _useState47 = useState(null),
+    voicePhase = _useState46[0],
+    setVoicePhase = _useState46[1];
+  var _useState47 = useState(""),
     _useState48 = _slicedToArray(_useState47, 2),
-    voiceDraft = _useState48[0],
-    setVoiceDraft = _useState48[1];
-  var _useState49 = useState("china"),
+    transcript = _useState48[0],
+    setTranscript = _useState48[1];
+  var _useState49 = useState(null),
     _useState50 = _slicedToArray(_useState49, 2),
-    archiveActive = _useState50[0],
-    setArchiveActive = _useState50[1];
-  var _useState51 = useState(0),
+    voiceDraft = _useState50[0],
+    setVoiceDraft = _useState50[1];
+  var _useState51 = useState("china"),
     _useState52 = _slicedToArray(_useState51, 2),
-    archiveIndex = _useState52[0],
-    setArchiveIndex = _useState52[1];
-  var _useState53 = useState(true),
+    archiveActive = _useState52[0],
+    setArchiveActive = _useState52[1];
+  var _useState53 = useState(0),
     _useState54 = _slicedToArray(_useState53, 2),
-    speechAvailable = _useState54[0],
-    setSpeechAvailable = _useState54[1];
-  var _useState55 = useState("idle"),
+    archiveIndex = _useState54[0],
+    setArchiveIndex = _useState54[1];
+  var _useState55 = useState(true),
     _useState56 = _slicedToArray(_useState55, 2),
-    speechStatus = _useState56[0],
-    setSpeechStatus = _useState56[1];
-  var _useState57 = useState(""),
+    speechAvailable = _useState56[0],
+    setSpeechAvailable = _useState56[1];
+  var _useState57 = useState("idle"),
     _useState58 = _slicedToArray(_useState57, 2),
-    toast = _useState58[0],
-    setToast = _useState58[1];
-  var _useState59 = useState(function () {
+    speechStatus = _useState58[0],
+    setSpeechStatus = _useState58[1];
+  var _useState59 = useState(""),
+    _useState60 = _slicedToArray(_useState59, 2),
+    toast = _useState60[0],
+    setToast = _useState60[1];
+  var _useState61 = useState(function () {
       return getNativeWindowState();
     }),
-    _useState60 = _slicedToArray(_useState59, 2),
-    nativeWindow = _useState60[0],
-    setNativeWindow = _useState60[1];
-  var _useState61 = useState(function () {
+    _useState62 = _slicedToArray(_useState61, 2),
+    nativeWindow = _useState62[0],
+    setNativeWindow = _useState62[1];
+  var _useState63 = useState(function () {
       return getNativeCapabilities();
     }),
-    _useState62 = _slicedToArray(_useState61, 2),
-    nativeCapabilities = _useState62[0],
-    setNativeCapabilities = _useState62[1];
+    _useState64 = _slicedToArray(_useState63, 2),
+    nativeCapabilities = _useState64[0],
+    setNativeCapabilities = _useState64[1];
   var recognitionRef = useRef(null);
   var voiceInputModeRef = useRef("offline");
   var toastTimerRef = useRef(null);
+  var overlayClosingRef = useRef(false);
+  var overlayCloseTimerRef = useRef(null);
   var scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
   var currentCriticalTasks = criticalTasks.map(function (task) {
     return _objectSpread(_objectSpread({}, task), {}, {
@@ -4241,6 +4341,7 @@ function MobileDesignApp() {
     return function () {
       if (recognitionRef.current) recognitionRef.current.abort();
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (overlayCloseTimerRef.current) window.clearTimeout(overlayCloseTimerRef.current);
     };
   }, []);
   var showToast = function showToast(message) {
@@ -4331,8 +4432,7 @@ function MobileDesignApp() {
         });
       });
     }
-    setDeleteTarget(null);
-    setOverlay(null);
+    closeOverlay();
     showToast("\u5DF2\u5220\u9664\u300C".concat(task.title, "\u300D"));
   };
   var saveDaily = function saveDaily(taskId, changes) {
@@ -4343,14 +4443,14 @@ function MobileDesignApp() {
         return a.time.localeCompare(b.time);
       });
     });
-    setSelectedDaily(null);
-    setDailyDraft(null);
-    setOverlay(null);
+    closeOverlay();
     showToast("日常事务已更新");
   };
   var openMore = function openMore(route) {
-    setOverlay(null);
-    setSecondary(route === "settings" ? "permissions" : route);
+    closeOverlay(function () {
+      setSecondaryBackTarget("more");
+      setSecondary(route === "settings" ? "permissions" : route);
+    });
   };
   var openCritical = function openCritical(task) {
     setSelectedCritical(task);
@@ -4376,10 +4476,7 @@ function MobileDesignApp() {
         }));
       });
     });
-    setSelectedCritical(null);
-    setCriticalDraft(null);
-    setRenewDays(7);
-    setOverlay(null);
+    closeOverlay();
     showToast("关键事项已更新");
   };
   var completeCritical = function completeCritical(taskId) {
@@ -4405,10 +4502,7 @@ function MobileDesignApp() {
         leadDays: task.daysLeft || 0
       }].concat(_toConsumableArray(current));
     });
-    setOverlay(null);
-    setSelectedCritical(null);
-    setCriticalDraft(null);
-    setRenewDays(7);
+    closeOverlay();
     showToast("已完成，并移入历史记录");
   };
   var renewCritical = function renewCritical(taskId) {
@@ -4426,10 +4520,7 @@ function MobileDesignApp() {
         });
       });
     });
-    setOverlay(null);
-    setSelectedCritical(null);
-    setCriticalDraft(null);
-    setRenewDays(7);
+    closeOverlay();
     showToast("DDL \u5DF2\u7EED\u671F ".concat(days, " \u5929"));
   };
   var startVoice = function startVoice() {
@@ -4810,10 +4901,11 @@ function MobileDesignApp() {
       }
       showToast(command.heading);
     }
-    setOverlay(null);
+    closeOverlay();
   };
-  var closeOverlay = function closeOverlay() {
+  var closeOverlay = function closeOverlay(afterClose) {
     var _window$JinkeAndroid9, _window$JinkeAndroid10;
+    if (overlayClosingRef.current) return;
     if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
@@ -4829,17 +4921,56 @@ function MobileDesignApp() {
       } catch (_unused28) {}
       recognitionRef.current = null;
     }
-    setOverlay(null);
-    setSelectedDaily(null);
-    setDailyDraft(null);
-    setSelectedCritical(null);
-    setCriticalDraft(null);
-    setRenewDays(7);
-    setTranscript("");
-    setVoicePhase("listening");
-    setSpeechStatus("idle");
-    setVoiceDraft(null);
-    setDeleteTarget(null);
+    var finish = function finish() {
+      if (!overlayClosingRef.current && overlay) return;
+      overlayClosingRef.current = false;
+      if (overlayCloseTimerRef.current) window.clearTimeout(overlayCloseTimerRef.current);
+      overlayCloseTimerRef.current = null;
+      setOverlay(null);
+      setSelectedDaily(null);
+      setDailyDraft(null);
+      setSelectedCritical(null);
+      setCriticalDraft(null);
+      setRenewDays(7);
+      setTranscript("");
+      setVoicePhase("listening");
+      setSpeechStatus("idle");
+      setVoiceDraft(null);
+      setDeleteTarget(null);
+      afterClose === null || afterClose === void 0 || afterClose();
+    };
+    if (!overlay) {
+      finish();
+      return;
+    }
+    overlayClosingRef.current = true;
+    var detail = {
+      completed: false,
+      complete: finish
+    };
+    window.dispatchEvent(new CustomEvent("jinke-sheet-dismiss", {
+      detail: detail
+    }));
+    overlayCloseTimerRef.current = window.setTimeout(function () {
+      if (detail.completed) return;
+      detail.completed = true;
+      finish();
+    }, 290);
+  };
+  var closeSecondary = function closeSecondary() {
+    if (secondaryBackTarget === "critical-reminders") {
+      setSecondary("critical-reminders");
+      setSecondaryBackTarget(null);
+      return;
+    }
+    if (secondaryBackTarget === "more") {
+      setSecondary(null);
+      setSecondaryBackTarget(null);
+      setOverlay("more");
+      return;
+    }
+    setSecondary(null);
+    setSecondaryBackTarget(null);
   };
   useEffect(function () {
     var handleNativeBack = function handleNativeBack() {
@@ -4848,7 +4979,7 @@ function MobileDesignApp() {
         return true;
       }
       if (secondary) {
-        setSecondary(null);
+        closeSecondary();
         return true;
       }
       if (viewMode === "month") {
@@ -4865,25 +4996,19 @@ function MobileDesignApp() {
     return function () {
       if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
     };
-  }, [overlay, secondary, viewMode, activeTab]);
+  }, [overlay, secondary, secondaryBackTarget, viewMode, activeTab]);
   var renderScreen = function renderScreen() {
     if (secondary === "history") return React.createElement(HistoryScreen, {
       items: history,
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (secondary === "month") return React.createElement(ReportScreen, {
       type: "month",
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (secondary === "year") return React.createElement(ReportScreen, {
       type: "year",
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (secondary === "permissions") return React.createElement(PermissionsScreen, {
       capabilities: nativeCapabilities,
@@ -4893,9 +5018,7 @@ function MobileDesignApp() {
           (_window$JinkeAndroid11 = window.JinkeAndroid) === null || _window$JinkeAndroid11 === void 0 || (_window$JinkeAndroid12 = _window$JinkeAndroid11.openCapabilitySettings) === null || _window$JinkeAndroid12 === void 0 || _window$JinkeAndroid12.call(_window$JinkeAndroid11, key);
         } catch (_unused29) {}
       },
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (secondary === "critical-reminders") return React.createElement(CriticalReminderScreen, {
       tasks: criticalTasks,
@@ -4906,22 +5029,17 @@ function MobileDesignApp() {
       reminderFinalDays: ddlReminderFinalDays,
       onReminderFinalDaysChange: changeDdlReminderFinalDays,
       onOpenPermissions: function onOpenPermissions() {
-        return setSecondary("permissions");
+        setSecondaryBackTarget("critical-reminders");
+        setSecondary("permissions");
       },
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (secondary === "version") return React.createElement(VersionScreen, {
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (secondary === "voice") return React.createElement(VoiceSettingsScreen, {
       capabilities: nativeCapabilities,
-      onBack: function onBack() {
-        return setSecondary(null);
-      }
+      onBack: closeSecondary
     });
     if (activeTab === "critical") return React.createElement(CriticalScreen, {
       tasks: currentCriticalTasks,
@@ -4931,10 +5049,12 @@ function MobileDesignApp() {
         return requestDelete(task, "critical");
       },
       onMenu: function onMenu() {
-        return setOverlay("more");
+        setSecondaryBackTarget(null);
+        setOverlay("more");
       },
       onOpenReminders: function onOpenReminders() {
-        return setSecondary("critical-reminders");
+        setSecondaryBackTarget(null);
+        setSecondary("critical-reminders");
       }
     });
     return React.createElement(TodayScreen, {
@@ -4951,7 +5071,8 @@ function MobileDesignApp() {
         return requestDelete(task, "critical");
       },
       onMenu: function onMenu() {
-        return setOverlay("more");
+        setSecondaryBackTarget(null);
+        setOverlay("more");
       },
       viewMode: viewMode,
       onOpenView: function onOpenView() {
@@ -4981,7 +5102,7 @@ function MobileDesignApp() {
       onClose: closeOverlay,
       onSelect: function onSelect(mode) {
         setViewMode(mode);
-        setOverlay(null);
+        closeOverlay();
       }
     }) : null, overlay === "more" ? React.createElement(MoreSheet, {
       onClose: closeOverlay,

@@ -207,11 +207,91 @@ function BottomNav({ activeTab, onTabChange, onVoice }) {
 }
 
 function Sheet({ children, onClose, labelledBy, label }) {
+  const [dragY, setDragY] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+  const [dismissing, setDismissing] = React.useState(false);
+  const sheetRef = React.useRef(null);
+  const dragRef = React.useRef(null);
+  const dismissingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const dismiss = (event) => {
+      if (dismissingRef.current) return;
+      dismissingRef.current = true;
+      setDragging(false);
+      setDismissing(true);
+      const detail = event.detail || {};
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      window.setTimeout(() => {
+        if (detail.completed) return;
+        detail.completed = true;
+        detail.complete?.();
+      }, reduced ? 1 : 230);
+    };
+    window.addEventListener("jinke-sheet-dismiss", dismiss);
+    return () => window.removeEventListener("jinke-sheet-dismiss", dismiss);
+  }, []);
+
+  const onHandlePointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastY: event.clientY,
+      lastAt: performance.now(),
+      velocity: 0,
+    };
+    setDragging(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const onHandlePointerMove = (event) => {
+    const gesture = dragRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const next = Math.max(0, event.clientY - gesture.startY);
+    const now = performance.now();
+    const elapsed = Math.max(1, now - gesture.lastAt);
+    gesture.velocity = (event.clientY - gesture.lastY) / elapsed;
+    gesture.lastY = event.clientY;
+    gesture.lastAt = now;
+    setDragY(next);
+    event.preventDefault();
+  };
+
+  const finishHandleGesture = (event, cancelled = false) => {
+    const gesture = dragRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const height = Math.max(1, sheetRef.current?.getBoundingClientRect().height || 1);
+    const shouldDismiss = !cancelled && (dragY >= Math.min(120, height * 0.16) || gesture.velocity > 0.55);
+    dragRef.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (shouldDismiss) onClose();
+    else setDragY(0);
+  };
+
+  const scrimOpacity = Math.max(0, 1 - dragY / Math.max(240, (sheetRef.current?.offsetHeight || 480) * 0.7));
   return (
     <>
-      <button className="scrim" aria-label="关闭" onClick={onClose} />
-      <section className="sheet" role="dialog" aria-modal="true" aria-labelledby={labelledBy || undefined} aria-label={label || undefined}>
-        <div className="sheet-handle" />
+      <button className={`scrim ${dismissing ? "is-dismissing" : ""}`} style={{ "--scrim-drag-opacity": scrimOpacity }} aria-label="关闭" onClick={onClose} />
+      <section
+        ref={sheetRef}
+        className={`sheet ${dragging ? "is-dragging" : ""} ${dismissing ? "is-dismissing" : ""}`}
+        style={{ "--sheet-drag-y": `${dragY}px` }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy || undefined}
+        aria-label={label || undefined}
+      >
+        <button
+          className="sheet-drag-handle"
+          type="button"
+          aria-label="向下拖动关闭"
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={(event) => finishHandleGesture(event)}
+          onPointerCancel={(event) => finishHandleGesture(event, true)}
+        ><span className="sheet-handle" /></button>
         {children}
       </section>
     </>

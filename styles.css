@@ -139,14 +139,15 @@ button:disabled { cursor: default; }
 
 .task-list { display: grid; }
 .swipe-task { min-width: 0; position: relative; overflow: hidden; border-radius: var(--radius-md); isolation: isolate; -webkit-user-select: none; user-select: none; }
-.task-list .swipe-task { border-radius: 0; }
-.swipe-actions { position: absolute; inset: 0; padding-left: 60%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--line); border-radius: inherit; opacity: 0; pointer-events: none; background: var(--surface-muted); transition: opacity 90ms linear; }
+.task-list .swipe-task { border-radius: var(--radius-md); }
+.swipe-actions { position: absolute; inset: 0; padding-left: calc(60% + 6px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; overflow: hidden; border-radius: inherit; opacity: 0; pointer-events: none; background: transparent; transition: opacity 90ms linear; }
 .swipe-task.is-open .swipe-actions { opacity: 1; pointer-events: auto; }
-.swipe-action { min-width: 0; min-height: 44px; padding: 0 6px; display: grid; place-items: center; color: var(--ink); background: var(--surface-pressed); font-size: 12px; font-weight: 720; }
+.swipe-action { min-width: 0; min-height: 44px; padding: 0 6px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--ink); background: var(--surface-pressed); font-size: 12px; font-weight: 720; }
 .swipe-action.swipe-delete { color: var(--accent-ink); background: var(--accent); }
 .swipe-action:active { filter: brightness(.88); }
 .swipe-task-content { min-width: 0; position: relative; z-index: 1; background: var(--phone); touch-action: pan-y; will-change: transform; transition: transform 230ms var(--ease-standard); }
 .swipe-task.is-open .swipe-task-content { transition-duration: 190ms; }
+.task-list .swipe-task.is-open .swipe-task-content { border-radius: var(--radius-md); }
 .critical-stack .swipe-task-content { border-radius: var(--radius-md); background: var(--surface); }
 .critical-stack .swipe-task { border-radius: var(--radius-md); }
 .swipe-task:focus-within .swipe-action { outline-offset: -3px; }
@@ -238,7 +239,8 @@ button:disabled { cursor: default; }
 .phone-shell-expanded .critical-reminder-screen .reminder-time-card { grid-template-columns: minmax(112px, .8fr) minmax(0, 1.2fr); gap: 18px; }
 .phone-shell-expanded .critical-reminder-screen .reminder-rule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .phone-shell-expanded .bottom-nav { width: 430px; right: auto; left: 50%; transform: translateX(-50%); }
-.phone-shell-expanded .sheet { left: 50%; right: auto; width: min(560px, calc(100% - 24px)); transform: translateX(-50%); animation-name: expanded-sheet-arrive; }
+.phone-shell-expanded .sheet { left: 50%; right: auto; width: min(560px, calc(100% - 24px)); transform: translate(-50%, var(--sheet-drag-y, 0)); animation-name: expanded-sheet-arrive; }
+.phone-shell-expanded .sheet.is-dismissing { animation-name: expanded-sheet-dismiss; }
 .nav-tab { min-height: 58px; border-radius: 20px; display: grid; place-items: center; align-content: center; gap: 3px; background: transparent; color: var(--ink-3); transition: transform 160ms var(--ease-out), color 160ms var(--ease-out); }
 .nav-tab.active { color: var(--ink); }
 .nav-tab:active { transform: scale(.92); color: var(--accent); }
@@ -247,11 +249,17 @@ button:disabled { cursor: default; }
 .voice-button { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); box-shadow: 0 13px 28px color-mix(in srgb, var(--accent) 24%, transparent); transform: translateY(-13px); transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out); }
 .voice-button:active { transform: translateY(-13px) scale(0.93); box-shadow: 0 7px 18px color-mix(in srgb, var(--accent) 18%, transparent); }
 
-.scrim { position: absolute; inset: 0; z-index: 70; background: var(--scrim); animation: fade-in 180ms ease-out; }
+.scrim { position: absolute; inset: 0; z-index: 70; opacity: var(--scrim-drag-opacity, 1); background: var(--scrim); animation: fade-in 190ms var(--ease-out); transition: opacity 190ms var(--ease-out); }
 .scrim:active { opacity: .86; }
-.sheet { position: absolute; z-index: 80; left: 8px; right: 8px; bottom: 8px; max-height: calc(100% - 48px); overflow-y: auto; border-radius: 36px; padding: 14px 20px 34px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sheet); animation: sheet-arrive 260ms var(--ease-standard); scrollbar-width: none; }
+.sheet { position: absolute; z-index: 80; left: 8px; right: 8px; bottom: 8px; max-height: calc(100% - 48px); overflow-y: auto; border-radius: 36px; padding: 0 20px 34px; transform: translateY(var(--sheet-drag-y, 0)); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sheet); animation: sheet-arrive 260ms var(--ease-standard); transition: transform 220ms var(--ease-standard); scrollbar-width: none; }
 .sheet::-webkit-scrollbar { display: none; }
-.sheet-handle { width: 38px; height: 5px; border-radius: 99px; margin: 0 auto 15px; background: var(--line); }
+.sheet.is-dragging { transition: none; }
+.sheet.is-dismissing { pointer-events: none; animation: sheet-dismiss 230ms var(--ease-standard) forwards; }
+.scrim.is-dismissing { pointer-events: none; animation: fade-out 230ms var(--ease-standard) forwards; }
+.sheet-drag-handle { width: calc(100% + 40px); min-height: 44px; margin: 0 -20px 1px; position: sticky; top: 0; z-index: 4; display: grid; place-items: center; border-radius: 36px 36px 0 0; touch-action: none; cursor: grab; background: linear-gradient(to bottom, var(--surface) 72%, transparent); }
+.sheet-drag-handle:active { cursor: grabbing; }
+.sheet-handle { width: 38px; height: 5px; display: block; border-radius: 99px; background: var(--line); transition: width 180ms var(--ease-out), background 180ms var(--ease-out); }
+.sheet-drag-handle:active .sheet-handle { width: 48px; background: var(--ink-3); }
 .sheet-title { margin: 0; font-size: 24px; line-height: 1.15; font-weight: 720; letter-spacing: -0.025em; }
 .sheet-subtitle { margin: 7px 0 0; color: var(--ink-3); font-size: 13px; line-height: 1.45; }
 
@@ -467,10 +475,13 @@ button:disabled { cursor: default; }
 .github-release-link { min-height: 54px; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--ink-3); font-size: 12px; font-weight: 650; text-decoration: none; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: var(--scrim-drag-opacity, 1); } }
+@keyframes fade-out { from { opacity: var(--scrim-drag-opacity, 1); } to { opacity: 0; } }
 @keyframes scale-arrive { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-@keyframes sheet-arrive { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes expanded-sheet-arrive { from { opacity: 0; transform: translate(-50%, 18px) scale(0.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes sheet-arrive { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(var(--sheet-drag-y, 0)); } }
+@keyframes sheet-dismiss { from { opacity: 1; transform: translateY(var(--sheet-drag-y, 0)); } to { opacity: .2; transform: translateY(calc(100% + 24px)); } }
+@keyframes expanded-sheet-arrive { from { opacity: 0; transform: translate(-50%, 100%); } to { opacity: 1; transform: translate(-50%, var(--sheet-drag-y, 0)); } }
+@keyframes expanded-sheet-dismiss { from { opacity: 1; transform: translate(-50%, var(--sheet-drag-y, 0)); } to { opacity: .2; transform: translate(-50%, calc(100% + 24px)); } }
 @keyframes toast-arrive { from { opacity: 0; transform: translate(-50%, 10px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes check-pop { 0% { transform: scale(0.82); } 100% { transform: scale(1); } }
 .boot-error { min-height: 100dvh; display: grid; place-items: center; padding: 32px; color: var(--text); background: var(--phone); font-size: 16px; text-align: center; }
@@ -554,5 +565,5 @@ button:disabled { cursor: default; }
   left: 50%;
   right: auto;
   width: 60vw;
-  transform: translateX(-50%);
+  transform: translate(-50%, var(--sheet-drag-y, 0));
 }
