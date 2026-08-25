@@ -21,30 +21,27 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.JINKE_BOOT_FAILURE = (message) => {
+        console.error("[今刻启动失败]", message);
+        document.body.dataset.loadError = String(message || "unknown");
+        const root = document.getElementById("root");
+        if (!root || root.firstElementChild) return;
+        const panel = document.createElement("div");
+        panel.className = "boot-error";
+        panel.textContent = "今刻启动失败，请安装最新版本。";
+        root.appendChild(panel);
+      };
+      window.addEventListener("error", (event) => window.JINKE_BOOT_FAILURE(event.message));
+    </script>
     <script src="./vendor/react.production.min.js"></script>
     <script src="./vendor/react-dom.production.min.js"></script>
-    <script src="./vendor/babel.min.js"></script>
+    <script src="./app-bundle.js"></script>
     <script>
-      (async () => {
-        const files = ["./data.jsx", "./primitives.jsx", "./screens.jsx", "./app.jsx"];
-        try {
-          for (const file of files) {
-            const response = await fetch(file);
-            if (!response.ok) throw new Error(`Failed to load ${file}: ${response.status}`);
-            const source = await response.text();
-            const compiled = Babel.transform(source, { presets: ["env", ["react", { runtime: "classic" }]], sourceMaps: "inline" }).code;
-            try {
-              window.eval(`${compiled}\n//# sourceURL=${file}`);
-            } catch (error) {
-              const imports = compiled.split("\n").filter((line) => line.trim().startsWith("import ")).slice(0, 3).join(" | ");
-              throw new Error(`${file}: ${error.message}${imports ? ` · ${imports}` : ""}`);
-            }
-          }
-        } catch (error) {
-          console.error(error);
-          document.body.dataset.loadError = String(error.message || error);
-        }
-      })();
+      window.setTimeout(() => {
+        const root = document.getElementById("root");
+        if (!root || !root.firstElementChild) window.JINKE_BOOT_FAILURE("React root was not rendered");
+      }, 2500);
     </script>
     <script>
       if ("serviceWorker" in navigator) {

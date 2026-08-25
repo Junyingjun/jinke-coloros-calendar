@@ -1,17 +1,13 @@
-const CACHE_NAME = "jinke-v1.0.0";
+const CACHE_NAME = "jinke-v1.0.1";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./data.jsx",
-  "./primitives.jsx",
-  "./screens.jsx",
-  "./app.jsx",
+  "./app-bundle.js",
   "./manifest.webmanifest",
   "./project-identity.json",
   "./vendor/react.production.min.js",
   "./vendor/react-dom.production.min.js",
-  "./vendor/babel.min.js",
   "./assets/app-icon-512.png",
   "./assets/mark-256.png"
 ];

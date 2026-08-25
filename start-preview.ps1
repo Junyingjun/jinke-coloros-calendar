@@ -1,5 +1,8 @@
 $ErrorActionPreference = "Stop"
 $previewPort = 43190
+$bundleScript = Join-Path $PSScriptRoot "scripts\build-web-bundle.mjs"
+& node $bundleScript
+if ($LASTEXITCODE -ne 0) { throw "今刻 Web bundle 构建失败。" }
 $identityUrl = "http://127.0.0.1:$previewPort/project-identity.json"
 $listener = Get-NetTCPConnection -State Listen -LocalPort $previewPort -ErrorAction SilentlyContinue
 if ($listener) {

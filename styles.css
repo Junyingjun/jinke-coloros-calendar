@@ -375,6 +375,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 @keyframes expanded-sheet-arrive { from { opacity: 0; transform: translate(-50%, 18px) scale(0.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes toast-arrive { from { opacity: 0; transform: translate(-50%, 10px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes check-pop { 0% { transform: scale(0.82); } 100% { transform: scale(1); } }
+.boot-error { min-height: 100dvh; display: grid; place-items: center; padding: 32px; color: var(--text); background: var(--phone); font-size: 16px; text-align: center; }
 @keyframes breathe { 0%, 100% { opacity: 0.45; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.06); } }
 @keyframes wave { from { height: 7px; } to { height: 25px; } }
 @keyframes grow-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }

@@ -13,6 +13,7 @@ vm.runInContext(fs.readFileSync(path.join(root, "data.jsx"), "utf8"), context);
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const screensSource = fs.readFileSync(path.join(root, "screens.jsx"), "utf8");
 const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const start = appSource.indexOf("const CN_DIGITS");
 const end = appSource.indexOf("function useViewportScale");
 assert.ok(start >= 0 && end > start, "voice router source markers must exist");
@@ -135,6 +136,8 @@ assert.doesNotMatch(screensSource, /label: "人物诞辰"|label: "逝世纪念"/
 assert.match(screensSource, /\["version", "版本更新", "update"\][\s\S]*\["settings", "设置", "settings"\]/, "version checker must appear above settings");
 assert.match(screensSource, /api\.github\.com\/repos\/\$\{JINKE_GITHUB_REPOSITORY\}\/releases\/latest/, "version checker must read the latest GitHub release");
 assert.match(screensSource, /JinkeAndroid\?\.installApk/, "Android build must hand APK installation to the native bridge");
+assert.match(indexSource, /\.\/app-bundle\.js/, "file and WebView startup must use the precompiled application bundle");
+assert.doesNotMatch(indexSource, /fetch\(file\)|Babel\.transform|window\.eval/, "file startup must not fetch or compile JSX at runtime");
 assert.match(appSource, /const \[renewDays, setRenewDays\] = useState\(7\)/, "renewal must default to seven days");
 assert.match(screensSource, /aria-label="续期天数"/, "renewal days must be editable");
 

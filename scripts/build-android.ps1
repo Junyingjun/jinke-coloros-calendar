@@ -17,12 +17,15 @@ $env:ANDROID_HOME = $sdkRoot
 $env:ANDROID_SDK_ROOT = $sdkRoot
 $env:JINKE_KEYSTORE_PROPERTIES = $signingProperties
 
+& node (Join-Path $PSScriptRoot "build-web-bundle.mjs")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 & (Join-Path $androidRoot "gradlew.bat") -p $androidRoot --no-daemon assembleRelease
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $sourceApk = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $releaseDir = Join-Path $projectRoot "release"
-$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.0.apk"
+$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.1.apk"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 
