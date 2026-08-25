@@ -89,6 +89,16 @@ function dateKeyOffset(fromKey, toKey) {
 
 const CN_DIGITS = { "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
 
+function normalizeSpeechText(value) {
+  let normalized = String(value || "").trim();
+  let previous = "";
+  while (normalized !== previous) {
+    previous = normalized;
+    normalized = normalized.replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, "$1");
+  }
+  return normalized;
+}
+
 function parseNumber(value) {
   if (!value) return null;
   if (/^\d+$/.test(value)) return Number(value);
@@ -116,10 +126,21 @@ function parseTime(text) {
   if (period === "凌晨" && hour === 12) hour = 0;
   hour = Math.min(Math.max(hour, 0), 23);
   minute = Math.min(Math.max(minute, 0), 59);
-  return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, source: match[0] };
+  return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, source: match[0].trim() };
 }
 
 function parseRepeat(text) {
+  const range = text.match(/(?:每(?:个)?)?(?:周|星期)([一二三四五六日天])(?:到|至|\-)(?:(?:周|星期))?([一二三四五六日天])(?:每(?:天|日))?/);
+  if (range) {
+    const start = range[1] === "天" ? "日" : range[1];
+    const end = range[2] === "天" ? "日" : range[2];
+    if (start === "一" && end === "五") return { value: "工作日", source: range[0] };
+    const order = ["一", "二", "三", "四", "五", "六", "日"];
+    const startIndex = order.indexOf(start);
+    const endIndex = order.indexOf(end);
+    const days = startIndex >= 0 && endIndex >= startIndex ? order.slice(startIndex, endIndex + 1) : [start, end];
+    return { value: `周${days.join("、")}`, source: range[0] };
+  }
   if (/每(天|日)/.test(text)) return { value: "每天", source: text.match(/每(天|日)/)[0] };
   if (/每个?工作日/.test(text)) return { value: "工作日", source: text.match(/每个?工作日/)[0] };
   if (/每(个)?周末/.test(text)) return { value: "周六、日", source: text.match(/每(个)?周末/)[0] };
@@ -190,9 +211,10 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
 }
 
 function parseVoiceTask(rawText) {
-  const text = rawText.trim();
-  const time = parseTime(text);
+  const text = normalizeSpeechText(rawText);
   const repeat = parseRepeat(text);
+  const withoutRepeat = repeat.source ? text.replace(repeat.source, " ") : text;
+  const time = parseTime(withoutRepeat);
   const deadline = parseDeadline(text);
   const reminderMatch = text.match(/提前\s*([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)(?:提醒)?/);
   const reminder = reminderMatch ? `提前 ${parseNumber(reminderMatch[1])} ${reminderMatch[2]}` : "到点提醒";
@@ -294,7 +316,7 @@ function commandResult(intent, heading, rows, options = {}) {
 }
 
 function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
-  const text = rawText.trim();
+  const text = normalizeSpeechText(rawText);
   const target = findMentionedTask(text, dailyTasks, criticalTasks);
   const wantsCreate = /(创建|添加|新增|记下|记一下|提醒我)/.test(text) || /^(?:帮我|请)?安排/.test(text);
   const hasAll = /(全部|所有)/.test(text);

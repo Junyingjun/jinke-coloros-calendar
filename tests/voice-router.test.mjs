@@ -55,6 +55,9 @@ const cases = [
   ["我打算每天晚上十点写一下日志吧", "create"],
   ["大概什么时候去考D照", "create"],
   ["每周一三五晚上七点健身四十五分钟", "create"],
+  ["周一到周五点外卖", "create"],
+  ["周 一 到 周 五 点 外 卖", "create"],
+  ["周一到周五每天十一点点外卖", "create"],
 ];
 
 for (const [text, intent] of cases) {
@@ -84,6 +87,14 @@ assert.equal(route("我打算每天晚上十点写一下日志吧").task.title, 
 assert.equal(route("大概什么时候去考D照").task.title, "考D照");
 assert.equal(route("每周一三五晚上七点健身四十五分钟").task.title, "健身");
 assert.match(route("每周一三五晚上七点健身四十五分钟").task.note, /持续 45 分钟/);
+assert.equal(route("周一到周五点外卖").task.title, "点外卖");
+assert.equal(route("周一到周五点外卖").task.repeat, "工作日");
+assert.equal(route("周一到周五点外卖").task.time, "待定");
+assert.equal(route("周 一 到 周 五 点 外 卖").task.title, "点外卖");
+assert.equal(route("周 一 到 周 五 点 外 卖").task.repeat, "工作日");
+assert.equal(route("周一到周五每天十一点点外卖").task.title, "点外卖");
+assert.equal(route("周一到周五每天十一点点外卖").task.time, "11:00");
+assert.equal(route("周一到周五每天十一点点外卖").task.repeat, "工作日");
 
 for (const day of context.APP_DATA.week) {
   const marker = context.window.getCalendarMarker(day.dateKey);
@@ -203,6 +214,13 @@ assert.match(indexSource, /\.\/app-bundle\.js/, "file and WebView startup must u
 assert.doesNotMatch(indexSource, /fetch\(file\)|Babel\.transform|window\.eval/, "file startup must not fetch or compile JSX at runtime");
 assert.match(appSource, /const \[renewDays, setRenewDays\] = useState\(7\)/, "renewal must default to seven days");
 assert.match(screensSource, /aria-label="续期天数"/, "renewal days must be editable");
+assert.match(screensSource, /const REPEAT_OPTIONS[\s\S]*周一至周五/, "repeat editing must provide a workday preset");
+assert.match(screensSource, /<select className="edit-input" value=\{editableTask\.repeat\}/, "voice repeat review must use a choice control");
+assert.match(screensSource, /<select className="edit-input" value=\{draft\.repeat\}/, "daily repeat editing must use a choice control");
+assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.repeat\}/, "repeat must never summon a text keyboard");
+assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.reminder/, "reminder must never summon a text keyboard");
+assert.doesNotMatch(screensSource, /type="number"/, "finite numeric settings must use preset choice controls");
+assert.match(screensSource, /type="date"/, "deadline editing must use the system date picker");
 
 const ambiguous = route("调整所有安排");
 assert.notEqual(ambiguous.intent, "create", "unclear action must never create a task");

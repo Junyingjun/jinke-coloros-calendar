@@ -1,5 +1,52 @@
 const { APP_DATA, getCalendarMarker, getCriticalReminder, shouldRemindCritical, getDateMeta, getWeekDates, getMonthDates, shiftDateKeyByMonth, Icon, IconButton, SectionHeader, DailyTaskRow, CriticalTaskRow, Sheet, BackHeader, BarRow } = window;
 
+const REPEAT_OPTIONS = [
+  ["仅一次", "仅一次"], ["每天", "每天"], ["工作日", "周一至周五"], ["周六、日", "周末"],
+  ["周一", "每周一"], ["周二", "每周二"], ["周三", "每周三"], ["周四", "每周四"],
+  ["周五", "每周五"], ["周六", "每周六"], ["周日", "每周日"], ["周一、三、五", "周一、三、五"], ["周二、四", "周二、四"],
+];
+const REMINDER_OPTIONS = ["不提醒", "到点提醒", "提前 5 分钟", "提前 10 分钟", "提前 30 分钟", "提前 1 小时", "提前 1 天"];
+const PROGRESS_OPTIONS = [0, 10, 25, 50, 75, 100];
+const RENEW_DAY_OPTIONS = [1, 3, 7, 14, 30, 60, 90, 180, 365];
+const REMINDER_MULTIPLE_OPTIONS = [1, 2, 3, 5, 7, 10, 14, 15, 30];
+const REMINDER_FINAL_DAY_OPTIONS = [0, 1, 2, 3, 5, 7, 10, 14, 30];
+
+function withCurrentOption(options, current) {
+  return options.some((option) => String(Array.isArray(option) ? option[0] : option) === String(current))
+    ? options
+    : [[current, String(current)], ...options];
+}
+
+function ChoiceOptions({ options, current }) {
+  return withCurrentOption(options, current).map((option) => {
+    const [value, label] = Array.isArray(option) ? option : [option, option];
+    return <option value={value} key={value}>{label}</option>;
+  });
+}
+
+function deadlineToDateInput(deadline) {
+  if (!deadline) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return deadline;
+  const today = new Date();
+  const relative = String(deadline).match(/^(今天截止|今天|明天|后天|(\d+)天后)$/);
+  if (relative) {
+    const days = relative[1] === "明天" ? 1 : relative[1] === "后天" ? 2 : Number(relative[2] || 0);
+    const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days, 12);
+    return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-${String(target.getDate()).padStart(2, "0")}`;
+  }
+  const absolute = String(deadline).match(/(\d{1,2})月(\d{1,2})日/);
+  if (!absolute) return "";
+  let target = new Date(today.getFullYear(), Number(absolute[1]) - 1, Number(absolute[2]), 12);
+  if (target < new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12)) target = new Date(today.getFullYear() + 1, Number(absolute[1]) - 1, Number(absolute[2]), 12);
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-${String(target.getDate()).padStart(2, "0")}`;
+}
+
+function dateInputToDeadline(value) {
+  if (!value) return null;
+  const [, month, day] = value.split("-").map(Number);
+  return `${month}月${day}日`;
+}
+
 function WeekStrip({ selectedDateKey, todayDateKey, onSelectDate }) {
   return (
     <div className="week-strip" aria-label="本周">
@@ -361,15 +408,17 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
               {editableTask.type === "daily" ? (
                 <>
                   <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={editableTask.time === "待定" ? "" : editableTask.time} onChange={(event) => updateDraft("time", event.target.value || "待定")} /></label>
-                  <label className="edit-field"><span className="edit-label">重复</span><input className="edit-input" value={editableTask.repeat} onChange={(event) => updateDraft("repeat", event.target.value)} /></label>
+                  <label className="edit-field"><span className="edit-label">重复</span><select className="edit-input" value={editableTask.repeat} onChange={(event) => updateDraft("repeat", event.target.value)}><ChoiceOptions options={REPEAT_OPTIONS} current={editableTask.repeat} /></select></label>
                 </>
               ) : (
                 <>
-                  <label className="edit-field"><span className="edit-label">截止</span><input className="edit-input" value={editableTask.deadline || ""} placeholder="无 DDL" onChange={(event) => updateDraft("deadline", event.target.value || null)} /></label>
+                  <label className="edit-field"><span className="edit-label">截止</span><input className="edit-input" type="date" value={deadlineToDateInput(editableTask.deadline)} onChange={(event) => updateDraft("deadline", dateInputToDeadline(event.target.value))} /></label>
                   <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={editableTask.time === "待定" ? "" : editableTask.time || ""} onChange={(event) => updateCriticalTime(event.target.value)} /></label>
                 </>
               )}
-              <label className="edit-field"><span className="edit-label">提醒</span><input className="edit-input" value={editableTask.reminder || ""} readOnly={editableTask.type === "critical"} onChange={(event) => updateDraft("reminder", event.target.value)} /></label>
+              {editableTask.type === "critical"
+                ? <div className="edit-field"><span className="edit-label">提醒</span><output className="edit-input edit-output">{editableTask.reminder || getCriticalReminder(null)}</output></div>
+                : <label className="edit-field"><span className="edit-label">提醒</span><select className="edit-input" value={editableTask.reminder || "到点提醒"} onChange={(event) => updateDraft("reminder", event.target.value)}><ChoiceOptions options={REMINDER_OPTIONS} current={editableTask.reminder || "到点提醒"} /></select></label>}
               <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={editableTask.note || ""} onChange={(event) => updateDraft("note", event.target.value)} /></label>
             </div>
           ) : (
@@ -401,8 +450,8 @@ function DailyEditSheet({ task, draft, onDraftChange, onSave, onClose }) {
       <div className="edit-form edit-form-first">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
         <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={draft.time === "待定" ? "" : draft.time} onChange={(event) => update("time", event.target.value || "待定")} /></label>
-        <label className="edit-field"><span className="edit-label">重复</span><input className="edit-input" value={draft.repeat} onChange={(event) => update("repeat", event.target.value)} /></label>
-        <label className="edit-field"><span className="edit-label">提醒</span><input className="edit-input" value={draft.reminder} onChange={(event) => update("reminder", event.target.value)} /></label>
+        <label className="edit-field"><span className="edit-label">重复</span><select className="edit-input" value={draft.repeat} onChange={(event) => update("repeat", event.target.value)}><ChoiceOptions options={REPEAT_OPTIONS} current={draft.repeat} /></select></label>
+        <label className="edit-field"><span className="edit-label">提醒</span><select className="edit-input" value={draft.reminder} onChange={(event) => update("reminder", event.target.value)}><ChoiceOptions options={REMINDER_OPTIONS} current={draft.reminder} /></select></label>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="3" value={draft.note} onChange={(event) => update("note", event.target.value)} /></label>
       </div>
       <div className="button-row">
@@ -456,10 +505,10 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
       </div>
       <div className="edit-form critical-edit-form">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
-        <label className="edit-field"><span className="edit-label">截止</span><input className="edit-input" value={draft.deadline || ""} placeholder="无 DDL" onChange={(event) => update("deadline", event.target.value || null)} /></label>
+        <label className="edit-field"><span className="edit-label">截止</span><input className="edit-input" type="date" value={deadlineToDateInput(draft.deadline)} onChange={(event) => update("deadline", dateInputToDeadline(event.target.value))} /></label>
         <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={draft.time || ""} onChange={(event) => updateTime(event.target.value)} /></label>
-        <label className="edit-field"><span className="edit-label">提醒</span><input className="edit-input" value={draft.reminder || ""} readOnly /></label>
-        <label className="edit-field"><span className="edit-label">完成度</span><input className="edit-input" type="number" min="0" max="100" value={draft.progress ?? 0} onChange={(event) => update("progress", Math.min(100, Math.max(0, Number(event.target.value) || 0)))} /></label>
+        <div className="edit-field"><span className="edit-label">提醒</span><output className="edit-input edit-output">{draft.reminder || getCriticalReminder(draft.time || null)}</output></div>
+        <label className="edit-field"><span className="edit-label">完成度</span><select className="edit-input" value={draft.progress ?? 0} onChange={(event) => update("progress", Number(event.target.value))}><ChoiceOptions options={PROGRESS_OPTIONS.map((value) => [value, `${value}%`])} current={draft.progress ?? 0} /></select></label>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={draft.note || ""} onChange={(event) => update("note", event.target.value)} /></label>
       </div>
       <button className="primary-button accent pressable save-wide" onClick={() => onSave(task.id, { ...draft, title: draft.title.trim() })} disabled={!draft.title.trim()}>保存修改</button>
@@ -468,7 +517,7 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
           <label className="renew-days-field">
             <Icon name="refresh" size={17} />
             <span className="renew-days-label">续期</span>
-            <input className="renew-days-input" type="number" inputMode="numeric" min="1" max="3650" value={renewDays} aria-label="续期天数" onChange={(event) => onRenewDaysChange(Math.min(3650, Math.max(1, Number(event.target.value) || 1)))} />
+            <select className="renew-days-input" value={renewDays} aria-label="续期天数" onChange={(event) => onRenewDaysChange(Number(event.target.value))}><ChoiceOptions options={RENEW_DAY_OPTIONS} current={renewDays} /></select>
             <span className="renew-days-unit">天</span>
           </label>
           <button className="secondary-button pressable renew-confirm" onClick={() => onRenew(task.id, renewDays)}>确认续期</button>
@@ -583,11 +632,11 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
       <div className="reminder-rule-grid" aria-label="DDL提醒频率">
         <label className="reminder-rule-field">
           <span className="reminder-rule-label">倍数节点</span>
-          <span className="reminder-rule-value">每 <input type="number" inputMode="numeric" min="1" max="3650" value={reminderMultiple} aria-label="DDL提醒倍数天数" onChange={(event) => onReminderMultipleChange(Math.min(3650, Math.max(1, Number(event.target.value) || 1)))} /> 天</span>
+          <span className="reminder-rule-value">每 <select value={reminderMultiple} aria-label="DDL提醒倍数天数" onChange={(event) => onReminderMultipleChange(Number(event.target.value))}><ChoiceOptions options={REMINDER_MULTIPLE_OPTIONS} current={reminderMultiple} /></select> 天</span>
         </label>
         <label className="reminder-rule-field">
           <span className="reminder-rule-label">临近截止</span>
-          <span className="reminder-rule-value">最后 <input type="number" inputMode="numeric" min="0" max="3650" value={reminderFinalDays} aria-label="DDL最后连续提醒天数" onChange={(event) => onReminderFinalDaysChange(Math.min(3650, Math.max(0, Number(event.target.value) || 0)))} /> 天</span>
+          <span className="reminder-rule-value">最后 <select value={reminderFinalDays} aria-label="DDL最后连续提醒天数" onChange={(event) => onReminderFinalDaysChange(Number(event.target.value))}><ChoiceOptions options={REMINDER_FINAL_DAY_OPTIONS} current={reminderFinalDays} /></select> 天</span>
         </label>
       </div>
       <SectionHeader title="今天会提醒" note={`${reminderTasks.length} 项`} />
@@ -610,7 +659,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.5";
+const JINKE_FALLBACK_VERSION = "1.0.6";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

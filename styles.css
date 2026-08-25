@@ -290,6 +290,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .edit-input { min-width: 0; width: 100%; min-height: 40px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); text-align: right; font-size: 14px; font-weight: 650; }
 .edit-input.title-input { font-size: 16px; font-weight: 700; }
 .edit-input:focus { color: var(--accent); }
+.edit-output { display: flex; align-items: center; justify-content: flex-end; }
 .edit-textarea { min-height: 58px; resize: none; text-align: left; line-height: 1.45; font-weight: 560; }
 .save-wide { width: 100%; margin-top: 12px; }
 .renew-row { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 10px; }
@@ -364,8 +365,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .reminder-rule-field { min-width: 0; min-height: 82px; padding: 12px 13px; display: flex; flex-direction: column; justify-content: center; border-radius: 18px; background: var(--surface-muted); }
 .reminder-rule-label { color: var(--ink-3); font-size: 11px; font-weight: 650; }
 .reminder-rule-value { margin-top: 5px; display: flex; align-items: center; gap: 5px; color: var(--ink); font-size: 13px; font-weight: 700; }
-.reminder-rule-value input { min-width: 42px; width: 48px; height: 36px; padding: 0 5px; border: 0; outline: 0; border-radius: 11px; color: var(--accent); background: var(--surface); text-align: center; font-size: 15px; font-weight: 750; }
-.reminder-rule-value input:focus { box-shadow: inset 0 0 0 1px var(--accent); }
+.reminder-rule-value select { min-width: 54px; height: 36px; padding: 0 5px; border: 0; outline: 0; border-radius: 11px; color: var(--accent); background: var(--surface); text-align: center; font-size: 15px; font-weight: 750; }
+.reminder-rule-value select:focus { box-shadow: inset 0 0 0 1px var(--accent); }
 .reminder-task-list { margin-top: 4px; }
 .reminder-task-row { min-height: 56px; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
 .reminder-task-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft); }
