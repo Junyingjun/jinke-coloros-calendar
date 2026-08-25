@@ -729,32 +729,87 @@ function HistoryScreen({ items, onBack }) {
   );
 }
 
-function ReportScreen({ type, onBack }) {
+function reportDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function reportPeriod(type, todayDateKey) {
+  const [year, month, day] = todayDateKey.split("-").map(Number);
+  const today = new Date(year, month - 1, day, 12);
+  if (type === "month") {
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1, 12);
+    const end = new Date(today.getFullYear(), today.getMonth(), 0, 12);
+    return { start, end };
+  }
+  const targetYear = today.getFullYear() - 1;
+  return { start: new Date(targetYear, 0, 1, 12), end: new Date(targetYear, 11, 31, 12) };
+}
+
+function buildReport(type, dailyTasks, dailyCompletionByDate, history, todayDateKey) {
+  const { start, end } = reportPeriod(type, todayDateKey);
+  const dateKeys = [];
+  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) dateKeys.push(reportDateKey(cursor));
+  const ranking = dailyTasks.map((task) => {
+    const occurrences = dateKeys.filter((dateKey) => window.taskOccursOnDate(task, dateKey, todayDateKey));
+    const done = occurrences.filter((dateKey) => Boolean(dailyCompletionByDate[`${task.id}:${dateKey}`])).length;
+    return {
+      label: task.title,
+      value: occurrences.length ? Math.round((done / occurrences.length) * 100) : 0,
+      detail: `${done}/${occurrences.length}`,
+      total: occurrences.length,
+    };
+  }).filter((item) => item.total > 0).sort((left, right) => right.value - left.value || right.total - left.total || left.label.localeCompare(right.label));
+  const startKey = reportDateKey(start);
+  const endKey = reportDateKey(end);
+  const ddlRanking = history
+    .filter((item) => !item.completedDateKey || (item.completedDateKey >= startKey && item.completedDateKey <= endKey))
+    .sort((left, right) => Number(right.leadDays || 0) - Number(left.leadDays || 0))
+    .map((item, index) => ({ rank: index + 1, title: item.title, days: Number(item.leadDays || 0) }));
+  return { ranking, ddlRanking };
+}
+
+function ReportScreen({ type, dailyTasks = [], dailyCompletionByDate = {}, history = [], todayDateKey, onBack }) {
   const monthly = type === "month";
-  const ranking = monthly ? APP_DATA.monthRanking : APP_DATA.yearRanking;
-  const hasData = ranking.length > 0 || APP_DATA.ddlRanking.length > 0;
+  const report = buildReport(type, dailyTasks, dailyCompletionByDate, history, todayDateKey || APP_DATA.today.dateKey);
+  const hasData = report.ranking.length > 0 || report.ddlRanking.length > 0;
   return (
     <main className="screen secondary">
       <BackHeader title={monthly ? "月度复盘" : "年度复盘"} onBack={onBack} />
       {hasData ? <>
         <SectionHeader title="完成比例排名" note={monthly ? "上月" : "全年"} />
-        <div className="ranking-list">{ranking.map((item) => <BarRow item={item} key={item.label} />)}</div>
+        <div className="ranking-list">{report.ranking.map((item) => <BarRow item={item} key={item.label} />)}</div>
         <SectionHeader title="最长提前完成的 DDL" note={monthly ? "前 5" : "前 10"} />
-        <div>{APP_DATA.ddlRanking.slice(0, monthly ? 5 : 10).map((item) => <div className="ddl-rank" key={item.rank}><span className="rank-number">{String(item.rank).padStart(2, "0")}</span><span className="rank-title">{item.title}</span><span className="rank-days">提前 {item.days} 天</span></div>)}</div>
+        <div>{report.ddlRanking.slice(0, monthly ? 5 : 10).map((item) => <div className="ddl-rank" key={`${item.rank}-${item.title}`}><span className="rank-number">{String(item.rank).padStart(2, "0")}</span><span className="rank-title">{item.title}</span><span className="rank-days">提前 {item.days} 天</span></div>)}</div>
       </> : <div className="empty-guide report-empty">完成任务后，这里会生成真实复盘</div>}
     </main>
   );
 }
 
-function DeleteConfirmSheet({ target, onClose, onConfirm }) {
+function DeleteConfirmSheet({ target, selectedDateKey, onClose, onConfirm }) {
   if (!target?.task) return null;
+  const isDaily = target.kind === "daily";
+  const selectedMeta = selectedDateKey ? getDateMeta(selectedDateKey) : null;
   return (
     <Sheet onClose={onClose} label="确认删除任务">
       <div className="delete-confirm-title">{target.task.title}</div>
-      <div className="button-row">
-        <button className="secondary-button pressable" type="button" onClick={onClose}>取消</button>
-        <button className="primary-button accent pressable" type="button" onClick={onConfirm}>删除</button>
-      </div>
+      {isDaily ? (
+        <div className="delete-choice-list">
+          <button className="delete-choice pressable" type="button" onClick={() => onConfirm("future")}>
+            <span>仅删除后续安排</span>
+            <small>保留 {selectedMeta ? `${selectedMeta.month}月${selectedMeta.date}日` : "所选日期"}之前的记录与统计</small>
+          </button>
+          <button className="delete-choice destructive pressable" type="button" onClick={() => onConfirm("all")}>
+            <span>删除全部记录</span>
+            <small>清除过去完成记录，并从月度与年度复盘移除</small>
+          </button>
+          <button className="secondary-button pressable save-wide" type="button" onClick={onClose}>取消</button>
+        </div>
+      ) : (
+        <div className="button-row">
+          <button className="secondary-button pressable" type="button" onClick={onClose}>取消</button>
+          <button className="primary-button accent pressable" type="button" onClick={() => onConfirm("all")}>删除</button>
+        </div>
+      )}
     </Sheet>
   );
 }
@@ -842,7 +897,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.14";
+const JINKE_FALLBACK_VERSION = "1.0.15";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

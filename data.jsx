@@ -176,6 +176,8 @@ window.repeatLabelFromDays = function repeatLabelFromDays(days) {
 };
 
 window.taskOccursOnDate = function taskOccursOnDate(task, dateKey, fallbackDateKey = window.APP_DATA?.today?.dateKey) {
+  if (task?.activeFrom && dateKey < task.activeFrom) return false;
+  if (task?.activeUntil && dateKey > task.activeUntil) return false;
   const days = window.repeatDaysFromValue(task?.repeat, task?.repeatDays);
   if (!days.length) return (task?.scheduledDateKey || task?.dateKey || fallbackDateKey) === dateKey;
   const date = parseCalendarDateKey(dateKey);
@@ -246,6 +248,12 @@ window.shiftDateKeyByMonth = function shiftDateKeyByMonth(dateKey, offset) {
   return calendarDateKey(targetMonth);
 };
 
+window.shiftDateKeyByDays = function shiftDateKeyByDays(dateKey, offset) {
+  const selected = parseCalendarDateKey(dateKey);
+  selected.setDate(selected.getDate() + Number(offset || 0));
+  return calendarDateKey(selected);
+};
+
 const STARTUP_DATE = new Date();
 const STARTUP_DATE_KEY = calendarDateKey(STARTUP_DATE);
 const STARTUP_DATE_META = window.getDateMeta(STARTUP_DATE_KEY);
@@ -267,7 +275,7 @@ window.APP_DATA = {
     load: item.load,
   })),
   dailyTasks: [
-    { id: "demo-daily", demo: true, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },
+    { id: "demo-daily", demo: true, activeFrom: STARTUP_DATE_KEY, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },
   ],
   criticalTasks: [
     { id: "demo-ddl", demo: true, title: "演示：完成第一个 DDL", note: "向左滑动可编辑或删除", deadline: "7天后", daysLeft: 7, deadlineTime: null, reminderEnabled: true, reminderTime: "10:00", reminderMode: "smart", reminderMultiple: 5, reminderFinalDays: 5, reminder: "每 5 天 · 最后 5 天每天 · 10:00", progress: 0 },

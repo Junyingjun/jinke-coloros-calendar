@@ -206,7 +206,7 @@ function BottomNav({ activeTab, onTabChange, onVoice }) {
   );
 }
 
-function Sheet({ children, onClose, labelledBy, label }) {
+function Sheet({ children, onClose, labelledBy, label, depth = 0 }) {
   const [dragY, setDragY] = React.useState(0);
   const [dragging, setDragging] = React.useState(false);
   const [dismissing, setDismissing] = React.useState(false);
@@ -216,6 +216,7 @@ function Sheet({ children, onClose, labelledBy, label }) {
 
   React.useEffect(() => {
     const dismiss = (event) => {
+      if (Number.isFinite(event.detail?.depth) && event.detail.depth !== depth) return;
       if (dismissingRef.current) return;
       dismissingRef.current = true;
       setDragging(false);
@@ -230,7 +231,7 @@ function Sheet({ children, onClose, labelledBy, label }) {
     };
     window.addEventListener("jinke-sheet-dismiss", dismiss);
     return () => window.removeEventListener("jinke-sheet-dismiss", dismiss);
-  }, []);
+  }, [depth]);
 
   const onHandlePointerDown = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
@@ -248,7 +249,8 @@ function Sheet({ children, onClose, labelledBy, label }) {
   const onHandlePointerMove = (event) => {
     const gesture = dragRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
-    const next = Math.max(0, event.clientY - gesture.startY);
+    const delta = event.clientY - gesture.startY;
+    const next = delta >= 0 ? delta : -Math.min(30, Math.abs(delta) * 0.2);
     const now = performance.now();
     const elapsed = Math.max(1, now - gesture.lastAt);
     gesture.velocity = (event.clientY - gesture.lastY) / elapsed;
@@ -270,14 +272,21 @@ function Sheet({ children, onClose, labelledBy, label }) {
     else setDragY(0);
   };
 
-  const scrimOpacity = Math.max(0, 1 - dragY / Math.max(240, (sheetRef.current?.offsetHeight || 480) * 0.7));
+  const scrimOpacity = Math.min(1, Math.max(0, 1 - Math.max(0, dragY) / Math.max(240, (sheetRef.current?.offsetHeight || 480) * 0.7)));
+  const sheetStyle = {
+    "--sheet-drag-y": `${dragY}px`,
+    "--sheet-stack-offset": `${Math.min(3, depth) * 8}px`,
+    "--sheet-scrim-z": 70 + depth * 20,
+    "--sheet-z": 80 + depth * 20,
+  };
   return (
     <>
-      <button className={`scrim ${dismissing ? "is-dismissing" : ""}`} style={{ "--scrim-drag-opacity": scrimOpacity }} aria-label="关闭" onClick={onClose} />
+      <button className={`scrim ${dismissing ? "is-dismissing" : ""}`} data-sheet-depth={depth} style={{ "--scrim-drag-opacity": scrimOpacity, "--sheet-scrim-z": 70 + depth * 20 }} aria-label="关闭" onClick={onClose} />
       <section
         ref={sheetRef}
-        className={`sheet ${dragging ? "is-dragging" : ""} ${dismissing ? "is-dismissing" : ""}`}
-        style={{ "--sheet-drag-y": `${dragY}px` }}
+        className={`sheet ${dragging ? "is-dragging" : ""} ${dragY < 0 ? "is-pulling" : ""} ${dismissing ? "is-dismissing" : ""}`}
+        data-sheet-depth={depth}
+        style={sheetStyle}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy || undefined}
@@ -286,7 +295,7 @@ function Sheet({ children, onClose, labelledBy, label }) {
         <button
           className="sheet-drag-handle"
           type="button"
-          aria-label="向下拖动关闭"
+          aria-label="上下拖动，向下关闭"
           onPointerDown={onHandlePointerDown}
           onPointerMove={onHandlePointerMove}
           onPointerUp={(event) => finishHandleGesture(event)}

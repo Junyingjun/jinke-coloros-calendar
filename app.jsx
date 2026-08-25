@@ -6,8 +6,10 @@ const {
   repeatDaysFromValue,
   repeatLabelFromDays,
   taskOccursOnDate,
+  shiftDateKeyByDays,
   PhoneFrame,
   BottomNav,
+  Sheet,
   TodayScreen,
   CriticalScreen,
   ViewMenu,
@@ -685,8 +687,10 @@ function MobileDesignApp() {
     try { return localStorage.getItem("jinke-theme") || "dark"; } catch { return "dark"; }
   });
   const [activeTab, setActiveTab] = useState("today");
-  const [secondary, setSecondary] = useState(null);
-  const [secondaryBackTarget, setSecondaryBackTarget] = useState(null);
+  const [secondaryStack, setSecondaryStack] = useState([]);
+  const secondary = secondaryStack[secondaryStack.length - 1] || null;
+  const setSecondary = (route) => setSecondaryStack(route ? [route] : []);
+  const pushSecondary = (route) => setSecondaryStack((current) => [...current, route]);
   const [overlay, setOverlay] = useState(null);
   const [viewMode, setViewMode] = useState("day");
   const [todayDateKey, setTodayDateKey] = useState(() => localDateKey());
@@ -746,6 +750,8 @@ function MobileDesignApp() {
   const toastTimerRef = useRef(null);
   const overlayClosingRef = useRef(false);
   const overlayCloseTimerRef = useRef(null);
+  const secondaryClosingRef = useRef(false);
+  const secondaryCloseTimerRef = useRef(null);
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
   const currentCriticalTasks = criticalTasks.map((task) => ({
     ...task,
@@ -878,6 +884,7 @@ function MobileDesignApp() {
     if (recognitionRef.current) recognitionRef.current.abort();
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     if (overlayCloseTimerRef.current) window.clearTimeout(overlayCloseTimerRef.current);
+    if (secondaryCloseTimerRef.current) window.clearTimeout(secondaryCloseTimerRef.current);
   }, []);
 
   const showToast = (message) => {
@@ -939,17 +946,32 @@ function MobileDesignApp() {
     setOverlay("delete-confirm");
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = (mode = "all") => {
     if (!deleteTarget?.task) return;
     const { task, kind } = deleteTarget;
     if (kind === "daily") {
-      setDailyTasks((current) => current.filter((item) => item.id !== task.id));
-      setDailyCompletionByDate((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key.split(":")[0] !== task.id)));
+      if (mode === "future") {
+        const activeUntil = shiftDateKeyByDays(selectedDateKey, -1);
+        setDailyTasks((current) => current.flatMap((item) => {
+          if (item.id !== task.id) return [item];
+          if (item.activeFrom && item.activeFrom > activeUntil) return [];
+          return [{ ...item, activeUntil: item.activeUntil && item.activeUntil < activeUntil ? item.activeUntil : activeUntil }];
+        }));
+        setDailyCompletionByDate((current) => Object.fromEntries(Object.entries(current).filter(([key]) => {
+          const separator = key.indexOf(":");
+          const taskId = separator < 0 ? key : key.slice(0, separator);
+          const dateKey = separator < 0 ? "" : key.slice(separator + 1);
+          return taskId !== task.id || dateKey < selectedDateKey;
+        })));
+      } else {
+        setDailyTasks((current) => current.filter((item) => item.id !== task.id));
+        setDailyCompletionByDate((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key.split(":")[0] !== task.id)));
+      }
     } else {
       setCriticalTasks((current) => current.filter((item) => item.id !== task.id));
     }
     closeOverlay();
-    showToast(`已删除「${task.title}」`);
+    showToast(kind === "daily" && mode === "future" ? `已停止「${task.title}」的后续安排` : `已删除「${task.title}」`);
   };
 
   const saveDaily = (taskId, changes) => {
@@ -961,10 +983,7 @@ function MobileDesignApp() {
   };
 
   const openMore = (route) => {
-    closeOverlay(() => {
-      setSecondaryBackTarget("more");
-      setSecondary(route === "settings" ? "permissions" : route);
-    });
+    pushSecondary(route === "settings" ? "permissions" : route);
   };
 
   const openCritical = (task) => {
@@ -1004,7 +1023,7 @@ function MobileDesignApp() {
     setCriticalTasks((current) => current.filter((item) => item.id !== taskId));
     setHistory((current) => current.some((item) => item.completionKey === completionKey)
       ? current
-      : [{ id: `done-${taskId}-${localDateKey()}`, completionKey, sourceTaskId: taskId, title: task.title, completed: "今天", leadDays: task.daysLeft || 0 }, ...current]);
+      : [{ id: `done-${taskId}-${localDateKey()}`, completionKey, sourceTaskId: taskId, title: task.title, completed: "今天", completedDateKey: localDateKey(), leadDays: task.daysLeft || 0 }, ...current]);
     closeOverlay();
     showToast("已完成，并移入历史记录");
   };
@@ -1172,8 +1191,11 @@ function MobileDesignApp() {
           note: task.note || "",
           repeat: task.repeat,
           repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
-          scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : selectedDateKey,
+          scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length
+            ? null
+            : (task.scheduledDateKey && task.scheduledDateKey >= todayDateKey ? task.scheduledDateKey : todayDateKey),
           reminder: task.reminder || "到点提醒",
+          activeFrom: todayDateKey,
           done: false,
         };
         setDailyTasks((current) => [...current, created].sort((a, b) => a.time.localeCompare(b.time)));
@@ -1213,8 +1235,11 @@ function MobileDesignApp() {
     } else if (intent === "query") {
       showToast("已汇总当前安排");
     } else if (intent === "delete") {
-      if (target.kind === "daily") setDailyTasks((current) => current.filter((task) => task.id !== target.task.id));
-      else setCriticalTasks((current) => current.filter((task) => task.id !== target.task.id));
+      if (target.kind === "daily") {
+        closeOverlay(() => requestDelete(target.task, "daily"));
+        return;
+      }
+      setCriticalTasks((current) => current.filter((task) => task.id !== target.task.id));
       showToast(`已删除：${target.task.title}`);
     } else if (intent === "complete") {
       if (target.kind === "daily") {
@@ -1227,7 +1252,7 @@ function MobileDesignApp() {
         setCriticalTasks((current) => current.filter((task) => task.id !== target.task.id));
         setHistory((current) => current.some((item) => item.completionKey === completionKey)
           ? current
-          : [{ id: `done-${target.task.id}-${localDateKey()}`, completionKey, sourceTaskId: target.task.id, title: target.task.title, completed: "今天", leadDays: target.task.daysLeft || 0 }, ...current]);
+          : [{ id: `done-${target.task.id}-${localDateKey()}`, completionKey, sourceTaskId: target.task.id, title: target.task.title, completed: "今天", completedDateKey: localDateKey(), leadDays: target.task.daysLeft || 0 }, ...current]);
         setActiveTab("critical");
         setSecondary(null);
         showToast("已完成，并移入历史记录");
@@ -1283,6 +1308,9 @@ function MobileDesignApp() {
           title: changes.title || target.task.title,
           note: changes.note || target.task.note,
           repeat: changes.repeat || "仅一次",
+          repeatDays: repeatDaysFromValue(changes.repeat || "仅一次", changes.repeatDays),
+          activeFrom: todayDateKey,
+          scheduledDateKey: repeatDaysFromValue(changes.repeat || "仅一次", changes.repeatDays).length ? null : todayDateKey,
           reminder: changes.reminder || "到点提醒",
           done: false,
         }].sort((a, b) => a.time.localeCompare(b.time)));
@@ -1353,7 +1381,7 @@ function MobileDesignApp() {
       return;
     }
     overlayClosingRef.current = true;
-    const detail = { completed: false, complete: finish };
+    const detail = { depth: 0, completed: false, complete: finish };
     window.dispatchEvent(new CustomEvent("jinke-sheet-dismiss", { detail }));
     overlayCloseTimerRef.current = window.setTimeout(() => {
       if (detail.completed) return;
@@ -1363,29 +1391,33 @@ function MobileDesignApp() {
   };
 
   const closeSecondary = () => {
-    if (secondaryBackTarget === "critical-reminders") {
-      setSecondary("critical-reminders");
-      setSecondaryBackTarget(null);
-      return;
-    }
-    if (secondaryBackTarget === "more") {
-      setSecondary(null);
-      setSecondaryBackTarget(null);
-      setOverlay("more");
-      return;
-    }
-    setSecondary(null);
-    setSecondaryBackTarget(null);
+    if (!secondaryStack.length || secondaryClosingRef.current) return;
+    const depth = secondaryStack.length;
+    const finish = () => {
+      if (!secondaryClosingRef.current) return;
+      secondaryClosingRef.current = false;
+      if (secondaryCloseTimerRef.current) window.clearTimeout(secondaryCloseTimerRef.current);
+      secondaryCloseTimerRef.current = null;
+      setSecondaryStack((current) => current.slice(0, -1));
+    };
+    secondaryClosingRef.current = true;
+    const detail = { depth, completed: false, complete: finish };
+    window.dispatchEvent(new CustomEvent("jinke-sheet-dismiss", { detail }));
+    secondaryCloseTimerRef.current = window.setTimeout(() => {
+      if (detail.completed) return;
+      detail.completed = true;
+      finish();
+    }, 290);
   };
 
   useEffect(() => {
     const handleNativeBack = () => {
-      if (overlay) {
-        closeOverlay();
-        return true;
-      }
       if (secondary) {
         closeSecondary();
+        return true;
+      }
+      if (overlay) {
+        closeOverlay();
         return true;
       }
       if (viewMode === "month") {
@@ -1402,31 +1434,40 @@ function MobileDesignApp() {
     return () => {
       if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
     };
-  }, [overlay, secondary, secondaryBackTarget, viewMode, activeTab]);
+  }, [overlay, secondary, secondaryStack.length, viewMode, activeTab]);
 
   const renderScreen = () => {
-    if (secondary === "history") return <HistoryScreen items={history} onBack={closeSecondary} />;
-    if (secondary === "month") return <ReportScreen type="month" onBack={closeSecondary} />;
-    if (secondary === "year") return <ReportScreen type="year" onBack={closeSecondary} />;
-    if (secondary === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={closeSecondary} />;
-    if (secondary === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => { setSecondaryBackTarget("critical-reminders"); setSecondary("permissions"); }} onBack={closeSecondary} />;
-    if (secondary === "version") return <VersionScreen onBack={closeSecondary} />;
-    if (secondary === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={closeSecondary} />;
-    if (activeTab === "critical") return <CriticalScreen tasks={currentCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryBackTarget(null); setOverlay("more"); }} onOpenReminders={() => { setSecondaryBackTarget(null); setSecondary("critical-reminders"); }} />;
-    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryBackTarget(null); setOverlay("more"); }} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
+    if (activeTab === "critical") return <CriticalScreen tasks={currentCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} onOpenReminders={() => setSecondary("critical-reminders")} />;
+    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
+  };
+
+  const renderSecondaryScreen = (route) => {
+    if (route === "history") return <HistoryScreen items={history} onBack={closeSecondary} />;
+    if (route === "month") return <ReportScreen type="month" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
+    if (route === "year") return <ReportScreen type="year" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
+    if (route === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={closeSecondary} />;
+    if (route === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
+    if (route === "version") return <VersionScreen onBack={closeSecondary} />;
+    if (route === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={closeSecondary} />;
+    return null;
   };
 
   const renderDevice = (variant) => (
     <PhoneFrame variant={variant}>
       {renderScreen()}
-      {!secondary ? <BottomNav activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setViewMode("day"); }} onVoice={startVoice} /> : null}
+      <BottomNav activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setViewMode("day"); setSecondaryStack([]); }} onVoice={startVoice} />
       {overlay === "view" ? <ViewMenu onClose={closeOverlay} onSelect={(mode) => { setViewMode(mode); closeOverlay(); }} /> : null}
       {overlay === "more" ? <MoreSheet onClose={closeOverlay} onOpen={openMore} themeMode={themeMode} onThemeChange={setThemeMode} /> : null}
+      {secondaryStack.map((route, index) => (
+        <Sheet depth={index + 1} onClose={closeSecondary} label={`${route} 面板`} key={`${index}-${route}`}>
+          {renderSecondaryScreen(route)}
+        </Sheet>
+      ))}
       {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} /> : null}
       {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} /> : null}
       {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onComplete={completeCritical} onRenew={renewCritical} onSave={saveCritical} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}
-      {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
+      {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} selectedDateKey={selectedDateKey} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
       {toast ? <div className="sr-only" role="status" aria-live="polite">{toast}</div> : null}
     </PhoneFrame>
   );

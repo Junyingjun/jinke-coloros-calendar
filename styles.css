@@ -249,17 +249,19 @@ button:disabled { cursor: default; }
 .voice-button { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); box-shadow: 0 13px 28px color-mix(in srgb, var(--accent) 24%, transparent); transform: translateY(-13px); transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out); }
 .voice-button:active { transform: translateY(-13px) scale(0.93); box-shadow: 0 7px 18px color-mix(in srgb, var(--accent) 18%, transparent); }
 
-.scrim { position: absolute; inset: 0; z-index: 70; opacity: var(--scrim-drag-opacity, 1); background: var(--scrim); animation: fade-in 190ms var(--ease-out); transition: opacity 190ms var(--ease-out); }
+.scrim { position: absolute; inset: 0; z-index: var(--sheet-scrim-z, 70); opacity: var(--scrim-drag-opacity, 1); background: var(--scrim); animation: fade-in 190ms var(--ease-out); transition: opacity 190ms var(--ease-out); }
 .scrim:active { opacity: .86; }
-.sheet { position: absolute; z-index: 80; left: 8px; right: 8px; bottom: 8px; max-height: calc(100% - 48px); overflow-y: auto; border-radius: 36px; padding: 0 20px 34px; transform: translateY(var(--sheet-drag-y, 0)); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sheet); animation: sheet-arrive 260ms var(--ease-standard); transition: transform 220ms var(--ease-standard); scrollbar-width: none; }
+.sheet { position: absolute; z-index: var(--sheet-z, 80); left: calc(8px + var(--sheet-stack-offset, 0px)); right: calc(8px + var(--sheet-stack-offset, 0px)); bottom: 8px; max-height: calc(100% - 48px - var(--sheet-stack-offset, 0px)); overflow-y: auto; border-radius: 36px; padding: 0 20px 34px; transform: translateY(var(--sheet-drag-y, 0)); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sheet); animation: sheet-arrive 260ms var(--ease-standard); transition: transform 240ms var(--ease-out); scrollbar-width: none; }
 .sheet::-webkit-scrollbar { display: none; }
 .sheet.is-dragging { transition: none; }
+.sheet.is-pulling .sheet-handle { width: 48px; background: var(--ink-3); }
 .sheet.is-dismissing { pointer-events: none; animation: sheet-dismiss 230ms var(--ease-standard) forwards; }
 .scrim.is-dismissing { pointer-events: none; animation: fade-out 230ms var(--ease-standard) forwards; }
 .sheet-drag-handle { width: calc(100% + 40px); min-height: 44px; margin: 0 -20px 1px; position: sticky; top: 0; z-index: 4; display: grid; place-items: center; border-radius: 36px 36px 0 0; touch-action: none; cursor: grab; background: linear-gradient(to bottom, var(--surface) 72%, transparent); }
 .sheet-drag-handle:active { cursor: grabbing; }
 .sheet-handle { width: 38px; height: 5px; display: block; border-radius: 99px; background: var(--line); transition: width 180ms var(--ease-out), background 180ms var(--ease-out); }
 .sheet-drag-handle:active .sheet-handle { width: 48px; background: var(--ink-3); }
+.sheet > .screen.secondary { width: 100%; height: auto; min-height: min(720px, calc(var(--device-height) - 112px)); overflow: visible; padding: 0 0 8px; -webkit-mask-image: none; mask-image: none; }
 .sheet-title { margin: 0; font-size: 24px; line-height: 1.15; font-weight: 720; letter-spacing: -0.025em; }
 .sheet-subtitle { margin: 7px 0 0; color: var(--ink-3); font-size: 13px; line-height: 1.45; }
 
@@ -310,6 +312,13 @@ button:disabled { cursor: default; }
 .voice-command-error { margin: 12px 2px 0; color: var(--accent); font-size: 12px; line-height: 1.45; }
 .secondary-button { background: var(--surface-muted); color: var(--ink); }
 .delete-confirm-title { min-height: 76px; padding: 12px 2px; display: flex; align-items: center; color: var(--ink); font-size: 20px; line-height: 1.35; font-weight: 720; }
+.delete-choice-list { display: grid; gap: 9px; }
+.delete-choice { min-height: 76px; padding: 15px 16px; display: grid; align-content: center; gap: 5px; border-radius: var(--radius-md); background: var(--surface-muted); text-align: left; transition: transform 170ms var(--ease-out), background 170ms var(--ease-out); }
+.delete-choice:active { background: var(--surface-pressed); }
+.delete-choice span { font-size: 15px; font-weight: 720; }
+.delete-choice small { color: var(--ink-3); font-size: 11px; line-height: 1.45; }
+.delete-choice.destructive { color: var(--accent); background: var(--accent-soft); }
+.delete-choice.destructive small { color: color-mix(in srgb, var(--accent) 72%, var(--ink-2)); }
 
 .edit-form { margin-top: 20px; padding: 8px; display: grid; gap: 8px; border-radius: 22px; background: var(--surface-muted); }
 .edit-form-first { margin-top: 0; }
