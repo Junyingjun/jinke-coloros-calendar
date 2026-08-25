@@ -2,6 +2,9 @@ const { useEffect, useRef, useState } = React;
 const {
   APP_DATA,
   getCriticalReminder,
+  repeatDaysFromValue,
+  repeatLabelFromDays,
+  taskOccursOnDate,
   PhoneFrame,
   BottomNav,
   TodayScreen,
@@ -134,24 +137,26 @@ function parseRepeat(text) {
   if (range) {
     const start = range[1] === "天" ? "日" : range[1];
     const end = range[2] === "天" ? "日" : range[2];
-    if (start === "一" && end === "五") return { value: "工作日", source: range[0] };
+    if (start === "一" && end === "五") return { value: "工作日", days: [1, 2, 3, 4, 5], source: range[0] };
     const order = ["一", "二", "三", "四", "五", "六", "日"];
     const startIndex = order.indexOf(start);
     const endIndex = order.indexOf(end);
     const days = startIndex >= 0 && endIndex >= startIndex ? order.slice(startIndex, endIndex + 1) : [start, end];
-    return { value: `周${days.join("、")}`, source: range[0] };
+    const numericDays = days.map((day) => ["一", "二", "三", "四", "五", "六", "日"].indexOf(day) + 1).filter(Boolean);
+    return { value: repeatLabelFromDays(numericDays), days: numericDays, source: range[0] };
   }
-  if (/每(天|日)/.test(text)) return { value: "每天", source: text.match(/每(天|日)/)[0] };
-  if (/每个?工作日/.test(text)) return { value: "工作日", source: text.match(/每个?工作日/)[0] };
-  if (/每(个)?周末/.test(text)) return { value: "周六、日", source: text.match(/每(个)?周末/)[0] };
+  if (/每(天|日)/.test(text)) return { value: "每天", days: [1, 2, 3, 4, 5, 6, 7], source: text.match(/每(天|日)/)[0] };
+  if (/每个?工作日/.test(text)) return { value: "工作日", days: [1, 2, 3, 4, 5], source: text.match(/每个?工作日/)[0] };
+  if (/每(个)?周末/.test(text)) return { value: "周末", days: [6, 7], source: text.match(/每(个)?周末/)[0] };
   const match = text.match(/每(?:周|星期)([一二三四五六日天、，和及到至\-]+)/);
-  if (!match) return { value: "仅一次", source: "" };
+  if (!match) return { value: "仅一次", days: [], source: "" };
   const days = [];
   for (const char of match[1]) {
     const day = char === "天" ? "日" : char;
     if (/[一二三四五六日]/.test(day) && !days.includes(day)) days.push(day);
   }
-  return { value: days.length ? `周${days.join("、")}` : "每周", source: match[0] };
+  const numericDays = days.map((day) => ["一", "二", "三", "四", "五", "六", "日"].indexOf(day) + 1).filter(Boolean);
+  return { value: numericDays.length ? repeatLabelFromDays(numericDays) : "仅一次", days: numericDays, source: match[0] };
 }
 
 function parseDeadline(text) {
@@ -210,6 +215,14 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
   return { title: title || "未命名事项", action, object, keywords: [action, object].filter(Boolean) };
 }
 
+function formatDailyReminder(totalMinutes) {
+  const safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  if (safe === 0) return "到点提醒";
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  return `提前${hours ? `${hours}小时` : ""}${minutes ? `${minutes}分钟` : ""}`;
+}
+
 function parseVoiceTask(rawText) {
   const text = normalizeSpeechText(rawText);
   const repeat = parseRepeat(text);
@@ -217,7 +230,8 @@ function parseVoiceTask(rawText) {
   const time = parseTime(withoutRepeat);
   const deadline = parseDeadline(text);
   const reminderMatch = text.match(/提前\s*([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)(?:提醒)?/);
-  const reminder = reminderMatch ? `提前 ${parseNumber(reminderMatch[1])} ${reminderMatch[2]}` : "到点提醒";
+  const reminderAmount = reminderMatch ? parseNumber(reminderMatch[1]) : 0;
+  const reminder = reminderMatch ? formatDailyReminder(reminderAmount * (reminderMatch[2] === "小时" ? 60 : 1)) : "到点提醒";
   const withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   const durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   const duration = durationMatch ? `${parseNumber(durationMatch[1])} ${durationMatch[2]}` : "";
@@ -230,6 +244,7 @@ function parseVoiceTask(rawText) {
     title: semantics.title,
     time: time.value,
     repeat: repeat.source ? repeat.value : (!isCritical && deadline.deadline ? deadline.deadline : repeat.value),
+    repeatDays: repeat.days,
     reminder: isCritical ? getCriticalReminder(time.source ? time.value : null) : reminder,
     deadline: deadline.deadline,
     daysLeft: deadline.daysLeft,
@@ -432,7 +447,10 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
       changes.time = parsed.time;
       if (target.kind === "critical") changes.reminder = getCriticalReminder(parsed.time);
     }
-    if (parsed.hasRepeat) changes.repeat = parsed.repeat;
+    if (parsed.hasRepeat) {
+      changes.repeat = parsed.repeat;
+      changes.repeatDays = parsed.repeatDays;
+    }
     if (parsed.hasReminder && target.kind === "daily") changes.reminder = parsed.reminder;
     if (parsed.hasDeadline) {
       changes.deadline = parsed.deadline;
@@ -441,7 +459,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     if (/(?:改成|改为|设为|调整为).*(关键|特殊)/.test(text)) changes.type = "critical";
     if (/(?:改成|改为|设为|调整为).*(日常|每日)/.test(text)) changes.type = "daily";
     if (!noteMatch && parsed.title !== "未命名事项") changes.title = parsed.title;
-    const rows = Object.entries(changes).map(([key, value]) => [{ title: "名称", type: "类型", time: "时间", repeat: "重复", reminder: "提醒", deadline: "截止", daysLeft: "剩余天数", note: "备注" }[key] || key, key === "type" ? (value === "critical" ? "关键事项" : "日常事项") : value]);
+    const rows = Object.entries(changes).filter(([key]) => key !== "repeatDays").map(([key, value]) => [{ title: "名称", type: "类型", time: "时间", repeat: "重复", reminder: "提醒", deadline: "截止", daysLeft: "剩余天数", note: "备注" }[key] || key, key === "type" ? (value === "critical" ? "关键事项" : "日常事项") : value]);
     return rows.length
       ? commandResult("edit", `修改「${target.task.title}」`, rows, { target, changes, confirmLabel: "确认修改" })
       : commandResult("edit", "没有识别到修改内容", [["示例", "把健身改成慢跑 30 分钟"]], { valid: false, error: "请说明要改成什么" });
@@ -561,10 +579,12 @@ function MobileDesignApp() {
   const toastTimerRef = useRef(null);
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
   const parsedVoiceCommand = parseVoiceCommand(transcript || VOICE_EXAMPLE, dailyTasks, criticalTasks);
-  const displayedDailyTasks = dailyTasks.map((task) => ({
-    ...task,
-    done: Boolean(dailyCompletionByDate[`${task.id}:${selectedDateKey}`]),
-  }));
+  const displayedDailyTasks = dailyTasks
+    .filter((task) => taskOccursOnDate(task, selectedDateKey, APP_DATA.today.dateKey))
+    .map((task) => ({
+      ...task,
+      done: Boolean(dailyCompletionByDate[`${task.id}:${selectedDateKey}`]),
+    }));
   const selectedDateOffset = dateKeyOffset(APP_DATA.today.dateKey, selectedDateKey);
   const displayedDeadlineTasks = criticalTasks
     .filter((task) => task.deadline)
@@ -689,13 +709,23 @@ function MobileDesignApp() {
     if (nowDone) showToast("已完成，记入本月统计");
   };
 
+  const toggleCriticalCheck = (taskId) => {
+    let nowDone = false;
+    setCriticalTasks((current) => current.map((task) => {
+      if (task.id !== taskId) return task;
+      nowDone = !Boolean(task.done);
+      return { ...task, done: nowDone };
+    }));
+    showToast(nowDone ? "关键事项已勾选" : "已取消勾选");
+  };
+
   const selectDate = (dateKey) => {
     setSelectedDateKey(dateKey);
   };
 
   const openDaily = (task) => {
     setSelectedDaily(task);
-    setDailyDraft({ ...task, reminder: task.reminder || "到点提醒" });
+    setDailyDraft({ ...task, repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays), reminder: task.reminder || "到点提醒" });
     setOverlay("daily-edit");
   };
 
@@ -886,6 +916,8 @@ function MobileDesignApp() {
           title: task.title,
           note: task.note || "语音创建",
           repeat: task.repeat,
+          repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
+          scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : selectedDateKey,
           reminder: task.reminder || "到点提醒",
           done: false,
         };
@@ -1077,8 +1109,8 @@ function MobileDesignApp() {
     if (secondary === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => setSecondary("permissions")} onBack={() => setSecondary(null)} />;
     if (secondary === "version") return <VersionScreen onBack={() => setSecondary(null)} />;
     if (secondary === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={() => setSecondary(null)} />;
-    if (activeTab === "critical") return <CriticalScreen tasks={criticalTasks} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
-    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={APP_DATA.today.dateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
+    if (activeTab === "critical") return <CriticalScreen tasks={criticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
+    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={APP_DATA.today.dateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
   };
 
   const renderDevice = (variant) => (

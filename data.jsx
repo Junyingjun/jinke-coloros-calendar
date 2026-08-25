@@ -87,6 +87,39 @@ window.getCriticalReminder = function getCriticalReminder(
 };
 
 const CALENDAR_WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+const REPEAT_WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
+
+window.repeatDaysFromValue = function repeatDaysFromValue(value, explicitDays) {
+  if (Array.isArray(explicitDays)) return [...new Set(explicitDays.map(Number).filter((day) => day >= 1 && day <= 7))].sort((a, b) => a - b);
+  const text = String(value || "");
+  if (text === "每天") return [1, 2, 3, 4, 5, 6, 7];
+  if (text === "工作日") return [1, 2, 3, 4, 5];
+  if (text === "周末" || text === "周六、日") return [6, 7];
+  if (text === "仅一次") return [];
+  const days = [];
+  REPEAT_WEEKDAYS.forEach((label, index) => {
+    if (text.includes(label) && !days.includes(index + 1)) days.push(index + 1);
+  });
+  return days;
+};
+
+window.repeatLabelFromDays = function repeatLabelFromDays(days) {
+  const normalized = window.repeatDaysFromValue("", days);
+  const key = normalized.join(",");
+  if (!key) return "仅一次";
+  if (key === "1,2,3,4,5,6,7") return "每天";
+  if (key === "1,2,3,4,5") return "工作日";
+  if (key === "6,7") return "周末";
+  return `周${normalized.map((day) => REPEAT_WEEKDAYS[day - 1]).join("、")}`;
+};
+
+window.taskOccursOnDate = function taskOccursOnDate(task, dateKey, fallbackDateKey = window.APP_DATA?.today?.dateKey) {
+  const days = window.repeatDaysFromValue(task?.repeat, task?.repeatDays);
+  if (!days.length) return (task?.scheduledDateKey || task?.dateKey || fallbackDateKey) === dateKey;
+  const date = parseCalendarDateKey(dateKey);
+  const weekday = date.getDay() === 0 ? 7 : date.getDay();
+  return days.includes(weekday);
+};
 
 function parseCalendarDateKey(dateKey) {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -163,7 +196,7 @@ window.APP_DATA = {
     { day: "日", date: 30, dateKey: "2026-08-30", load: 1 },
   ],
   dailyTasks: [
-    { id: "demo-daily", demo: true, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", reminder: "到点提醒", done: false },
+    { id: "demo-daily", demo: true, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },
   ],
   criticalTasks: [
     { id: "demo-ddl", demo: true, title: "演示：完成第一个 DDL", note: "向左滑动可编辑或删除", deadline: "7天后", daysLeft: 7, time: null, reminder: "每5天/最后5天 10:00", progress: 0 },

@@ -23,6 +23,7 @@ assert.ok(start >= 0 && end > start, "voice router source markers must exist");
 
 context.APP_DATA = context.window.APP_DATA;
 context.getCriticalReminder = context.window.getCriticalReminder;
+context.repeatLabelFromDays = context.window.repeatLabelFromDays;
 vm.runInContext(`${appSource.slice(start, end)}\nthis.parseVoiceCommand = parseVoiceCommand;`, context);
 
 const routerDailyTasks = [
@@ -95,6 +96,14 @@ assert.equal(route("周 一 到 周 五 点 外 卖").task.repeat, "工作日");
 assert.equal(route("周一到周五每天十一点点外卖").task.title, "点外卖");
 assert.equal(route("周一到周五每天十一点点外卖").task.time, "11:00");
 assert.equal(route("周一到周五每天十一点点外卖").task.repeat, "工作日");
+assert.deepEqual(Array.from(route("周一到周五每天十一点点外卖").task.repeatDays), [1, 2, 3, 4, 5]);
+assert.equal(route("每天九点提前30小时提醒我写日志").task.reminder, "提前23小时59分钟", "daily voice reminders must stay inside 24 hours");
+
+assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-28", "2026-08-24"), true, "workday tasks must show on Friday");
+assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-29", "2026-08-24"), false, "workday tasks must not leak into Saturday");
+assert.equal(context.window.taskOccursOnDate({ repeat: "周末" }, "2026-08-29", "2026-08-24"), true, "weekend tasks must show on Saturday");
+assert.equal(context.window.taskOccursOnDate({ repeatDays: [2, 4] }, "2026-08-27", "2026-08-24"), true, "explicit weekday selections must drive visibility");
+assert.equal(context.window.taskOccursOnDate({ repeatDays: [2, 4] }, "2026-08-28", "2026-08-24"), false, "unselected weekdays must stay hidden");
 
 for (const day of context.APP_DATA.week) {
   const marker = context.window.getCalendarMarker(day.dateKey);
@@ -195,9 +204,9 @@ assert.doesNotMatch(screensSource, />临时检视</, "view menu must not show an
 assert.doesNotMatch(screensSource, />更多<\/h2>/, "more sheet must not show a brand title");
 assert.match(screensSource, /onOpenReminders[\s\S]*<button[^>]*aria-label="打开DDL提醒设置"/, "critical bell must open DDL reminder settings");
 assert.match(appSource, /const \[ddlReminderTime, setDdlReminderTime\]/, "DDL reminder time must use shared application state");
-assert.match(screensSource, /function CriticalReminderScreen[\s\S]*aria-label="DDL 默认提醒时间"/, "DDL reminder time must be editable");
-assert.match(screensSource, /aria-label="DDL提醒倍数天数"/, "DDL reminder multiple must be editable");
-assert.match(screensSource, /aria-label="DDL最后连续提醒天数"/, "DDL final daily reminder window must be editable");
+assert.match(screensSource, /function CriticalReminderScreen[\s\S]*<TimePicker label="DDL 默认提醒时间"/, "DDL reminder time must be editable");
+assert.match(screensSource, /<Stepper label="DDL提醒倍数天数"/, "DDL reminder multiple must be editable");
+assert.match(screensSource, /<Stepper label="DDL最后连续提醒天数"/, "DDL final daily reminder window must be editable");
 assert.doesNotMatch(screensSource, /锁屏、精确闹钟与后台运行/, "notification permission helper copy must be removed");
 assert.match(appSource, /displayedDeadlineTasks = criticalTasks\s*\.filter\(\(task\) => task\.deadline\)/, "today must keep every unfinished DDL task regardless of reminder cadence");
 assert.match(screensSource, /const withDDL = tasks\.filter\(\(task\) => task\.deadline\)/, "critical list must keep every DDL task regardless of reminder cadence");
@@ -213,14 +222,18 @@ assert.match(screensSource, /JinkeAndroid\?\.installApk/, "Android build must ha
 assert.match(indexSource, /\.\/app-bundle\.js/, "file and WebView startup must use the precompiled application bundle");
 assert.doesNotMatch(indexSource, /fetch\(file\)|Babel\.transform|window\.eval/, "file startup must not fetch or compile JSX at runtime");
 assert.match(appSource, /const \[renewDays, setRenewDays\] = useState\(7\)/, "renewal must default to seven days");
-assert.match(screensSource, /aria-label="续期天数"/, "renewal days must be editable");
-assert.match(screensSource, /const REPEAT_OPTIONS[\s\S]*周一至周五/, "repeat editing must provide a workday preset");
-assert.match(screensSource, /<select className="edit-input" value=\{editableTask\.repeat\}/, "voice repeat review must use a choice control");
-assert.match(screensSource, /<select className="edit-input" value=\{draft\.repeat\}/, "daily repeat editing must use a choice control");
+assert.match(screensSource, /<Stepper label="续期天数"/, "renewal days must be editable");
+assert.match(screensSource, /function WeekdayPicker[\s\S]*WEEKDAY_BUTTONS\.map/, "repeat editing must use a seven-day multi-select control");
+assert.match(screensSource, /repeatLabelFromDays\(next\)/, "weekday selections must automatically derive their schedule label");
+assert.match(screensSource, /function ReminderPicker[\s\S]*Math\.min\(1439/, "daily reminder editing must enforce a sub-24-hour limit");
 assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.repeat\}/, "repeat must never summon a text keyboard");
 assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.reminder/, "reminder must never summon a text keyboard");
-assert.doesNotMatch(screensSource, /type="number"/, "finite numeric settings must use preset choice controls");
-assert.match(screensSource, /type="date"/, "deadline editing must use the system date picker");
+assert.doesNotMatch(screensSource, /<select|type="(?:number|date|time)"/, "all finite choices must use the app's own controls instead of native Android pickers");
+assert.match(screensSource, /function DatePicker[\s\S]*截止年份[\s\S]*截止月份[\s\S]*截止日期/, "deadline editing must use a custom date control");
+assert.match(primitivesSource, /function DailyTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a daily task must only toggle completion");
+assert.match(primitivesSource, /function CriticalTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a critical task must only toggle completion");
+assert.doesNotMatch(primitivesSource, /task-time-edit|task-edit-button/, "task bodies must not retain hidden click-to-edit affordances");
+assert.match(appSource, /displayedDailyTasks = dailyTasks\s*\.filter\(\(task\) => taskOccursOnDate\(task, selectedDateKey, APP_DATA\.today\.dateKey\)\)/, "daily list must be filtered by the selected date and weekday schedule");
 
 const ambiguous = route("调整所有安排");
 assert.notEqual(ambiguous.intent, "create", "unclear action must never create a task");

@@ -9,10 +9,14 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
-function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 window.APP_NAME = "今刻";
 window.APP_SLUG = "jinke";
 var CALENDAR_SPECIAL_DAYS = {
@@ -114,6 +118,44 @@ window.getCriticalReminder = function getCriticalReminder(time) {
   return "".concat(cadence, " \xB7 \u5F53\u5929 ").concat(time);
 };
 var CALENDAR_WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+var REPEAT_WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
+window.repeatDaysFromValue = function repeatDaysFromValue(value, explicitDays) {
+  if (Array.isArray(explicitDays)) return _toConsumableArray(new Set(explicitDays.map(Number).filter(function (day) {
+    return day >= 1 && day <= 7;
+  }))).sort(function (a, b) {
+    return a - b;
+  });
+  var text = String(value || "");
+  if (text === "每天") return [1, 2, 3, 4, 5, 6, 7];
+  if (text === "工作日") return [1, 2, 3, 4, 5];
+  if (text === "周末" || text === "周六、日") return [6, 7];
+  if (text === "仅一次") return [];
+  var days = [];
+  REPEAT_WEEKDAYS.forEach(function (label, index) {
+    if (text.includes(label) && !days.includes(index + 1)) days.push(index + 1);
+  });
+  return days;
+};
+window.repeatLabelFromDays = function repeatLabelFromDays(days) {
+  var normalized = window.repeatDaysFromValue("", days);
+  var key = normalized.join(",");
+  if (!key) return "仅一次";
+  if (key === "1,2,3,4,5,6,7") return "每天";
+  if (key === "1,2,3,4,5") return "工作日";
+  if (key === "6,7") return "周末";
+  return "\u5468".concat(normalized.map(function (day) {
+    return REPEAT_WEEKDAYS[day - 1];
+  }).join("、"));
+};
+window.taskOccursOnDate = function taskOccursOnDate(task, dateKey) {
+  var _window$APP_DATA;
+  var fallbackDateKey = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : (_window$APP_DATA = window.APP_DATA) === null || _window$APP_DATA === void 0 || (_window$APP_DATA = _window$APP_DATA.today) === null || _window$APP_DATA === void 0 ? void 0 : _window$APP_DATA.dateKey;
+  var days = window.repeatDaysFromValue(task === null || task === void 0 ? void 0 : task.repeat, task === null || task === void 0 ? void 0 : task.repeatDays);
+  if (!days.length) return ((task === null || task === void 0 ? void 0 : task.scheduledDateKey) || (task === null || task === void 0 ? void 0 : task.dateKey) || fallbackDateKey) === dateKey;
+  var date = parseCalendarDateKey(dateKey);
+  var weekday = date.getDay() === 0 ? 7 : date.getDay();
+  return days.includes(weekday);
+};
 function parseCalendarDateKey(dateKey) {
   var _dateKey$split$map = dateKey.split("-").map(Number),
     _dateKey$split$map2 = _slicedToArray(_dateKey$split$map, 3),
@@ -143,11 +185,11 @@ window.getWeekDates = function getWeekDates(dateKey) {
   return Array.from({
     length: 7
   }, function (_, index) {
-    var _window$APP_DATA, _seeded$load;
+    var _window$APP_DATA2, _seeded$load;
     var date = new Date(monday);
     date.setDate(monday.getDate() + index);
     var key = calendarDateKey(date);
-    var seeded = (_window$APP_DATA = window.APP_DATA) === null || _window$APP_DATA === void 0 || (_window$APP_DATA = _window$APP_DATA.week) === null || _window$APP_DATA === void 0 ? void 0 : _window$APP_DATA.find(function (item) {
+    var seeded = (_window$APP_DATA2 = window.APP_DATA) === null || _window$APP_DATA2 === void 0 || (_window$APP_DATA2 = _window$APP_DATA2.week) === null || _window$APP_DATA2 === void 0 ? void 0 : _window$APP_DATA2.find(function (item) {
       return item.dateKey === key;
     });
     return _objectSpread(_objectSpread({}, window.getDateMeta(key)), {}, {
@@ -166,11 +208,11 @@ window.getMonthDates = function getMonthDates(dateKey) {
   return Array.from({
     length: 42
   }, function (_, index) {
-    var _window$APP_DATA2, _seeded$load2;
+    var _window$APP_DATA3, _seeded$load2;
     var date = new Date(gridStart);
     date.setDate(gridStart.getDate() + index);
     var key = calendarDateKey(date);
-    var seeded = (_window$APP_DATA2 = window.APP_DATA) === null || _window$APP_DATA2 === void 0 || (_window$APP_DATA2 = _window$APP_DATA2.week) === null || _window$APP_DATA2 === void 0 ? void 0 : _window$APP_DATA2.find(function (item) {
+    var seeded = (_window$APP_DATA3 = window.APP_DATA) === null || _window$APP_DATA3 === void 0 || (_window$APP_DATA3 = _window$APP_DATA3.week) === null || _window$APP_DATA3 === void 0 ? void 0 : _window$APP_DATA3.find(function (item) {
       return item.dateKey === key;
     });
     return _objectSpread(_objectSpread({}, window.getDateMeta(key)), {}, {
@@ -238,6 +280,7 @@ window.APP_DATA = {
     title: "演示：每天喝水",
     note: "向左滑动可编辑或删除",
     repeat: "每天",
+    repeatDays: [1, 2, 3, 4, 5, 6, 7],
     reminder: "到点提醒",
     done: false
   }],
@@ -466,7 +509,6 @@ function SwipeTaskActions(_ref5) {
     setOffsetRatio(next);
   };
   var onPointerDown = function onPointerDown(event) {
-    var _event$currentTarget$, _event$currentTarget;
     if (event.button !== undefined && event.button !== 0) return;
     gestureRef.current = {
       pointerId: event.pointerId,
@@ -476,16 +518,17 @@ function SwipeTaskActions(_ref5) {
       horizontal: false,
       moved: false
     };
-    (_event$currentTarget$ = (_event$currentTarget = event.currentTarget).setPointerCapture) === null || _event$currentTarget$ === void 0 || _event$currentTarget$.call(_event$currentTarget, event.pointerId);
   };
   var onPointerMove = function onPointerMove(event) {
     var gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     var dx = event.clientX - gesture.startX;
     var dy = event.clientY - gesture.startY;
-    if (!gesture.horizontal && Math.max(Math.abs(dx), Math.abs(dy)) > 7) {
-      if (Math.abs(dy) > Math.abs(dx)) return;
+    if (!gesture.horizontal && Math.max(Math.abs(dx), Math.abs(dy)) > 14) {
+      var _event$currentTarget$, _event$currentTarget;
+      if (Math.abs(dx) <= Math.abs(dy) * 1.2) return;
       gesture.horizontal = true;
+      (_event$currentTarget$ = (_event$currentTarget = event.currentTarget).setPointerCapture) === null || _event$currentTarget$ === void 0 || _event$currentTarget$.call(_event$currentTarget, event.pointerId);
     }
     if (!gesture.horizontal) return;
     gesture.moved = true;
@@ -493,7 +536,7 @@ function SwipeTaskActions(_ref5) {
     settle(Math.max(-revealRatio, Math.min(0, gesture.startOffset + dx / width)));
   };
   var onPointerEnd = function onPointerEnd(event) {
-    var _event$currentTarget$2, _event$currentTarget2;
+    var _event$currentTarget$2, _event$currentTarget2, _event$currentTarget$3, _event$currentTarget3;
     var gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     if (gesture.moved) {
@@ -504,7 +547,7 @@ function SwipeTaskActions(_ref5) {
       settle(offsetRef.current <= -0.13 ? -revealRatio : 0);
     }
     gestureRef.current = null;
-    (_event$currentTarget$2 = (_event$currentTarget2 = event.currentTarget).releasePointerCapture) === null || _event$currentTarget$2 === void 0 || _event$currentTarget$2.call(_event$currentTarget2, event.pointerId);
+    if ((_event$currentTarget$2 = (_event$currentTarget2 = event.currentTarget).hasPointerCapture) !== null && _event$currentTarget$2 !== void 0 && _event$currentTarget$2.call(_event$currentTarget2, event.pointerId)) (_event$currentTarget$3 = (_event$currentTarget3 = event.currentTarget).releasePointerCapture) === null || _event$currentTarget$3 === void 0 || _event$currentTarget$3.call(_event$currentTarget3, event.pointerId);
   };
   var onClickCapture = function onClickCapture(event) {
     var _event$target$closest, _event$target;
@@ -560,30 +603,24 @@ function DailyTaskRow(_ref6) {
     onDelete: function onDelete() {
       return _onDelete(task);
     }
-  }, React.createElement("div", {
-    className: "daily-row"
   }, React.createElement("button", {
-    className: "task-time task-time-edit",
-    "aria-label": "\u7F16\u8F91 ".concat(task.title, " \u7684\u65F6\u95F4"),
-    onClick: function onClick() {
-      return _onEdit(task);
-    }
-  }, task.time), React.createElement("button", {
-    className: "check-button ".concat(task.done ? "done" : ""),
+    className: "daily-row task-toggle-row",
+    type: "button",
     "aria-label": task.done ? "\u53D6\u6D88\u5B8C\u6210 ".concat(task.title) : "\u5B8C\u6210 ".concat(task.title),
     onClick: function onClick() {
       return onToggle(task.id);
     }
+  }, React.createElement("span", {
+    className: "task-time"
+  }, task.time), React.createElement("span", {
+    className: "check-button ".concat(task.done ? "done" : ""),
+    "aria-hidden": "true"
   }, task.done ? React.createElement(Icon, {
     name: "check",
     size: 15,
     strokeWidth: 2.3
-  }) : null), React.createElement("button", {
-    className: "task-copy task-edit-button",
-    "aria-label": "\u7F16\u8F91 ".concat(task.title),
-    onClick: function onClick() {
-      return _onEdit(task);
-    }
+  }) : null), React.createElement("span", {
+    className: "task-copy"
   }, React.createElement("span", {
     className: "task-edit-body"
   }, React.createElement("span", {
@@ -596,13 +633,11 @@ function DailyTaskRow(_ref6) {
     className: "repeat-pill"
   }, task.repeat), task.reminder && task.reminder !== "到点提醒" ? React.createElement("span", {
     className: "reminder-pill"
-  }, task.reminder) : null)), React.createElement(Icon, {
-    name: "chevronRight",
-    size: 17
-  }))));
+  }, task.reminder) : null)))));
 }
 function CriticalTaskRow(_ref7) {
   var task = _ref7.task,
+    onToggle = _ref7.onToggle,
     onOpen = _ref7.onOpen,
     _onDelete2 = _ref7.onDelete;
   var dueCopy = task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? "\u903E\u671F ".concat(Math.abs(task.daysLeft), " \u5929") : task.daysLeft === 0 ? "今天" : "\u5269 ".concat(task.daysLeft, " \u5929");
@@ -615,17 +650,26 @@ function CriticalTaskRow(_ref7) {
       return _onDelete2(task);
     }
   }, React.createElement("button", {
-    className: "critical-row pressable",
+    className: "critical-row pressable ".concat(task.done ? "done" : ""),
+    "aria-label": task.done ? "\u53D6\u6D88\u5B8C\u6210 ".concat(task.title) : "\u5B8C\u6210 ".concat(task.title),
     onClick: function onClick() {
-      return onOpen(task);
+      return onToggle(task.id);
     }
   }, React.createElement("div", {
     className: "critical-top"
-  }, React.createElement("div", null, React.createElement("div", {
-    className: "critical-title"
+  }, React.createElement("div", {
+    className: "critical-title-wrap"
+  }, React.createElement("span", {
+    className: "critical-check ".concat(task.done ? "done" : "")
+  }, task.done ? React.createElement(Icon, {
+    name: "check",
+    size: 13,
+    strokeWidth: 2.3
+  }) : null), React.createElement("div", null, React.createElement("div", {
+    className: "critical-title ".concat(task.done ? "done" : "")
   }, task.title), React.createElement("div", {
     className: "critical-note"
-  }, task.note)), React.createElement("span", {
+  }, task.note))), React.createElement("span", {
     className: "days-left ".concat(task.daysLeft <= 0 ? "today" : "")
   }, dueCopy)), React.createElement("div", {
     className: "critical-meta"
@@ -747,16 +791,16 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
-function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
-function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 var _window = window,
   APP_DATA = _window.APP_DATA,
   getCalendarMarker = _window.getCalendarMarker,
@@ -766,6 +810,8 @@ var _window = window,
   getWeekDates = _window.getWeekDates,
   getMonthDates = _window.getMonthDates,
   shiftDateKeyByMonth = _window.shiftDateKeyByMonth,
+  repeatDaysFromValue = _window.repeatDaysFromValue,
+  repeatLabelFromDays = _window.repeatLabelFromDays,
   Icon = _window.Icon,
   IconButton = _window.IconButton,
   SectionHeader = _window.SectionHeader,
@@ -774,30 +820,226 @@ var _window = window,
   Sheet = _window.Sheet,
   BackHeader = _window.BackHeader,
   BarRow = _window.BarRow;
-var REPEAT_OPTIONS = [["仅一次", "仅一次"], ["每天", "每天"], ["工作日", "周一至周五"], ["周六、日", "周末"], ["周一", "每周一"], ["周二", "每周二"], ["周三", "每周三"], ["周四", "每周四"], ["周五", "每周五"], ["周六", "每周六"], ["周日", "每周日"], ["周一、三、五", "周一、三、五"], ["周二、四", "周二、四"]];
-var REMINDER_OPTIONS = ["不提醒", "到点提醒", "提前 5 分钟", "提前 10 分钟", "提前 30 分钟", "提前 1 小时", "提前 1 天"];
-var PROGRESS_OPTIONS = [0, 10, 25, 50, 75, 100];
-var RENEW_DAY_OPTIONS = [1, 3, 7, 14, 30, 60, 90, 180, 365];
-var REMINDER_MULTIPLE_OPTIONS = [1, 2, 3, 5, 7, 10, 14, 15, 30];
-var REMINDER_FINAL_DAY_OPTIONS = [0, 1, 2, 3, 5, 7, 10, 14, 30];
-function withCurrentOption(options, current) {
-  return options.some(function (option) {
-    return String(Array.isArray(option) ? option[0] : option) === String(current);
-  }) ? options : [[current, String(current)]].concat(_toConsumableArray(options));
-}
-function ChoiceOptions(_ref) {
-  var options = _ref.options,
-    current = _ref.current;
-  return withCurrentOption(options, current).map(function (option) {
+var WEEKDAY_BUTTONS = ["一", "二", "三", "四", "五", "六", "日"];
+function SegmentedChoice(_ref) {
+  var label = _ref.label,
+    value = _ref.value,
+    options = _ref.options,
+    onChange = _ref.onChange,
+    _ref$compact = _ref.compact,
+    compact = _ref$compact === void 0 ? false : _ref$compact;
+  return React.createElement("div", {
+    className: "jinke-segments ".concat(compact ? "compact" : ""),
+    role: "radiogroup",
+    "aria-label": label
+  }, options.map(function (option) {
     var _ref2 = Array.isArray(option) ? option : [option, option],
       _ref3 = _slicedToArray(_ref2, 2),
-      value = _ref3[0],
-      label = _ref3[1];
-    return React.createElement("option", {
-      value: value,
-      key: value
+      optionValue = _ref3[0],
+      optionLabel = _ref3[1];
+    var selected = String(value) === String(optionValue);
+    return React.createElement("button", {
+      type: "button",
+      role: "radio",
+      "aria-checked": selected,
+      className: selected ? "selected" : "",
+      onClick: function onClick() {
+        return onChange(optionValue);
+      },
+      key: optionValue
+    }, optionLabel);
+  }));
+}
+function WeekdayPicker(_ref4) {
+  var value = _ref4.value,
+    repeatDays = _ref4.repeatDays,
+    onChange = _ref4.onChange;
+  var selectedDays = repeatDaysFromValue(value, repeatDays);
+  var toggleDay = function toggleDay(day) {
+    var next = selectedDays.includes(day) ? selectedDays.filter(function (item) {
+      return item !== day;
+    }) : [].concat(_toConsumableArray(selectedDays), [day]).sort(function (a, b) {
+      return a - b;
+    });
+    onChange(next, repeatLabelFromDays(next));
+  };
+  return React.createElement("div", {
+    className: "weekday-picker",
+    role: "group",
+    "aria-label": "\u91CD\u590D\u661F\u671F"
+  }, React.createElement("div", {
+    className: "weekday-summary"
+  }, React.createElement("span", null, "\u91CD\u590D"), React.createElement("strong", null, repeatLabelFromDays(selectedDays))), React.createElement("div", {
+    className: "weekday-buttons"
+  }, WEEKDAY_BUTTONS.map(function (label, index) {
+    return React.createElement("button", {
+      type: "button",
+      "aria-pressed": selectedDays.includes(index + 1),
+      className: selectedDays.includes(index + 1) ? "selected" : "",
+      onClick: function onClick() {
+        return toggleDay(index + 1);
+      },
+      key: label
     }, label);
-  });
+  })));
+}
+function Stepper(_ref5) {
+  var label = _ref5.label,
+    value = _ref5.value,
+    min = _ref5.min,
+    max = _ref5.max,
+    _ref5$step = _ref5.step,
+    step = _ref5$step === void 0 ? 1 : _ref5$step,
+    onChange = _ref5.onChange,
+    _ref5$format = _ref5.format,
+    format = _ref5$format === void 0 ? function (item) {
+      return item;
+    } : _ref5$format;
+  var safeValue = Math.min(max, Math.max(min, Number(value) || 0));
+  return React.createElement("div", {
+    className: "jinke-stepper",
+    role: "group",
+    "aria-label": label
+  }, React.createElement("button", {
+    type: "button",
+    "aria-label": "".concat(label, "\u51CF\u5C11"),
+    disabled: safeValue <= min,
+    onClick: function onClick() {
+      return onChange(Math.max(min, safeValue - step));
+    }
+  }, "\u2212"), React.createElement("output", {
+    "aria-label": label
+  }, format(safeValue)), React.createElement("button", {
+    type: "button",
+    "aria-label": "".concat(label, "\u589E\u52A0"),
+    disabled: safeValue >= max,
+    onClick: function onClick() {
+      return onChange(Math.min(max, safeValue + step));
+    }
+  }, "\uFF0B"));
+}
+function parseClock(value) {
+  var fallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "09:00";
+  var match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  var source = match || fallback.match(/^(\d{1,2}):(\d{2})$/);
+  return {
+    hour: Number((source === null || source === void 0 ? void 0 : source[1]) || 9),
+    minute: Number((source === null || source === void 0 ? void 0 : source[2]) || 0)
+  };
+}
+function TimePicker(_ref6) {
+  var label = _ref6.label,
+    value = _ref6.value,
+    onChange = _ref6.onChange,
+    _ref6$allowUnset = _ref6.allowUnset,
+    allowUnset = _ref6$allowUnset === void 0 ? true : _ref6$allowUnset;
+  var enabled = Boolean(value && value !== "待定");
+  var clock = parseClock(value);
+  var update = function update(hour, minute) {
+    return onChange("".concat(String(hour).padStart(2, "0"), ":").concat(String(minute).padStart(2, "0")));
+  };
+  return React.createElement("div", {
+    className: "jinke-time-picker",
+    "aria-label": label
+  }, React.createElement("div", {
+    className: "picker-head"
+  }, React.createElement("span", null, label), allowUnset ? React.createElement("button", {
+    type: "button",
+    "aria-pressed": enabled,
+    onClick: function onClick() {
+      return onChange(enabled ? null : "09:00");
+    }
+  }, enabled ? "清除" : "设置") : null), enabled || !allowUnset ? React.createElement("div", {
+    className: "time-stepper-row"
+  }, React.createElement(Stepper, {
+    label: "".concat(label, "\u5C0F\u65F6"),
+    value: clock.hour,
+    min: 0,
+    max: 23,
+    onChange: function onChange(hour) {
+      return update(hour, clock.minute);
+    },
+    format: function format(item) {
+      return String(item).padStart(2, "0");
+    }
+  }), React.createElement("span", {
+    className: "time-colon"
+  }, ":"), React.createElement(Stepper, {
+    label: "".concat(label, "\u5206\u949F"),
+    value: clock.minute,
+    min: 0,
+    max: 59,
+    onChange: function onChange(minute) {
+      return update(clock.hour, minute);
+    },
+    format: function format(item) {
+      return String(item).padStart(2, "0");
+    }
+  })) : React.createElement("span", {
+    className: "picker-empty"
+  }, "\u672A\u8BBE\u7F6E"));
+}
+function reminderToMinutes(value) {
+  var _text$match, _text$match2;
+  var text = String(value || "到点提醒");
+  if (text === "不提醒") return null;
+  if (text === "到点提醒") return 0;
+  var hours = Number(((_text$match = text.match(/(\d+)\s*小时/)) === null || _text$match === void 0 ? void 0 : _text$match[1]) || 0);
+  var minutes = Number(((_text$match2 = text.match(/(\d+)\s*分钟/)) === null || _text$match2 === void 0 ? void 0 : _text$match2[1]) || 0);
+  return Math.min(1439, hours * 60 + minutes);
+}
+function reminderFromMinutes(totalMinutes) {
+  if (totalMinutes === null) return "不提醒";
+  var safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  if (safe === 0) return "到点提醒";
+  var hours = Math.floor(safe / 60);
+  var minutes = safe % 60;
+  return "\u63D0\u524D".concat(hours ? "".concat(hours, "\u5C0F\u65F6") : "").concat(minutes ? "".concat(minutes, "\u5206\u949F") : "");
+}
+function ReminderPicker(_ref7) {
+  var value = _ref7.value,
+    onChange = _ref7.onChange;
+  var total = reminderToMinutes(value);
+  var enabled = total !== null;
+  var safe = total || 0;
+  var hours = Math.floor(safe / 60);
+  var minutes = safe % 60;
+  var update = function update(nextHours, nextMinutes) {
+    return onChange(reminderFromMinutes(Math.min(1439, nextHours * 60 + nextMinutes)));
+  };
+  return React.createElement("div", {
+    className: "jinke-reminder-picker",
+    "aria-label": "\u63D0\u524D\u63D0\u9192"
+  }, React.createElement("div", {
+    className: "picker-head"
+  }, React.createElement("span", null, "\u63D0\u9192"), React.createElement("button", {
+    type: "button",
+    "aria-pressed": enabled,
+    className: enabled ? "enabled" : "",
+    onClick: function onClick() {
+      return onChange(enabled ? "不提醒" : "到点提醒");
+    }
+  }, enabled ? "已开启" : "不提醒")), enabled ? React.createElement(React.Fragment, null, React.createElement("div", {
+    className: "reminder-stepper-row"
+  }, React.createElement("div", null, React.createElement("small", null, "\u5C0F\u65F6"), React.createElement(Stepper, {
+    label: "\u63D0\u524D\u5C0F\u65F6",
+    value: hours,
+    min: 0,
+    max: 23,
+    onChange: function onChange(next) {
+      return update(next, minutes);
+    }
+  })), React.createElement("div", null, React.createElement("small", null, "\u5206\u949F"), React.createElement(Stepper, {
+    label: "\u63D0\u524D\u5206\u949F",
+    value: minutes,
+    min: 0,
+    max: 59,
+    onChange: function onChange(next) {
+      return update(hours, next);
+    }
+  }))), React.createElement("output", {
+    className: "reminder-summary"
+  }, reminderFromMinutes(safe))) : null);
 }
 function deadlineToDateInput(deadline) {
   if (!deadline) return "";
@@ -823,10 +1065,66 @@ function dateInputToDeadline(value) {
     day = _value$split$map2[2];
   return "".concat(month, "\u6708").concat(day, "\u65E5");
 }
-function WeekStrip(_ref4) {
-  var selectedDateKey = _ref4.selectedDateKey,
-    todayDateKey = _ref4.todayDateKey,
-    onSelectDate = _ref4.onSelectDate;
+function DatePicker(_ref8) {
+  var value = _ref8.value,
+    onChange = _ref8.onChange;
+  var today = new Date();
+  var iso = deadlineToDateInput(value) || "".concat(today.getFullYear(), "-").concat(String(today.getMonth() + 1).padStart(2, "0"), "-").concat(String(today.getDate()).padStart(2, "0"));
+  var _iso$split$map = iso.split("-").map(Number),
+    _iso$split$map2 = _slicedToArray(_iso$split$map, 3),
+    year = _iso$split$map2[0],
+    month = _iso$split$map2[1],
+    day = _iso$split$map2[2];
+  var maxDay = new Date(year, month, 0).getDate();
+  var update = function update(nextYear, nextMonth, nextDay) {
+    var safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
+    onChange(dateInputToDeadline("".concat(nextYear, "-").concat(String(nextMonth).padStart(2, "0"), "-").concat(String(safeDay).padStart(2, "0"))));
+  };
+  return React.createElement("div", {
+    className: "jinke-date-picker",
+    "aria-label": "\u622A\u6B62\u65E5\u671F"
+  }, React.createElement("div", {
+    className: "picker-head"
+  }, React.createElement("span", null, "\u622A\u6B62"), React.createElement("button", {
+    type: "button",
+    "aria-pressed": Boolean(value),
+    onClick: function onClick() {
+      return onChange(value ? null : dateInputToDeadline(iso));
+    }
+  }, value ? "清除" : "设置")), value ? React.createElement("div", {
+    className: "date-stepper-row"
+  }, React.createElement("div", null, React.createElement("small", null, "\u5E74"), React.createElement(Stepper, {
+    label: "\u622A\u6B62\u5E74\u4EFD",
+    value: year,
+    min: today.getFullYear(),
+    max: today.getFullYear() + 10,
+    onChange: function onChange(next) {
+      return update(next, month, day);
+    }
+  })), React.createElement("div", null, React.createElement("small", null, "\u6708"), React.createElement(Stepper, {
+    label: "\u622A\u6B62\u6708\u4EFD",
+    value: month,
+    min: 1,
+    max: 12,
+    onChange: function onChange(next) {
+      return update(year, next, day);
+    }
+  })), React.createElement("div", null, React.createElement("small", null, "\u65E5"), React.createElement(Stepper, {
+    label: "\u622A\u6B62\u65E5\u671F",
+    value: day,
+    min: 1,
+    max: maxDay,
+    onChange: function onChange(next) {
+      return update(year, month, next);
+    }
+  }))) : React.createElement("span", {
+    className: "picker-empty"
+  }, "\u65E0 DDL"));
+}
+function WeekStrip(_ref9) {
+  var selectedDateKey = _ref9.selectedDateKey,
+    todayDateKey = _ref9.todayDateKey,
+    onSelectDate = _ref9.onSelectDate;
   return React.createElement("div", {
     className: "week-strip",
     "aria-label": "\u672C\u5468"
@@ -856,10 +1154,10 @@ function WeekStrip(_ref4) {
     })));
   }));
 }
-function MonthPeekPanel(_ref5) {
-  var selectedDateKey = _ref5.selectedDateKey,
-    todayDateKey = _ref5.todayDateKey,
-    onSelectDate = _ref5.onSelectDate;
+function MonthPeekPanel(_ref10) {
+  var selectedDateKey = _ref10.selectedDateKey,
+    todayDateKey = _ref10.todayDateKey,
+    onSelectDate = _ref10.onSelectDate;
   var selected = getDateMeta(selectedDateKey);
   var monthDays = getMonthDates(selectedDateKey);
   return React.createElement("div", {
@@ -919,9 +1217,9 @@ function MonthPeekPanel(_ref5) {
     }
   }, "\u4ECA\u5929"));
 }
-function ViewMenu(_ref6) {
-  var onSelect = _ref6.onSelect,
-    onClose = _ref6.onClose;
+function ViewMenu(_ref11) {
+  var onSelect = _ref11.onSelect,
+    onClose = _ref11.onClose;
   return React.createElement(Sheet, {
     onClose: onClose,
     label: "\u68C0\u89C6\u65B9\u5F0F"
@@ -955,21 +1253,22 @@ function ViewMenu(_ref6) {
     }));
   })));
 }
-function TodayScreen(_ref7) {
-  var tasks = _ref7.tasks,
-    deadlineTasks = _ref7.deadlineTasks,
-    onToggle = _ref7.onToggle,
-    onEdit = _ref7.onEdit,
-    onDeleteDaily = _ref7.onDeleteDaily,
-    onOpenCritical = _ref7.onOpenCritical,
-    onDeleteCritical = _ref7.onDeleteCritical,
-    onMenu = _ref7.onMenu,
-    viewMode = _ref7.viewMode,
-    onOpenView = _ref7.onOpenView,
-    selectedDateKey = _ref7.selectedDateKey,
-    todayDateKey = _ref7.todayDateKey,
-    onSelectDate = _ref7.onSelectDate,
-    onOpenDayArchive = _ref7.onOpenDayArchive;
+function TodayScreen(_ref12) {
+  var tasks = _ref12.tasks,
+    deadlineTasks = _ref12.deadlineTasks,
+    onToggle = _ref12.onToggle,
+    onEdit = _ref12.onEdit,
+    onDeleteDaily = _ref12.onDeleteDaily,
+    onToggleCritical = _ref12.onToggleCritical,
+    onOpenCritical = _ref12.onOpenCritical,
+    onDeleteCritical = _ref12.onDeleteCritical,
+    onMenu = _ref12.onMenu,
+    viewMode = _ref12.viewMode,
+    onOpenView = _ref12.onOpenView,
+    selectedDateKey = _ref12.selectedDateKey,
+    todayDateKey = _ref12.todayDateKey,
+    onSelectDate = _ref12.onSelectDate,
+    onOpenDayArchive = _ref12.onOpenDayArchive;
   var done = tasks.filter(function (task) {
     return task.done;
   }).length;
@@ -1046,6 +1345,7 @@ function TodayScreen(_ref7) {
   }, deadlineTasks.map(function (task) {
     return React.createElement(CriticalTaskRow, {
       task: task,
+      onToggle: onToggleCritical,
       onOpen: onOpenCritical,
       onDelete: onDeleteCritical,
       key: task.id
@@ -1183,13 +1483,13 @@ function loadArchiveCategory(category, month, day) {
   ON_THIS_DAY_REQUESTS.set(key, request);
   return request;
 }
-function CalendarDaySheet(_ref8) {
-  var dateKey = _ref8.dateKey,
-    onClose = _ref8.onClose,
-    active = _ref8.active,
-    index = _ref8.index,
-    onActiveChange = _ref8.onActiveChange,
-    onIndexChange = _ref8.onIndexChange;
+function CalendarDaySheet(_ref13) {
+  var dateKey = _ref13.dateKey,
+    onClose = _ref13.onClose,
+    active = _ref13.active,
+    index = _ref13.index,
+    onActiveChange = _ref13.onActiveChange,
+    onIndexChange = _ref13.onIndexChange;
   var _React$useState = React.useState({
       holidays: [],
       events: [],
@@ -1315,12 +1615,13 @@ function CalendarDaySheet(_ref8) {
     size: 16
   }), "\u6362\u4E00\u6761")));
 }
-function CriticalScreen(_ref9) {
-  var tasks = _ref9.tasks,
-    onOpen = _ref9.onOpen,
-    onDelete = _ref9.onDelete,
-    onMenu = _ref9.onMenu,
-    onOpenReminders = _ref9.onOpenReminders;
+function CriticalScreen(_ref14) {
+  var tasks = _ref14.tasks,
+    onToggle = _ref14.onToggle,
+    onOpen = _ref14.onOpen,
+    onDelete = _ref14.onDelete,
+    onMenu = _ref14.onMenu,
+    onOpenReminders = _ref14.onOpenReminders;
   var withDDL = tasks.filter(function (task) {
     return task.deadline;
   });
@@ -1365,6 +1666,7 @@ function CriticalScreen(_ref9) {
   }, withDDL.map(function (task) {
     return React.createElement(CriticalTaskRow, {
       task: task,
+      onToggle: onToggle,
       onOpen: onOpen,
       onDelete: onDelete,
       key: task.id
@@ -1382,6 +1684,7 @@ function CriticalScreen(_ref9) {
   }, withoutDDL.map(function (task) {
     return React.createElement(CriticalTaskRow, {
       task: task,
+      onToggle: onToggle,
       onOpen: onOpen,
       onDelete: onDelete,
       key: task.id
@@ -1401,24 +1704,31 @@ function Waveform() {
     });
   }));
 }
-function VoiceComposer(_ref10) {
+function VoiceComposer(_ref15) {
   var _editableTask$title;
-  var phase = _ref10.phase,
-    transcript = _ref10.transcript,
-    parsedCommand = _ref10.parsedCommand,
-    draftTask = _ref10.draftTask,
-    onDraftTaskChange = _ref10.onDraftTaskChange,
-    onTranscript = _ref10.onTranscript,
-    onStop = _ref10.onStop,
-    onUseExample = _ref10.onUseExample,
-    onConfirm = _ref10.onConfirm,
-    onClose = _ref10.onClose,
-    speechAvailable = _ref10.speechAvailable,
-    speechStatus = _ref10.speechStatus;
+  var phase = _ref15.phase,
+    transcript = _ref15.transcript,
+    parsedCommand = _ref15.parsedCommand,
+    draftTask = _ref15.draftTask,
+    onDraftTaskChange = _ref15.onDraftTaskChange,
+    onTranscript = _ref15.onTranscript,
+    onStop = _ref15.onStop,
+    onUseExample = _ref15.onUseExample,
+    onConfirm = _ref15.onConfirm,
+    onClose = _ref15.onClose,
+    speechAvailable = _ref15.speechAvailable,
+    speechStatus = _ref15.speechStatus;
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
     return onDraftTaskChange(_objectSpread(_objectSpread({}, draftTask || parsedCommand.task), {}, _defineProperty({}, field, value)));
+  };
+  var updateRepeat = function updateRepeat(repeatDays, repeat) {
+    return onDraftTaskChange(_objectSpread(_objectSpread({}, draftTask || parsedCommand.task), {}, {
+      repeatDays: repeatDays,
+      repeat: repeat,
+      hasRepeat: repeatDays.length > 0
+    }));
   };
   var updateType = function updateType(type) {
     var next = _objectSpread(_objectSpread({}, draftTask || parsedCommand.task), {}, {
@@ -1501,86 +1811,56 @@ function VoiceComposer(_ref10) {
     onChange: function onChange(event) {
       return updateDraft("title", event.target.value);
     }
-  })), React.createElement("label", {
-    className: "edit-field"
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
   }, React.createElement("span", {
     className: "edit-label"
-  }, "\u7C7B\u578B"), React.createElement("select", {
-    className: "edit-input",
+  }, "\u7C7B\u578B"), React.createElement(SegmentedChoice, {
+    label: "\u4EFB\u52A1\u7C7B\u578B",
     value: editableTask.type,
-    onChange: function onChange(event) {
-      return updateType(event.target.value);
+    options: [["daily", "日常事务"], ["critical", "关键事务"]],
+    onChange: updateType
+  })), editableTask.type === "daily" ? React.createElement(React.Fragment, null, React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(TimePicker, {
+    label: "\u65F6\u95F4",
+    value: editableTask.time === "待定" ? null : editableTask.time,
+    onChange: function onChange(time) {
+      return updateDraft("time", time || "待定");
     }
-  }, React.createElement("option", {
-    value: "daily"
-  }, "\u65E5\u5E38\u4E8B\u52A1"), React.createElement("option", {
-    value: "critical"
-  }, "\u5173\u952E\u4E8B\u52A1"))), editableTask.type === "daily" ? React.createElement(React.Fragment, null, React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u65F6\u95F4"), React.createElement("input", {
-    className: "edit-input",
-    type: "time",
-    value: editableTask.time === "待定" ? "" : editableTask.time,
-    onChange: function onChange(event) {
-      return updateDraft("time", event.target.value || "待定");
-    }
-  })), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u91CD\u590D"), React.createElement("select", {
-    className: "edit-input",
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(WeekdayPicker, {
     value: editableTask.repeat,
-    onChange: function onChange(event) {
-      return updateDraft("repeat", event.target.value);
+    repeatDays: editableTask.repeatDays,
+    onChange: updateRepeat
+  }))) : React.createElement(React.Fragment, null, React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(DatePicker, {
+    value: editableTask.deadline,
+    onChange: function onChange(deadline) {
+      return updateDraft("deadline", deadline);
     }
-  }, React.createElement(ChoiceOptions, {
-    options: REPEAT_OPTIONS,
-    current: editableTask.repeat
-  })))) : React.createElement(React.Fragment, null, React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u622A\u6B62"), React.createElement("input", {
-    className: "edit-input",
-    type: "date",
-    value: deadlineToDateInput(editableTask.deadline),
-    onChange: function onChange(event) {
-      return updateDraft("deadline", dateInputToDeadline(event.target.value));
-    }
-  })), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u65F6\u95F4"), React.createElement("input", {
-    className: "edit-input",
-    type: "time",
-    value: editableTask.time === "待定" ? "" : editableTask.time || "",
-    onChange: function onChange(event) {
-      return updateCriticalTime(event.target.value);
-    }
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(TimePicker, {
+    label: "\u65F6\u95F4",
+    value: editableTask.time === "待定" ? null : editableTask.time,
+    onChange: updateCriticalTime
   }))), editableTask.type === "critical" ? React.createElement("div", {
     className: "edit-field"
   }, React.createElement("span", {
     className: "edit-label"
   }, "\u63D0\u9192"), React.createElement("output", {
     className: "edit-input edit-output"
-  }, editableTask.reminder || getCriticalReminder(null))) : React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u63D0\u9192"), React.createElement("select", {
-    className: "edit-input",
+  }, editableTask.reminder || getCriticalReminder(null))) : React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(ReminderPicker, {
     value: editableTask.reminder || "到点提醒",
-    onChange: function onChange(event) {
-      return updateDraft("reminder", event.target.value);
+    onChange: function onChange(reminder) {
+      return updateDraft("reminder", reminder);
     }
-  }, React.createElement(ChoiceOptions, {
-    options: REMINDER_OPTIONS,
-    current: editableTask.reminder || "到点提醒"
-  }))), React.createElement("label", {
+  })), React.createElement("label", {
     className: "edit-field stacked"
   }, React.createElement("span", {
     className: "edit-label"
@@ -1597,10 +1877,10 @@ function VoiceComposer(_ref10) {
     className: "parsed-title"
   }, parsedCommand.heading), React.createElement("div", {
     className: "field-list"
-  }, parsedCommand.rows.map(function (_ref11, index) {
-    var _ref12 = _slicedToArray(_ref11, 2),
-      label = _ref12[0],
-      value = _ref12[1];
+  }, parsedCommand.rows.map(function (_ref16, index) {
+    var _ref17 = _slicedToArray(_ref16, 2),
+      label = _ref17[0],
+      value = _ref17[1];
     return React.createElement("div", {
       className: "field-row",
       key: "".concat(label, "-").concat(index)
@@ -1623,15 +1903,21 @@ function VoiceComposer(_ref10) {
     disabled: !canConfirm
   }, parsedCommand.confirmLabel))));
 }
-function DailyEditSheet(_ref13) {
-  var task = _ref13.task,
-    draft = _ref13.draft,
-    onDraftChange = _ref13.onDraftChange,
-    onSave = _ref13.onSave,
-    onClose = _ref13.onClose;
+function DailyEditSheet(_ref18) {
+  var task = _ref18.task,
+    draft = _ref18.draft,
+    onDraftChange = _ref18.onDraftChange,
+    onSave = _ref18.onSave,
+    onClose = _ref18.onClose;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
+  };
+  var updateRepeat = function updateRepeat(repeatDays, repeat) {
+    return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, {
+      repeatDays: repeatDays,
+      repeat: repeat
+    }));
   };
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -1648,44 +1934,28 @@ function DailyEditSheet(_ref13) {
     onChange: function onChange(event) {
       return update("title", event.target.value);
     }
-  })), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u65F6\u95F4"), React.createElement("input", {
-    className: "edit-input",
-    type: "time",
-    value: draft.time === "待定" ? "" : draft.time,
-    onChange: function onChange(event) {
-      return update("time", event.target.value || "待定");
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(TimePicker, {
+    label: "\u65F6\u95F4",
+    value: draft.time === "待定" ? null : draft.time,
+    onChange: function onChange(time) {
+      return update("time", time || "待定");
     }
-  })), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u91CD\u590D"), React.createElement("select", {
-    className: "edit-input",
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(WeekdayPicker, {
     value: draft.repeat,
-    onChange: function onChange(event) {
-      return update("repeat", event.target.value);
-    }
-  }, React.createElement(ChoiceOptions, {
-    options: REPEAT_OPTIONS,
-    current: draft.repeat
-  }))), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u63D0\u9192"), React.createElement("select", {
-    className: "edit-input",
+    repeatDays: draft.repeatDays,
+    onChange: updateRepeat
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(ReminderPicker, {
     value: draft.reminder,
-    onChange: function onChange(event) {
-      return update("reminder", event.target.value);
+    onChange: function onChange(reminder) {
+      return update("reminder", reminder);
     }
-  }, React.createElement(ChoiceOptions, {
-    options: REMINDER_OPTIONS,
-    current: draft.reminder
-  }))), React.createElement("label", {
+  })), React.createElement("label", {
     className: "edit-field stacked"
   }, React.createElement("span", {
     className: "edit-label"
@@ -1711,11 +1981,11 @@ function DailyEditSheet(_ref13) {
     disabled: !draft.title.trim()
   }, "\u4FDD\u5B58\u4FEE\u6539")));
 }
-function MoreSheet(_ref14) {
-  var onClose = _ref14.onClose,
-    onOpen = _ref14.onOpen,
-    themeMode = _ref14.themeMode,
-    onThemeChange = _ref14.onThemeChange;
+function MoreSheet(_ref19) {
+  var onClose = _ref19.onClose,
+    onOpen = _ref19.onOpen,
+    themeMode = _ref19.themeMode,
+    onThemeChange = _ref19.onThemeChange;
   var rows = [["history", "历史记录", "history"], ["month", "月度复盘", "chart"], ["year", "年度复盘", "year"], ["permissions", "通知与权限", "bell"], ["voice", "语音模型", "spark"], ["version", "版本更新", "update"], ["settings", "设置", "settings"]];
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -1724,10 +1994,10 @@ function MoreSheet(_ref14) {
     className: "theme-switch theme-switch-first",
     role: "group",
     "aria-label": "\u5916\u89C2"
-  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref15) {
-    var _ref16 = _slicedToArray(_ref15, 2),
-      mode = _ref16[0],
-      label = _ref16[1];
+  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref20) {
+    var _ref21 = _slicedToArray(_ref20, 2),
+      mode = _ref21[0],
+      label = _ref21[1];
     return React.createElement("button", {
       className: "theme-option ".concat(themeMode === mode ? "active" : ""),
       "aria-pressed": themeMode === mode,
@@ -1738,11 +2008,11 @@ function MoreSheet(_ref14) {
     }, label);
   })), React.createElement("div", {
     className: "menu-list"
-  }, rows.map(function (_ref17) {
-    var _ref18 = _slicedToArray(_ref17, 3),
-      id = _ref18[0],
-      title = _ref18[1],
-      icon = _ref18[2];
+  }, rows.map(function (_ref22) {
+    var _ref23 = _slicedToArray(_ref22, 3),
+      id = _ref23[0],
+      title = _ref23[1],
+      icon = _ref23[2];
     return React.createElement("button", {
       className: "menu-row",
       key: id,
@@ -1762,17 +2032,17 @@ function MoreSheet(_ref14) {
     }));
   })));
 }
-function CriticalDetailSheet(_ref19) {
-  var _draft$progress, _draft$progress2;
-  var task = _ref19.task,
-    draft = _ref19.draft,
-    renewDays = _ref19.renewDays,
-    onRenewDaysChange = _ref19.onRenewDaysChange,
-    onDraftChange = _ref19.onDraftChange,
-    onClose = _ref19.onClose,
-    onComplete = _ref19.onComplete,
-    onRenew = _ref19.onRenew,
-    onSave = _ref19.onSave;
+function CriticalDetailSheet(_ref24) {
+  var _draft$progress;
+  var task = _ref24.task,
+    draft = _ref24.draft,
+    renewDays = _ref24.renewDays,
+    onRenewDaysChange = _ref24.onRenewDaysChange,
+    onDraftChange = _ref24.onDraftChange,
+    onClose = _ref24.onClose,
+    onComplete = _ref24.onComplete,
+    onRenew = _ref24.onRenew,
+    onSave = _ref24.onSave;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -1807,50 +2077,40 @@ function CriticalDetailSheet(_ref19) {
     onChange: function onChange(event) {
       return update("title", event.target.value);
     }
-  })), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u622A\u6B62"), React.createElement("input", {
-    className: "edit-input",
-    type: "date",
-    value: deadlineToDateInput(draft.deadline),
-    onChange: function onChange(event) {
-      return update("deadline", dateInputToDeadline(event.target.value));
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(DatePicker, {
+    value: draft.deadline,
+    onChange: function onChange(deadline) {
+      return update("deadline", deadline);
     }
-  })), React.createElement("label", {
-    className: "edit-field"
-  }, React.createElement("span", {
-    className: "edit-label"
-  }, "\u65F6\u95F4"), React.createElement("input", {
-    className: "edit-input",
-    type: "time",
-    value: draft.time || "",
-    onChange: function onChange(event) {
-      return updateTime(event.target.value);
-    }
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(TimePicker, {
+    label: "\u65F6\u95F4",
+    value: draft.time,
+    onChange: updateTime
   })), React.createElement("div", {
     className: "edit-field"
   }, React.createElement("span", {
     className: "edit-label"
   }, "\u63D0\u9192"), React.createElement("output", {
     className: "edit-input edit-output"
-  }, draft.reminder || getCriticalReminder(draft.time || null))), React.createElement("label", {
-    className: "edit-field"
+  }, draft.reminder || getCriticalReminder(draft.time || null))), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
   }, React.createElement("span", {
     className: "edit-label"
-  }, "\u5B8C\u6210\u5EA6"), React.createElement("select", {
-    className: "edit-input",
+  }, "\u5B8C\u6210\u5EA6"), React.createElement(SegmentedChoice, {
+    label: "\u5B8C\u6210\u5EA6",
     value: (_draft$progress = draft.progress) !== null && _draft$progress !== void 0 ? _draft$progress : 0,
-    onChange: function onChange(event) {
-      return update("progress", Number(event.target.value));
-    }
-  }, React.createElement(ChoiceOptions, {
-    options: PROGRESS_OPTIONS.map(function (value) {
+    options: [0, 25, 50, 75, 100].map(function (value) {
       return [value, "".concat(value, "%")];
     }),
-    current: (_draft$progress2 = draft.progress) !== null && _draft$progress2 !== void 0 ? _draft$progress2 : 0
-  }))), React.createElement("label", {
+    onChange: function onChange(progress) {
+      return update("progress", Number(progress));
+    },
+    compact: true
+  })), React.createElement("label", {
     className: "edit-field stacked"
   }, React.createElement("span", {
     className: "edit-label"
@@ -1871,24 +2131,20 @@ function CriticalDetailSheet(_ref19) {
     disabled: !draft.title.trim()
   }, "\u4FDD\u5B58\u4FEE\u6539"), task.deadline ? React.createElement("div", {
     className: "renew-row"
-  }, React.createElement("label", {
+  }, React.createElement("div", {
     className: "renew-days-field"
   }, React.createElement(Icon, {
     name: "refresh",
     size: 17
   }), React.createElement("span", {
     className: "renew-days-label"
-  }, "\u7EED\u671F"), React.createElement("select", {
-    className: "renew-days-input",
+  }, "\u7EED\u671F"), React.createElement(Stepper, {
+    label: "\u7EED\u671F\u5929\u6570",
     value: renewDays,
-    "aria-label": "\u7EED\u671F\u5929\u6570",
-    onChange: function onChange(event) {
-      return onRenewDaysChange(Number(event.target.value));
-    }
-  }, React.createElement(ChoiceOptions, {
-    options: RENEW_DAY_OPTIONS,
-    current: renewDays
-  })), React.createElement("span", {
+    min: 1,
+    max: 365,
+    onChange: onRenewDaysChange
+  }), React.createElement("span", {
     className: "renew-days-unit"
   }, "\u5929")), React.createElement("button", {
     className: "secondary-button pressable renew-confirm",
@@ -1905,9 +2161,9 @@ function CriticalDetailSheet(_ref19) {
     size: 17
   }), " \u5DF2\u5B8C\u6210"));
 }
-function HistoryScreen(_ref20) {
-  var items = _ref20.items,
-    onBack = _ref20.onBack;
+function HistoryScreen(_ref25) {
+  var items = _ref25.items,
+    onBack = _ref25.onBack;
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -1936,9 +2192,9 @@ function HistoryScreen(_ref20) {
     className: "empty-guide"
   }, "\u8FD8\u6CA1\u6709\u5DF2\u5B8C\u6210\u7684\u5173\u952E\u4E8B\u9879") : null));
 }
-function ReportScreen(_ref21) {
-  var type = _ref21.type,
-    onBack = _ref21.onBack;
+function ReportScreen(_ref26) {
+  var type = _ref26.type,
+    onBack = _ref26.onBack;
   var monthly = type === "month";
   var ranking = monthly ? APP_DATA.monthRanking : APP_DATA.yearRanking;
   var hasData = ranking.length > 0 || APP_DATA.ddlRanking.length > 0;
@@ -1975,10 +2231,10 @@ function ReportScreen(_ref21) {
     className: "empty-guide report-empty"
   }, "\u5B8C\u6210\u4EFB\u52A1\u540E\uFF0C\u8FD9\u91CC\u4F1A\u751F\u6210\u771F\u5B9E\u590D\u76D8"));
 }
-function DeleteConfirmSheet(_ref22) {
-  var target = _ref22.target,
-    onClose = _ref22.onClose,
-    onConfirm = _ref22.onConfirm;
+function DeleteConfirmSheet(_ref27) {
+  var target = _ref27.target,
+    onClose = _ref27.onClose,
+    onConfirm = _ref27.onConfirm;
   if (!(target !== null && target !== void 0 && target.task)) return null;
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -1997,10 +2253,10 @@ function DeleteConfirmSheet(_ref22) {
     onClick: onConfirm
   }, "\u5220\u9664")));
 }
-function PermissionsScreen(_ref23) {
-  var capabilities = _ref23.capabilities,
-    onOpenCapability = _ref23.onOpenCapability,
-    onBack = _ref23.onBack;
+function PermissionsScreen(_ref28) {
+  var capabilities = _ref28.capabilities,
+    onOpenCapability = _ref28.onOpenCapability,
+    onBack = _ref28.onBack;
   var known = Boolean(capabilities);
   var state = function state(value) {
     var yes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "已开启";
@@ -2105,16 +2361,16 @@ function PermissionsScreen(_ref23) {
     }, content);
   })));
 }
-function CriticalReminderScreen(_ref24) {
-  var tasks = _ref24.tasks,
-    reminderTime = _ref24.reminderTime,
-    onReminderTimeChange = _ref24.onReminderTimeChange,
-    reminderMultiple = _ref24.reminderMultiple,
-    onReminderMultipleChange = _ref24.onReminderMultipleChange,
-    reminderFinalDays = _ref24.reminderFinalDays,
-    onReminderFinalDaysChange = _ref24.onReminderFinalDaysChange,
-    onOpenPermissions = _ref24.onOpenPermissions,
-    onBack = _ref24.onBack;
+function CriticalReminderScreen(_ref29) {
+  var tasks = _ref29.tasks,
+    reminderTime = _ref29.reminderTime,
+    onReminderTimeChange = _ref29.onReminderTimeChange,
+    reminderMultiple = _ref29.reminderMultiple,
+    onReminderMultipleChange = _ref29.onReminderMultipleChange,
+    reminderFinalDays = _ref29.reminderFinalDays,
+    onReminderFinalDaysChange = _ref29.onReminderFinalDaysChange,
+    onOpenPermissions = _ref29.onOpenPermissions,
+    onBack = _ref29.onBack;
   var reminderTasks = tasks.filter(function (task) {
     return task.deadline && shouldRemindCritical(task.daysLeft, reminderMultiple, reminderFinalDays);
   });
@@ -2126,19 +2382,18 @@ function CriticalReminderScreen(_ref24) {
   }, React.createElement(BackHeader, {
     title: "DDL \u63D0\u9192",
     onBack: onBack
-  }), React.createElement("label", {
+  }), React.createElement("div", {
     className: "reminder-time-card"
   }, React.createElement("span", null, React.createElement("span", {
     className: "reminder-setting-title"
   }, "\u9ED8\u8BA4\u65F6\u95F4"), React.createElement("span", {
     className: "reminder-setting-note"
-  }, "\u6C47\u603B\u5F53\u524D\u9700\u8981\u63D0\u9192\u7684\u4EFB\u52A1")), React.createElement("input", {
-    className: "reminder-time-input",
-    type: "time",
+  }, "\u6C47\u603B\u5F53\u524D\u9700\u8981\u63D0\u9192\u7684\u4EFB\u52A1")), React.createElement(TimePicker, {
+    label: "DDL \u9ED8\u8BA4\u63D0\u9192\u65F6\u95F4",
     value: reminderTime,
-    "aria-label": "DDL \u9ED8\u8BA4\u63D0\u9192\u65F6\u95F4",
-    onChange: function onChange(event) {
-      return onReminderTimeChange(event.target.value || "10:00");
+    allowUnset: false,
+    onChange: function onChange(time) {
+      return onReminderTimeChange(time || "10:00");
     }
   })), reminderTasks.length ? React.createElement("div", {
     className: "notice-preview ddl-notice-preview"
@@ -2161,37 +2416,31 @@ function CriticalReminderScreen(_ref24) {
   }), React.createElement("span", null, React.createElement("strong", null, "\u4ECA\u5929\u4E0D\u63D0\u9192"), React.createElement("small", null, "DDL \u4ECD\u4FDD\u7559\u5728\u4ECA\u65E5\u4E0E\u5173\u952E\u5217\u8868"))), React.createElement("div", {
     className: "reminder-rule-grid",
     "aria-label": "DDL\u63D0\u9192\u9891\u7387"
-  }, React.createElement("label", {
+  }, React.createElement("div", {
     className: "reminder-rule-field"
   }, React.createElement("span", {
     className: "reminder-rule-label"
   }, "\u500D\u6570\u8282\u70B9"), React.createElement("span", {
     className: "reminder-rule-value"
-  }, "\u6BCF ", React.createElement("select", {
+  }, "\u6BCF ", React.createElement(Stepper, {
+    label: "DDL\u63D0\u9192\u500D\u6570\u5929\u6570",
     value: reminderMultiple,
-    "aria-label": "DDL\u63D0\u9192\u500D\u6570\u5929\u6570",
-    onChange: function onChange(event) {
-      return onReminderMultipleChange(Number(event.target.value));
-    }
-  }, React.createElement(ChoiceOptions, {
-    options: REMINDER_MULTIPLE_OPTIONS,
-    current: reminderMultiple
-  })), " \u5929")), React.createElement("label", {
+    min: 1,
+    max: 30,
+    onChange: onReminderMultipleChange
+  }), " \u5929")), React.createElement("div", {
     className: "reminder-rule-field"
   }, React.createElement("span", {
     className: "reminder-rule-label"
   }, "\u4E34\u8FD1\u622A\u6B62"), React.createElement("span", {
     className: "reminder-rule-value"
-  }, "\u6700\u540E ", React.createElement("select", {
+  }, "\u6700\u540E ", React.createElement(Stepper, {
+    label: "DDL\u6700\u540E\u8FDE\u7EED\u63D0\u9192\u5929\u6570",
     value: reminderFinalDays,
-    "aria-label": "DDL\u6700\u540E\u8FDE\u7EED\u63D0\u9192\u5929\u6570",
-    onChange: function onChange(event) {
-      return onReminderFinalDaysChange(Number(event.target.value));
-    }
-  }, React.createElement(ChoiceOptions, {
-    options: REMINDER_FINAL_DAY_OPTIONS,
-    current: reminderFinalDays
-  })), " \u5929"))), React.createElement(SectionHeader, {
+    min: 0,
+    max: 30,
+    onChange: onReminderFinalDaysChange
+  }), " \u5929"))), React.createElement(SectionHeader, {
     title: "\u4ECA\u5929\u4F1A\u63D0\u9192",
     note: "".concat(reminderTasks.length, " \u9879")
   }), React.createElement("div", {
@@ -2221,7 +2470,7 @@ function CriticalReminderScreen(_ref24) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.6";
+var JINKE_FALLBACK_VERSION = "1.0.7";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2237,8 +2486,8 @@ function compareVersions(left, right) {
   }
   return 0;
 }
-function VersionScreen(_ref25) {
-  var onBack = _ref25.onBack;
+function VersionScreen(_ref30) {
+  var onBack = _ref30.onBack;
   var currentVersion = function () {
     try {
       var _window$JinkeAndroid, _window$JinkeAndroid$;
@@ -2336,9 +2585,9 @@ function VersionScreen(_ref25) {
     size: 15
   })));
 }
-function VoiceSettingsScreen(_ref26) {
-  var capabilities = _ref26.capabilities,
-    onBack = _ref26.onBack;
+function VoiceSettingsScreen(_ref31) {
+  var capabilities = _ref31.capabilities,
+    onBack = _ref31.onBack;
   var modelStatus = capabilities ? capabilities.offlineSpeechReady ? "已加载" : capabilities.offlineSpeechBundled ? "已内置" : "组件缺失" : "APK 内置";
   return React.createElement("main", {
     className: "screen secondary"
@@ -2469,6 +2718,9 @@ var _React = React,
 var _window = window,
   APP_DATA = _window.APP_DATA,
   getCriticalReminder = _window.getCriticalReminder,
+  repeatDaysFromValue = _window.repeatDaysFromValue,
+  repeatLabelFromDays = _window.repeatLabelFromDays,
+  taskOccursOnDate = _window.taskOccursOnDate,
   PhoneFrame = _window.PhoneFrame,
   BottomNav = _window.BottomNav,
   TodayScreen = _window.TodayScreen,
@@ -2629,32 +2881,41 @@ function parseRepeat(text) {
     var end = range[2] === "天" ? "日" : range[2];
     if (start === "一" && end === "五") return {
       value: "工作日",
+      days: [1, 2, 3, 4, 5],
       source: range[0]
     };
     var order = ["一", "二", "三", "四", "五", "六", "日"];
     var startIndex = order.indexOf(start);
     var endIndex = order.indexOf(end);
     var _days = startIndex >= 0 && endIndex >= startIndex ? order.slice(startIndex, endIndex + 1) : [start, end];
+    var _numericDays = _days.map(function (day) {
+      return ["一", "二", "三", "四", "五", "六", "日"].indexOf(day) + 1;
+    }).filter(Boolean);
     return {
-      value: "\u5468".concat(_days.join("、")),
+      value: repeatLabelFromDays(_numericDays),
+      days: _numericDays,
       source: range[0]
     };
   }
   if (/每(天|日)/.test(text)) return {
     value: "每天",
+    days: [1, 2, 3, 4, 5, 6, 7],
     source: text.match(/每(天|日)/)[0]
   };
   if (/每个?工作日/.test(text)) return {
     value: "工作日",
+    days: [1, 2, 3, 4, 5],
     source: text.match(/每个?工作日/)[0]
   };
   if (/每(个)?周末/.test(text)) return {
-    value: "周六、日",
+    value: "周末",
+    days: [6, 7],
     source: text.match(/每(个)?周末/)[0]
   };
   var match = text.match(/每(?:周|星期)([一二三四五六日天、，和及到至\-]+)/);
   if (!match) return {
     value: "仅一次",
+    days: [],
     source: ""
   };
   var days = [];
@@ -2671,8 +2932,12 @@ function parseRepeat(text) {
   } finally {
     _iterator.f();
   }
+  var numericDays = days.map(function (day) {
+    return ["一", "二", "三", "四", "五", "六", "日"].indexOf(day) + 1;
+  }).filter(Boolean);
   return {
-    value: days.length ? "\u5468".concat(days.join("、")) : "每周",
+    value: numericDays.length ? repeatLabelFromDays(numericDays) : "仅一次",
+    days: numericDays,
     source: match[0]
   };
 }
@@ -2738,6 +3003,13 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
     keywords: [action, object].filter(Boolean)
   };
 }
+function formatDailyReminder(totalMinutes) {
+  var safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  if (safe === 0) return "到点提醒";
+  var hours = Math.floor(safe / 60);
+  var minutes = safe % 60;
+  return "\u63D0\u524D".concat(hours ? "".concat(hours, "\u5C0F\u65F6") : "").concat(minutes ? "".concat(minutes, "\u5206\u949F") : "");
+}
 function parseVoiceTask(rawText) {
   var text = normalizeSpeechText(rawText);
   var repeat = parseRepeat(text);
@@ -2745,7 +3017,8 @@ function parseVoiceTask(rawText) {
   var time = parseTime(withoutRepeat);
   var deadline = parseDeadline(text);
   var reminderMatch = text.match(/提前\s*([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)(?:提醒)?/);
-  var reminder = reminderMatch ? "\u63D0\u524D ".concat(parseNumber(reminderMatch[1]), " ").concat(reminderMatch[2]) : "到点提醒";
+  var reminderAmount = reminderMatch ? parseNumber(reminderMatch[1]) : 0;
+  var reminder = reminderMatch ? formatDailyReminder(reminderAmount * (reminderMatch[2] === "小时" ? 60 : 1)) : "到点提醒";
   var withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   var durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   var duration = durationMatch ? "".concat(parseNumber(durationMatch[1]), " ").concat(durationMatch[2]) : "";
@@ -2756,6 +3029,7 @@ function parseVoiceTask(rawText) {
     title: semantics.title,
     time: time.value,
     repeat: repeat.source ? repeat.value : !isCritical && deadline.deadline ? deadline.deadline : repeat.value,
+    repeatDays: repeat.days,
     reminder: isCritical ? getCriticalReminder(time.source ? time.value : null) : reminder,
     deadline: deadline.deadline,
     daysLeft: deadline.daysLeft,
@@ -3032,7 +3306,10 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
       changes.time = parsed.time;
       if (target.kind === "critical") changes.reminder = getCriticalReminder(parsed.time);
     }
-    if (parsed.hasRepeat) changes.repeat = parsed.repeat;
+    if (parsed.hasRepeat) {
+      changes.repeat = parsed.repeat;
+      changes.repeatDays = parsed.repeatDays;
+    }
     if (parsed.hasReminder && target.kind === "daily") changes.reminder = parsed.reminder;
     if (parsed.hasDeadline) {
       changes.deadline = parsed.deadline;
@@ -3041,10 +3318,14 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     if (/(?:改成|改为|设为|调整为).*(关键|特殊)/.test(text)) changes.type = "critical";
     if (/(?:改成|改为|设为|调整为).*(日常|每日)/.test(text)) changes.type = "daily";
     if (!noteMatch && parsed.title !== "未命名事项") changes.title = parsed.title;
-    var _rows = Object.entries(changes).map(function (_ref3) {
-      var _ref4 = _slicedToArray(_ref3, 2),
-        key = _ref4[0],
-        value = _ref4[1];
+    var _rows = Object.entries(changes).filter(function (_ref3) {
+      var _ref4 = _slicedToArray(_ref3, 1),
+        key = _ref4[0];
+      return key !== "repeatDays";
+    }).map(function (_ref5) {
+      var _ref6 = _slicedToArray(_ref5, 2),
+        key = _ref6[0],
+        value = _ref6[1];
       return [{
         title: "名称",
         type: "类型",
@@ -3302,7 +3583,9 @@ function MobileDesignApp() {
   var toastTimerRef = useRef(null);
   var scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
   var parsedVoiceCommand = parseVoiceCommand(transcript || VOICE_EXAMPLE, dailyTasks, criticalTasks);
-  var displayedDailyTasks = dailyTasks.map(function (task) {
+  var displayedDailyTasks = dailyTasks.filter(function (task) {
+    return taskOccursOnDate(task, selectedDateKey, APP_DATA.today.dateKey);
+  }).map(function (task) {
     return _objectSpread(_objectSpread({}, task), {}, {
       done: Boolean(dailyCompletionByDate["".concat(task.id, ":").concat(selectedDateKey)])
     });
@@ -3461,12 +3744,26 @@ function MobileDesignApp() {
     });
     if (nowDone) showToast("已完成，记入本月统计");
   };
+  var toggleCriticalCheck = function toggleCriticalCheck(taskId) {
+    var nowDone = false;
+    setCriticalTasks(function (current) {
+      return current.map(function (task) {
+        if (task.id !== taskId) return task;
+        nowDone = !Boolean(task.done);
+        return _objectSpread(_objectSpread({}, task), {}, {
+          done: nowDone
+        });
+      });
+    });
+    showToast(nowDone ? "关键事项已勾选" : "已取消勾选");
+  };
   var selectDate = function selectDate(dateKey) {
     setSelectedDateKey(dateKey);
   };
   var openDaily = function openDaily(task) {
     setSelectedDaily(task);
     setDailyDraft(_objectSpread(_objectSpread({}, task), {}, {
+      repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
       reminder: task.reminder || "到点提醒"
     }));
     setOverlay("daily-edit");
@@ -3489,9 +3786,9 @@ function MobileDesignApp() {
         });
       });
       setDailyCompletionByDate(function (current) {
-        return Object.fromEntries(Object.entries(current).filter(function (_ref5) {
-          var _ref6 = _slicedToArray(_ref5, 1),
-            key = _ref6[0];
+        return Object.fromEntries(Object.entries(current).filter(function (_ref7) {
+          var _ref8 = _slicedToArray(_ref7, 1),
+            key = _ref8[0];
           return key.split(":")[0] !== task.id;
         }));
       });
@@ -3714,6 +4011,8 @@ function MobileDesignApp() {
           title: task.title,
           note: task.note || "语音创建",
           repeat: task.repeat,
+          repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
+          scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : selectedDateKey,
           reminder: task.reminder || "到点提醒",
           done: false
         };
@@ -4019,6 +4318,7 @@ function MobileDesignApp() {
     });
     if (activeTab === "critical") return React.createElement(CriticalScreen, {
       tasks: criticalTasks,
+      onToggle: toggleCriticalCheck,
       onOpen: openCritical,
       onDelete: function onDelete(task) {
         return requestDelete(task, "critical");
@@ -4038,6 +4338,7 @@ function MobileDesignApp() {
       onDeleteDaily: function onDeleteDaily(task) {
         return requestDelete(task, "daily");
       },
+      onToggleCritical: toggleCriticalCheck,
       onOpenCritical: openCritical,
       onDeleteCritical: function onDeleteCritical(task) {
         return requestDelete(task, "critical");

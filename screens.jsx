@@ -1,27 +1,105 @@
-const { APP_DATA, getCalendarMarker, getCriticalReminder, shouldRemindCritical, getDateMeta, getWeekDates, getMonthDates, shiftDateKeyByMonth, Icon, IconButton, SectionHeader, DailyTaskRow, CriticalTaskRow, Sheet, BackHeader, BarRow } = window;
+const { APP_DATA, getCalendarMarker, getCriticalReminder, shouldRemindCritical, getDateMeta, getWeekDates, getMonthDates, shiftDateKeyByMonth, repeatDaysFromValue, repeatLabelFromDays, Icon, IconButton, SectionHeader, DailyTaskRow, CriticalTaskRow, Sheet, BackHeader, BarRow } = window;
 
-const REPEAT_OPTIONS = [
-  ["仅一次", "仅一次"], ["每天", "每天"], ["工作日", "周一至周五"], ["周六、日", "周末"],
-  ["周一", "每周一"], ["周二", "每周二"], ["周三", "每周三"], ["周四", "每周四"],
-  ["周五", "每周五"], ["周六", "每周六"], ["周日", "每周日"], ["周一、三、五", "周一、三、五"], ["周二、四", "周二、四"],
-];
-const REMINDER_OPTIONS = ["不提醒", "到点提醒", "提前 5 分钟", "提前 10 分钟", "提前 30 分钟", "提前 1 小时", "提前 1 天"];
-const PROGRESS_OPTIONS = [0, 10, 25, 50, 75, 100];
-const RENEW_DAY_OPTIONS = [1, 3, 7, 14, 30, 60, 90, 180, 365];
-const REMINDER_MULTIPLE_OPTIONS = [1, 2, 3, 5, 7, 10, 14, 15, 30];
-const REMINDER_FINAL_DAY_OPTIONS = [0, 1, 2, 3, 5, 7, 10, 14, 30];
+const WEEKDAY_BUTTONS = ["一", "二", "三", "四", "五", "六", "日"];
 
-function withCurrentOption(options, current) {
-  return options.some((option) => String(Array.isArray(option) ? option[0] : option) === String(current))
-    ? options
-    : [[current, String(current)], ...options];
+function SegmentedChoice({ label, value, options, onChange, compact = false }) {
+  return (
+    <div className={`jinke-segments ${compact ? "compact" : ""}`} role="radiogroup" aria-label={label}>
+      {options.map((option) => {
+        const [optionValue, optionLabel] = Array.isArray(option) ? option : [option, option];
+        const selected = String(value) === String(optionValue);
+        return <button type="button" role="radio" aria-checked={selected} className={selected ? "selected" : ""} onClick={() => onChange(optionValue)} key={optionValue}>{optionLabel}</button>;
+      })}
+    </div>
+  );
 }
 
-function ChoiceOptions({ options, current }) {
-  return withCurrentOption(options, current).map((option) => {
-    const [value, label] = Array.isArray(option) ? option : [option, option];
-    return <option value={value} key={value}>{label}</option>;
-  });
+function WeekdayPicker({ value, repeatDays, onChange }) {
+  const selectedDays = repeatDaysFromValue(value, repeatDays);
+  const toggleDay = (day) => {
+    const next = selectedDays.includes(day) ? selectedDays.filter((item) => item !== day) : [...selectedDays, day].sort((a, b) => a - b);
+    onChange(next, repeatLabelFromDays(next));
+  };
+  return (
+    <div className="weekday-picker" role="group" aria-label="重复星期">
+      <div className="weekday-summary"><span>重复</span><strong>{repeatLabelFromDays(selectedDays)}</strong></div>
+      <div className="weekday-buttons">
+        {WEEKDAY_BUTTONS.map((label, index) => <button type="button" aria-pressed={selectedDays.includes(index + 1)} className={selectedDays.includes(index + 1) ? "selected" : ""} onClick={() => toggleDay(index + 1)} key={label}>{label}</button>)}
+      </div>
+    </div>
+  );
+}
+
+function Stepper({ label, value, min, max, step = 1, onChange, format = (item) => item }) {
+  const safeValue = Math.min(max, Math.max(min, Number(value) || 0));
+  return (
+    <div className="jinke-stepper" role="group" aria-label={label}>
+      <button type="button" aria-label={`${label}减少`} disabled={safeValue <= min} onClick={() => onChange(Math.max(min, safeValue - step))}>−</button>
+      <output aria-label={label}>{format(safeValue)}</output>
+      <button type="button" aria-label={`${label}增加`} disabled={safeValue >= max} onClick={() => onChange(Math.min(max, safeValue + step))}>＋</button>
+    </div>
+  );
+}
+
+function parseClock(value, fallback = "09:00") {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  const source = match || fallback.match(/^(\d{1,2}):(\d{2})$/);
+  return { hour: Number(source?.[1] || 9), minute: Number(source?.[2] || 0) };
+}
+
+function TimePicker({ label, value, onChange, allowUnset = true }) {
+  const enabled = Boolean(value && value !== "待定");
+  const clock = parseClock(value);
+  const update = (hour, minute) => onChange(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+  return (
+    <div className="jinke-time-picker" aria-label={label}>
+      <div className="picker-head"><span>{label}</span>{allowUnset ? <button type="button" aria-pressed={enabled} onClick={() => onChange(enabled ? null : "09:00")}>{enabled ? "清除" : "设置"}</button> : null}</div>
+      {enabled || !allowUnset ? <div className="time-stepper-row">
+        <Stepper label={`${label}小时`} value={clock.hour} min={0} max={23} onChange={(hour) => update(hour, clock.minute)} format={(item) => String(item).padStart(2, "0")} />
+        <span className="time-colon">:</span>
+        <Stepper label={`${label}分钟`} value={clock.minute} min={0} max={59} onChange={(minute) => update(clock.hour, minute)} format={(item) => String(item).padStart(2, "0")} />
+      </div> : <span className="picker-empty">未设置</span>}
+    </div>
+  );
+}
+
+function reminderToMinutes(value) {
+  const text = String(value || "到点提醒");
+  if (text === "不提醒") return null;
+  if (text === "到点提醒") return 0;
+  const hours = Number(text.match(/(\d+)\s*小时/)?.[1] || 0);
+  const minutes = Number(text.match(/(\d+)\s*分钟/)?.[1] || 0);
+  return Math.min(1439, hours * 60 + minutes);
+}
+
+function reminderFromMinutes(totalMinutes) {
+  if (totalMinutes === null) return "不提醒";
+  const safe = Math.min(1439, Math.max(0, Number(totalMinutes) || 0));
+  if (safe === 0) return "到点提醒";
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  return `提前${hours ? `${hours}小时` : ""}${minutes ? `${minutes}分钟` : ""}`;
+}
+
+function ReminderPicker({ value, onChange }) {
+  const total = reminderToMinutes(value);
+  const enabled = total !== null;
+  const safe = total || 0;
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  const update = (nextHours, nextMinutes) => onChange(reminderFromMinutes(Math.min(1439, nextHours * 60 + nextMinutes)));
+  return (
+    <div className="jinke-reminder-picker" aria-label="提前提醒">
+      <div className="picker-head"><span>提醒</span><button type="button" aria-pressed={enabled} className={enabled ? "enabled" : ""} onClick={() => onChange(enabled ? "不提醒" : "到点提醒")}>{enabled ? "已开启" : "不提醒"}</button></div>
+      {enabled ? <>
+        <div className="reminder-stepper-row">
+          <div><small>小时</small><Stepper label="提前小时" value={hours} min={0} max={23} onChange={(next) => update(next, minutes)} /></div>
+          <div><small>分钟</small><Stepper label="提前分钟" value={minutes} min={0} max={59} onChange={(next) => update(hours, next)} /></div>
+        </div>
+        <output className="reminder-summary">{reminderFromMinutes(safe)}</output>
+      </> : null}
+    </div>
+  );
 }
 
 function deadlineToDateInput(deadline) {
@@ -45,6 +123,27 @@ function dateInputToDeadline(value) {
   if (!value) return null;
   const [, month, day] = value.split("-").map(Number);
   return `${month}月${day}日`;
+}
+
+function DatePicker({ value, onChange }) {
+  const today = new Date();
+  const iso = deadlineToDateInput(value) || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const [year, month, day] = iso.split("-").map(Number);
+  const maxDay = new Date(year, month, 0).getDate();
+  const update = (nextYear, nextMonth, nextDay) => {
+    const safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
+    onChange(dateInputToDeadline(`${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`));
+  };
+  return (
+    <div className="jinke-date-picker" aria-label="截止日期">
+      <div className="picker-head"><span>截止</span><button type="button" aria-pressed={Boolean(value)} onClick={() => onChange(value ? null : dateInputToDeadline(iso))}>{value ? "清除" : "设置"}</button></div>
+      {value ? <div className="date-stepper-row">
+        <div><small>年</small><Stepper label="截止年份" value={year} min={today.getFullYear()} max={today.getFullYear() + 10} onChange={(next) => update(next, month, day)} /></div>
+        <div><small>月</small><Stepper label="截止月份" value={month} min={1} max={12} onChange={(next) => update(year, next, day)} /></div>
+        <div><small>日</small><Stepper label="截止日期" value={day} min={1} max={maxDay} onChange={(next) => update(year, month, next)} /></div>
+      </div> : <span className="picker-empty">无 DDL</span>}
+    </div>
+  );
 }
 
 function WeekStrip({ selectedDateKey, todayDateKey, onSelectDate }) {
@@ -114,7 +213,7 @@ function ViewMenu({ onSelect, onClose }) {
   );
 }
 
-function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, onOpenCritical, onDeleteCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, onOpenDayArchive }) {
+function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, onToggleCritical, onOpenCritical, onDeleteCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, onOpenDayArchive }) {
   const done = tasks.filter((task) => task.done).length;
   const percent = Math.round((done / Math.max(tasks.length, 1)) * 100);
   const selectedDay = getDateMeta(selectedDateKey);
@@ -149,7 +248,7 @@ function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, on
           {deadlineTasks.length ? (
             <section className="today-ddl-pane" aria-label="当天 DDL 事项">
               <SectionHeader title="DDL" />
-              <div className="critical-stack daily-ddl-stack">{deadlineTasks.map((task) => <CriticalTaskRow task={task} onOpen={onOpenCritical} onDelete={onDeleteCritical} key={task.id} />)}</div>
+              <div className="critical-stack daily-ddl-stack">{deadlineTasks.map((task) => <CriticalTaskRow task={task} onToggle={onToggleCritical} onOpen={onOpenCritical} onDelete={onDeleteCritical} key={task.id} />)}</div>
             </section>
           ) : null}
         </div>
@@ -327,7 +426,7 @@ function CalendarDaySheet({ dateKey, onClose, active, index, onActiveChange, onI
   );
 }
 
-function CriticalScreen({ tasks, onOpen, onDelete, onMenu, onOpenReminders }) {
+function CriticalScreen({ tasks, onToggle, onOpen, onDelete, onMenu, onOpenReminders }) {
   const withDDL = tasks.filter((task) => task.deadline);
   const withoutDDL = tasks.filter((task) => !task.deadline);
   return (
@@ -341,12 +440,12 @@ function CriticalScreen({ tasks, onOpen, onDelete, onMenu, onOpenReminders }) {
         <section className="critical-pane critical-with-ddl" aria-label="有 DDL 的关键事项">
           <SectionHeader title="有 DDL" />
           {withDDL.some((task) => task.demo) ? <div className="demo-guide">左滑删除演示，点下方语音键创建第一个 DDL</div> : null}
-          <div className="critical-stack">{withDDL.map((task) => <CriticalTaskRow task={task} onOpen={onOpen} onDelete={onDelete} key={task.id} />)}</div>
+          <div className="critical-stack">{withDDL.map((task) => <CriticalTaskRow task={task} onToggle={onToggle} onOpen={onOpen} onDelete={onDelete} key={task.id} />)}</div>
           {!withDDL.length ? <div className="empty-guide">点下方语音键，创建第一个 DDL</div> : null}
         </section>
         <section className="critical-pane critical-without-ddl" aria-label="无 DDL 的关键事项">
           <SectionHeader title="无 DDL" note="长期关注" />
-          <div className="critical-stack">{withoutDDL.map((task) => <CriticalTaskRow task={task} onOpen={onOpen} onDelete={onDelete} key={task.id} />)}</div>
+          <div className="critical-stack">{withoutDDL.map((task) => <CriticalTaskRow task={task} onToggle={onToggle} onOpen={onOpen} onDelete={onDelete} key={task.id} />)}</div>
         </section>
       </div>
     </main>
@@ -361,6 +460,7 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
   const text = transcript.trim();
   const editableTask = draftTask || parsedCommand.task;
   const updateDraft = (field, value) => onDraftTaskChange({ ...(draftTask || parsedCommand.task), [field]: value });
+  const updateRepeat = (repeatDays, repeat) => onDraftTaskChange({ ...(draftTask || parsedCommand.task), repeatDays, repeat, hasRepeat: repeatDays.length > 0 });
   const updateType = (type) => {
     const next = { ...(draftTask || parsedCommand.task), type };
     onDraftTaskChange(type === "critical" ? { ...next, reminder: getCriticalReminder(next.time === "待定" ? null : next.time) } : next);
@@ -404,21 +504,21 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
           {parsedCommand.intent === "create" && editableTask ? (
             <div className="edit-form voice-edit-form edit-form-first">
               <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={editableTask.title} onChange={(event) => updateDraft("title", event.target.value)} /></label>
-              <label className="edit-field"><span className="edit-label">类型</span><select className="edit-input" value={editableTask.type} onChange={(event) => updateType(event.target.value)}><option value="daily">日常事务</option><option value="critical">关键事务</option></select></label>
+              <div className="edit-field stacked custom-control-field"><span className="edit-label">类型</span><SegmentedChoice label="任务类型" value={editableTask.type} options={[["daily", "日常事务"], ["critical", "关键事务"]]} onChange={updateType} /></div>
               {editableTask.type === "daily" ? (
                 <>
-                  <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={editableTask.time === "待定" ? "" : editableTask.time} onChange={(event) => updateDraft("time", event.target.value || "待定")} /></label>
-                  <label className="edit-field"><span className="edit-label">重复</span><select className="edit-input" value={editableTask.repeat} onChange={(event) => updateDraft("repeat", event.target.value)}><ChoiceOptions options={REPEAT_OPTIONS} current={editableTask.repeat} /></select></label>
+                  <div className="edit-field stacked custom-control-field"><TimePicker label="时间" value={editableTask.time === "待定" ? null : editableTask.time} onChange={(time) => updateDraft("time", time || "待定")} /></div>
+                  <div className="edit-field stacked custom-control-field"><WeekdayPicker value={editableTask.repeat} repeatDays={editableTask.repeatDays} onChange={updateRepeat} /></div>
                 </>
               ) : (
                 <>
-                  <label className="edit-field"><span className="edit-label">截止</span><input className="edit-input" type="date" value={deadlineToDateInput(editableTask.deadline)} onChange={(event) => updateDraft("deadline", dateInputToDeadline(event.target.value))} /></label>
-                  <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={editableTask.time === "待定" ? "" : editableTask.time || ""} onChange={(event) => updateCriticalTime(event.target.value)} /></label>
+                  <div className="edit-field stacked custom-control-field"><DatePicker value={editableTask.deadline} onChange={(deadline) => updateDraft("deadline", deadline)} /></div>
+                  <div className="edit-field stacked custom-control-field"><TimePicker label="时间" value={editableTask.time === "待定" ? null : editableTask.time} onChange={updateCriticalTime} /></div>
                 </>
               )}
               {editableTask.type === "critical"
                 ? <div className="edit-field"><span className="edit-label">提醒</span><output className="edit-input edit-output">{editableTask.reminder || getCriticalReminder(null)}</output></div>
-                : <label className="edit-field"><span className="edit-label">提醒</span><select className="edit-input" value={editableTask.reminder || "到点提醒"} onChange={(event) => updateDraft("reminder", event.target.value)}><ChoiceOptions options={REMINDER_OPTIONS} current={editableTask.reminder || "到点提醒"} /></select></label>}
+                : <div className="edit-field stacked custom-control-field"><ReminderPicker value={editableTask.reminder || "到点提醒"} onChange={(reminder) => updateDraft("reminder", reminder)} /></div>}
               <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={editableTask.note || ""} onChange={(event) => updateDraft("note", event.target.value)} /></label>
             </div>
           ) : (
@@ -445,13 +545,14 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
 function DailyEditSheet({ task, draft, onDraftChange, onSave, onClose }) {
   if (!task || !draft) return null;
   const update = (field, value) => onDraftChange({ ...draft, [field]: value });
+  const updateRepeat = (repeatDays, repeat) => onDraftChange({ ...draft, repeatDays, repeat });
   return (
     <Sheet onClose={onClose} label="编辑任务">
       <div className="edit-form edit-form-first">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
-        <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={draft.time === "待定" ? "" : draft.time} onChange={(event) => update("time", event.target.value || "待定")} /></label>
-        <label className="edit-field"><span className="edit-label">重复</span><select className="edit-input" value={draft.repeat} onChange={(event) => update("repeat", event.target.value)}><ChoiceOptions options={REPEAT_OPTIONS} current={draft.repeat} /></select></label>
-        <label className="edit-field"><span className="edit-label">提醒</span><select className="edit-input" value={draft.reminder} onChange={(event) => update("reminder", event.target.value)}><ChoiceOptions options={REMINDER_OPTIONS} current={draft.reminder} /></select></label>
+        <div className="edit-field stacked custom-control-field"><TimePicker label="时间" value={draft.time === "待定" ? null : draft.time} onChange={(time) => update("time", time || "待定")} /></div>
+        <div className="edit-field stacked custom-control-field"><WeekdayPicker value={draft.repeat} repeatDays={draft.repeatDays} onChange={updateRepeat} /></div>
+        <div className="edit-field stacked custom-control-field"><ReminderPicker value={draft.reminder} onChange={(reminder) => update("reminder", reminder)} /></div>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="3" value={draft.note} onChange={(event) => update("note", event.target.value)} /></label>
       </div>
       <div className="button-row">
@@ -505,21 +606,21 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
       </div>
       <div className="edit-form critical-edit-form">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
-        <label className="edit-field"><span className="edit-label">截止</span><input className="edit-input" type="date" value={deadlineToDateInput(draft.deadline)} onChange={(event) => update("deadline", dateInputToDeadline(event.target.value))} /></label>
-        <label className="edit-field"><span className="edit-label">时间</span><input className="edit-input" type="time" value={draft.time || ""} onChange={(event) => updateTime(event.target.value)} /></label>
+        <div className="edit-field stacked custom-control-field"><DatePicker value={draft.deadline} onChange={(deadline) => update("deadline", deadline)} /></div>
+        <div className="edit-field stacked custom-control-field"><TimePicker label="时间" value={draft.time} onChange={updateTime} /></div>
         <div className="edit-field"><span className="edit-label">提醒</span><output className="edit-input edit-output">{draft.reminder || getCriticalReminder(draft.time || null)}</output></div>
-        <label className="edit-field"><span className="edit-label">完成度</span><select className="edit-input" value={draft.progress ?? 0} onChange={(event) => update("progress", Number(event.target.value))}><ChoiceOptions options={PROGRESS_OPTIONS.map((value) => [value, `${value}%`])} current={draft.progress ?? 0} /></select></label>
+        <div className="edit-field stacked custom-control-field"><span className="edit-label">完成度</span><SegmentedChoice label="完成度" value={draft.progress ?? 0} options={[0, 25, 50, 75, 100].map((value) => [value, `${value}%`])} onChange={(progress) => update("progress", Number(progress))} compact /></div>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={draft.note || ""} onChange={(event) => update("note", event.target.value)} /></label>
       </div>
       <button className="primary-button accent pressable save-wide" onClick={() => onSave(task.id, { ...draft, title: draft.title.trim() })} disabled={!draft.title.trim()}>保存修改</button>
       {task.deadline ? (
         <div className="renew-row">
-          <label className="renew-days-field">
+          <div className="renew-days-field">
             <Icon name="refresh" size={17} />
             <span className="renew-days-label">续期</span>
-            <select className="renew-days-input" value={renewDays} aria-label="续期天数" onChange={(event) => onRenewDaysChange(Number(event.target.value))}><ChoiceOptions options={RENEW_DAY_OPTIONS} current={renewDays} /></select>
+            <Stepper label="续期天数" value={renewDays} min={1} max={365} onChange={onRenewDaysChange} />
             <span className="renew-days-unit">天</span>
-          </label>
+          </div>
           <button className="secondary-button pressable renew-confirm" onClick={() => onRenew(task.id, renewDays)}>确认续期</button>
         </div>
       ) : null}
@@ -616,10 +717,10 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
   return (
     <main className="screen secondary critical-reminder-screen">
       <BackHeader title="DDL 提醒" onBack={onBack} />
-      <label className="reminder-time-card">
+      <div className="reminder-time-card">
         <span><span className="reminder-setting-title">默认时间</span><span className="reminder-setting-note">汇总当前需要提醒的任务</span></span>
-        <input className="reminder-time-input" type="time" value={reminderTime} aria-label="DDL 默认提醒时间" onChange={(event) => onReminderTimeChange(event.target.value || "10:00")} />
-      </label>
+        <TimePicker label="DDL 默认提醒时间" value={reminderTime} allowUnset={false} onChange={(time) => onReminderTimeChange(time || "10:00")} />
+      </div>
       {reminderTasks.length ? (
         <div className="notice-preview ddl-notice-preview">
           <div className="notice-app"><span className="notice-mark"><img src="./assets/app-icon-512.png" alt="" /></span>今刻 · {reminderTime}</div>
@@ -630,14 +731,14 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
         <div className="reminder-silent-card"><Icon name="bell" size={18} /><span><strong>今天不提醒</strong><small>DDL 仍保留在今日与关键列表</small></span></div>
       )}
       <div className="reminder-rule-grid" aria-label="DDL提醒频率">
-        <label className="reminder-rule-field">
+        <div className="reminder-rule-field">
           <span className="reminder-rule-label">倍数节点</span>
-          <span className="reminder-rule-value">每 <select value={reminderMultiple} aria-label="DDL提醒倍数天数" onChange={(event) => onReminderMultipleChange(Number(event.target.value))}><ChoiceOptions options={REMINDER_MULTIPLE_OPTIONS} current={reminderMultiple} /></select> 天</span>
-        </label>
-        <label className="reminder-rule-field">
+          <span className="reminder-rule-value">每 <Stepper label="DDL提醒倍数天数" value={reminderMultiple} min={1} max={30} onChange={onReminderMultipleChange} /> 天</span>
+        </div>
+        <div className="reminder-rule-field">
           <span className="reminder-rule-label">临近截止</span>
-          <span className="reminder-rule-value">最后 <select value={reminderFinalDays} aria-label="DDL最后连续提醒天数" onChange={(event) => onReminderFinalDaysChange(Number(event.target.value))}><ChoiceOptions options={REMINDER_FINAL_DAY_OPTIONS} current={reminderFinalDays} /></select> 天</span>
-        </label>
+          <span className="reminder-rule-value">最后 <Stepper label="DDL最后连续提醒天数" value={reminderFinalDays} min={0} max={30} onChange={onReminderFinalDaysChange} /> 天</span>
+        </div>
       </div>
       <SectionHeader title="今天会提醒" note={`${reminderTasks.length} 项`} />
       <div className="reminder-task-list">
@@ -659,7 +760,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.6";
+const JINKE_FALLBACK_VERSION = "1.0.7";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

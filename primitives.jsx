@@ -65,7 +65,6 @@ function SwipeTaskActions({ label, onEdit, onDelete, children }) {
       horizontal: false,
       moved: false,
     };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const onPointerMove = (event) => {
@@ -73,9 +72,10 @@ function SwipeTaskActions({ label, onEdit, onDelete, children }) {
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     const dx = event.clientX - gesture.startX;
     const dy = event.clientY - gesture.startY;
-    if (!gesture.horizontal && Math.max(Math.abs(dx), Math.abs(dy)) > 7) {
-      if (Math.abs(dy) > Math.abs(dx)) return;
+    if (!gesture.horizontal && Math.max(Math.abs(dx), Math.abs(dy)) > 14) {
+      if (Math.abs(dx) <= Math.abs(dy) * 1.2) return;
       gesture.horizontal = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
     }
     if (!gesture.horizontal) return;
     gesture.moved = true;
@@ -92,7 +92,7 @@ function SwipeTaskActions({ label, onEdit, onDelete, children }) {
       settle(offsetRef.current <= -0.13 ? -revealRatio : 0);
     }
     gestureRef.current = null;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const onClickCapture = (event) => {
@@ -126,33 +126,35 @@ function SwipeTaskActions({ label, onEdit, onDelete, children }) {
 function DailyTaskRow({ task, onToggle, onEdit, onDelete }) {
   return (
     <SwipeTaskActions label={`${task.title}，向左滑动可编辑或删除`} onEdit={() => onEdit(task)} onDelete={() => onDelete(task)}>
-      <div className="daily-row">
-        <button className="task-time task-time-edit" aria-label={`编辑 ${task.title} 的时间`} onClick={() => onEdit(task)}>{task.time}</button>
-        <button className={`check-button ${task.done ? "done" : ""}`} aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
+      <button className="daily-row task-toggle-row" type="button" aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
+        <span className="task-time">{task.time}</span>
+        <span className={`check-button ${task.done ? "done" : ""}`} aria-hidden="true">
           {task.done ? <Icon name="check" size={15} strokeWidth={2.3} /> : null}
-        </button>
-        <button className="task-copy task-edit-button" aria-label={`编辑 ${task.title}`} onClick={() => onEdit(task)}>
+        </span>
+        <span className="task-copy">
           <span className="task-edit-body">
             <span className={`task-title ${task.done ? "done" : ""}`}>{task.title}</span>
             <span className="task-note">{task.note}</span>
             <span className="task-tags"><span className="repeat-pill">{task.repeat}</span>{task.reminder && task.reminder !== "到点提醒" ? <span className="reminder-pill">{task.reminder}</span> : null}</span>
           </span>
-          <Icon name="chevronRight" size={17} />
-        </button>
-      </div>
+        </span>
+      </button>
     </SwipeTaskActions>
   );
 }
 
-function CriticalTaskRow({ task, onOpen, onDelete }) {
+function CriticalTaskRow({ task, onToggle, onOpen, onDelete }) {
   const dueCopy = task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? `逾期 ${Math.abs(task.daysLeft)} 天` : task.daysLeft === 0 ? "今天" : `剩 ${task.daysLeft} 天`;
   return (
     <SwipeTaskActions label={`${task.title}，向左滑动可编辑或删除`} onEdit={() => onOpen(task)} onDelete={() => onDelete(task)}>
-      <button className="critical-row pressable" onClick={() => onOpen(task)}>
+      <button className={`critical-row pressable ${task.done ? "done" : ""}`} aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
         <div className="critical-top">
-          <div>
-            <div className="critical-title">{task.title}</div>
+          <div className="critical-title-wrap">
+            <span className={`critical-check ${task.done ? "done" : ""}`}>{task.done ? <Icon name="check" size={13} strokeWidth={2.3} /> : null}</span>
+            <div>
+            <div className={`critical-title ${task.done ? "done" : ""}`}>{task.title}</div>
             <div className="critical-note">{task.note}</div>
+            </div>
           </div>
           <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
         </div>
