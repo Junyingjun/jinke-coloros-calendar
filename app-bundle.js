@@ -1364,7 +1364,8 @@ function VoiceComposer(_ref7) {
     onUseExample = _ref7.onUseExample,
     onConfirm = _ref7.onConfirm,
     onClose = _ref7.onClose,
-    speechAvailable = _ref7.speechAvailable;
+    speechAvailable = _ref7.speechAvailable,
+    speechStatus = _ref7.speechStatus;
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
@@ -1398,6 +1399,16 @@ function VoiceComposer(_ref7) {
     }
   };
   var canConfirm = parsedCommand.valid && (parsedCommand.intent !== "create" || Boolean(editableTask === null || editableTask === void 0 || (_editableTask$title = editableTask.title) === null || _editableTask$title === void 0 ? void 0 : _editableTask$title.trim()));
+  var statusText = {
+    starting: "正在启动离线语音…",
+    "requesting-permission": "等待麦克风授权…",
+    "preparing-model": "正在准备离线中文模型…",
+    "model-ready": "离线中文模型已就绪…",
+    listening: "正在听…",
+    processing: "正在处理…",
+    "permission-denied": "麦克风权限未开启",
+    error: "离线语音组件启动失败"
+  }[speechStatus] || "正在听…";
   return React.createElement(Sheet, {
     onClose: onClose,
     labelledBy: phase === "listening" ? "voice-title" : undefined,
@@ -1413,7 +1424,7 @@ function VoiceComposer(_ref7) {
     "aria-label": "\u505C\u6B62\u5E76\u5904\u7406"
   }, React.createElement(Waveform, null)), React.createElement("div", {
     className: "voice-transcript"
-  }, text || "正在听…")), React.createElement("input", {
+  }, text || statusText)), React.createElement("input", {
     className: "composer-input",
     value: transcript,
     onChange: function onChange(event) {
@@ -1922,12 +1933,74 @@ function DeleteConfirmSheet(_ref19) {
   }, "\u5220\u9664")));
 }
 function PermissionsScreen(_ref20) {
-  var onBack = _ref20.onBack;
-  var rows = [["麦克风权限", "用于语音识别与助手指令", "按需授权"], ["通知权限", "锁屏和通知中心可见", "已开启"], ["精确闹钟", "保证事项按设定时间出现", "已开启"], ["后台运行", "已加入 ColorOS 白名单", "正常"], ["电池优化", "允许今刻在后台保持提醒", "不限制"]];
+  var capabilities = _ref20.capabilities,
+    onOpenCapability = _ref20.onOpenCapability,
+    onBack = _ref20.onBack;
+  var known = Boolean(capabilities);
+  var state = function state(value) {
+    var yes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "已开启";
+    var no = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : "未开启";
+    return known ? value ? yes : no : "仅手机检测";
+  };
+  var rows = [{
+    key: "microphone",
+    title: "麦克风",
+    note: "语音识别与助手指令",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.microphone, "已授权", "未授权"),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.microphone
+  }, {
+    key: null,
+    title: "离线中文识别",
+    note: "Vosk 中文模型随 APK 内置",
+    status: known ? capabilities !== null && capabilities !== void 0 && capabilities.offlineSpeechReady ? "已加载" : capabilities !== null && capabilities !== void 0 && capabilities.offlineSpeechBundled ? "已内置" : "组件缺失" : "APK 内置",
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.offlineSpeechBundled
+  }, {
+    key: "notifications",
+    title: "通知",
+    note: "锁屏和通知中心提醒",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.notifications),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.notifications
+  }, {
+    key: "exactAlarm",
+    title: "精确闹钟",
+    note: "按设定时间触发 DDL 提醒",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.exactAlarm),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.exactAlarm
+  }, {
+    key: "background",
+    title: "ColorOS 后台运行",
+    note: "需在系统中允许自启动和后台活动",
+    status: "需系统确认",
+    ok: false
+  }, {
+    key: "battery",
+    title: "电池优化",
+    note: "后台提醒不被系统休眠",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.batteryUnrestricted, "不限制", "受限制"),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.batteryUnrestricted
+  }, {
+    key: "installUpdates",
+    title: "安装更新",
+    note: "从 GitHub 安装新版 APK",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.installUpdates, "已允许", "未允许"),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.installUpdates
+  }, {
+    key: null,
+    title: "联网",
+    note: "节日资料和版本检测",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.network, "可用", "当前离线"),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.network
+  }, {
+    key: null,
+    title: "开机恢复提醒",
+    note: "重启后重新安排 DDL 闹钟",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.bootRestore, "已内置", "组件缺失"),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.bootRestore
+  }];
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
-    title: "\u901A\u77E5\u4E0E\u6743\u9650",
+    title: "\u6743\u9650\u4E0E\u7EC4\u4EF6",
     onBack: onBack
   }), React.createElement("div", {
     className: "notice-preview"
@@ -1946,33 +2019,37 @@ function PermissionsScreen(_ref20) {
     style: {
       marginTop: 17
     }
-  }, rows.map(function (_ref21) {
-    var _ref22 = _slicedToArray(_ref21, 3),
-      title = _ref22[0],
-      note = _ref22[1],
-      status = _ref22[2];
-    return React.createElement("div", {
-      className: "permission-row",
-      key: title
-    }, React.createElement("div", null, React.createElement("div", {
+  }, rows.map(function (row) {
+    var content = React.createElement(React.Fragment, null, React.createElement("div", null, React.createElement("div", {
       className: "permission-title"
-    }, title), React.createElement("div", {
+    }, row.title), React.createElement("div", {
       className: "permission-note"
-    }, note)), React.createElement("span", {
-      className: "status-badge"
-    }, status));
+    }, row.note)), React.createElement("span", {
+      className: "status-badge ".concat(row.ok ? "" : "needs-action")
+    }, row.status));
+    return row.key ? React.createElement("button", {
+      type: "button",
+      className: "permission-row permission-action",
+      onClick: function onClick() {
+        return onOpenCapability(row.key);
+      },
+      key: row.title
+    }, content) : React.createElement("div", {
+      className: "permission-row",
+      key: row.title
+    }, content);
   })));
 }
-function CriticalReminderScreen(_ref23) {
-  var tasks = _ref23.tasks,
-    reminderTime = _ref23.reminderTime,
-    onReminderTimeChange = _ref23.onReminderTimeChange,
-    reminderMultiple = _ref23.reminderMultiple,
-    onReminderMultipleChange = _ref23.onReminderMultipleChange,
-    reminderFinalDays = _ref23.reminderFinalDays,
-    onReminderFinalDaysChange = _ref23.onReminderFinalDaysChange,
-    onOpenPermissions = _ref23.onOpenPermissions,
-    onBack = _ref23.onBack;
+function CriticalReminderScreen(_ref21) {
+  var tasks = _ref21.tasks,
+    reminderTime = _ref21.reminderTime,
+    onReminderTimeChange = _ref21.onReminderTimeChange,
+    reminderMultiple = _ref21.reminderMultiple,
+    onReminderMultipleChange = _ref21.onReminderMultipleChange,
+    reminderFinalDays = _ref21.reminderFinalDays,
+    onReminderFinalDaysChange = _ref21.onReminderFinalDaysChange,
+    onOpenPermissions = _ref21.onOpenPermissions,
+    onBack = _ref21.onBack;
   var reminderTasks = tasks.filter(function (task) {
     return task.deadline && shouldRemindCritical(task.daysLeft, reminderMultiple, reminderFinalDays);
   });
@@ -2081,7 +2158,7 @@ function CriticalReminderScreen(_ref23) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.4";
+var JINKE_FALLBACK_VERSION = "1.0.5";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2097,8 +2174,8 @@ function compareVersions(left, right) {
   }
   return 0;
 }
-function VersionScreen(_ref24) {
-  var onBack = _ref24.onBack;
+function VersionScreen(_ref22) {
+  var onBack = _ref22.onBack;
   var currentVersion = function () {
     try {
       var _window$JinkeAndroid, _window$JinkeAndroid$;
@@ -2196,8 +2273,10 @@ function VersionScreen(_ref24) {
     size: 15
   })));
 }
-function VoiceSettingsScreen(_ref25) {
-  var onBack = _ref25.onBack;
+function VoiceSettingsScreen(_ref23) {
+  var capabilities = _ref23.capabilities,
+    onBack = _ref23.onBack;
+  var modelStatus = capabilities ? capabilities.offlineSpeechReady ? "已加载" : capabilities.offlineSpeechBundled ? "已内置" : "组件缺失" : "APK 内置";
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -2212,36 +2291,36 @@ function VoiceSettingsScreen(_ref25) {
     style: {
       fontSize: 28
     }
-  }, "sherpa-onnx"), React.createElement("div", {
+  }, "Vosk Offline"), React.createElement("div", {
     className: "summary-caption"
-  }, "\u7AEF\u4FA7\u4E2D\u6587\u6D41\u5F0F\u8BC6\u522B\uFF0C\u5F55\u97F3\u4E0D\u79BB\u5F00\u8BBE\u5907\u3002")), React.createElement(SectionHeader, {
+  }, "\u7AEF\u4FA7\u666E\u901A\u8BDD\u6D41\u5F0F\u8BC6\u522B\uFF0C\u4E0D\u4F9D\u8D56\u7CFB\u7EDF\u8BED\u97F3\u670D\u52A1\u3002")), React.createElement(SectionHeader, {
     title: "\u8BC6\u522B\u80FD\u529B",
     note: "\u79BB\u7EBF"
   }), React.createElement("div", {
     className: "permission-row"
   }, React.createElement("div", null, React.createElement("div", {
     className: "permission-title"
-  }, "\u666E\u901A\u8BDD\u4E0E\u82F1\u6587"), React.createElement("div", {
+  }, "\u666E\u901A\u8BDD\u6A21\u578B"), React.createElement("div", {
     className: "permission-note"
-  }, "Zipformer \u53CC\u8BED\u6A21\u578B")), React.createElement("span", {
+  }, "vosk-model-small-cn-0.22 \xB7 \u7EA6 68 MB")), React.createElement("span", {
     className: "status-badge"
-  }, "\u5DF2\u4E0B\u8F7D")), React.createElement("div", {
+  }, modelStatus)), React.createElement("div", {
     className: "permission-row"
   }, React.createElement("div", null, React.createElement("div", {
     className: "permission-title"
-  }, "\u81EA\u7136\u8BED\u8A00\u65F6\u95F4\u89E3\u6790"), React.createElement("div", {
+  }, "\u539F\u751F\u8BC6\u522B\u5F15\u64CE"), React.createElement("div", {
     className: "permission-note"
-  }, "\u65E5\u671F\u3001\u661F\u671F\u3001\u91CD\u590D\u4E0E\u63D0\u524D\u63D0\u9192")), React.createElement("span", {
+  }, "Vosk Android 0.3.75 \xB7 ARM64")), React.createElement("span", {
     className: "status-badge"
-  }, "\u672C\u5730")), React.createElement("div", {
+  }, "\u5DF2\u5185\u7F6E")), React.createElement("div", {
     className: "permission-row"
   }, React.createElement("div", null, React.createElement("div", {
     className: "permission-title"
-  }, "\u4E2A\u6027\u8BCD\u8868"), React.createElement("div", {
+  }, "\u81EA\u7136\u8BED\u8A00\u6307\u4EE4\u89E3\u6790"), React.createElement("div", {
     className: "permission-note"
-  }, "\u5065\u8EAB\u3001\u65E5\u5FD7\u3001DDL \u7B49\u5E38\u7528\u8BCD")), React.createElement("span", {
+  }, "\u65E5\u671F\u3001\u661F\u671F\u3001\u91CD\u590D\u3001DDL \u4E0E\u5E94\u7528\u64CD\u4F5C")), React.createElement("span", {
     className: "status-badge"
-  }, "\u81EA\u52A8")), React.createElement(SectionHeader, {
+  }, "\u672C\u5730")), React.createElement(SectionHeader, {
     title: "\u5168\u5C40\u8BED\u97F3\u6307\u4EE4",
     note: "\u6267\u884C\u524D\u786E\u8BA4"
   }), React.createElement("div", {
@@ -2959,11 +3038,20 @@ function getNativeWindowState(payload) {
     return null;
   }
 }
+function getNativeCapabilities(payload) {
+  try {
+    var _window$JinkeAndroid2;
+    var supplied = typeof payload === "string" ? JSON.parse(payload) : payload;
+    if (supplied && _typeof(supplied) === "object") return supplied;
+    if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.getSystemCapabilities) return JSON.parse(window.JinkeAndroid.getSystemCapabilities());
+  } catch (_unused4) {}
+  return null;
+}
 function MobileDesignApp() {
   var _useState3 = useState(function () {
       try {
         return localStorage.getItem("jinke-theme") || "dark";
-      } catch (_unused4) {
+      } catch (_unused5) {
         return "dark";
       }
     }),
@@ -3016,7 +3104,7 @@ function MobileDesignApp() {
       var value = "10:00";
       try {
         value = localStorage.getItem("jinke-ddl-reminder-time") || value;
-      } catch (_unused5) {}
+      } catch (_unused6) {}
       window.JINKE_DDL_REMINDER_TIME = value;
       return value;
     }),
@@ -3027,7 +3115,7 @@ function MobileDesignApp() {
       var value = 5;
       try {
         value = Math.max(1, Number(localStorage.getItem("jinke-ddl-reminder-multiple")) || value);
-      } catch (_unused6) {}
+      } catch (_unused7) {}
       window.JINKE_DDL_REMINDER_MULTIPLE = value;
       return value;
     }),
@@ -3039,7 +3127,7 @@ function MobileDesignApp() {
       try {
         var stored = localStorage.getItem("jinke-ddl-reminder-final-days");
         if (stored !== null) value = Math.max(0, Number(stored) || 0);
-      } catch (_unused7) {}
+      } catch (_unused8) {}
       window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
       return value;
     }),
@@ -3100,16 +3188,26 @@ function MobileDesignApp() {
     _useState52 = _slicedToArray(_useState51, 2),
     speechAvailable = _useState52[0],
     setSpeechAvailable = _useState52[1];
-  var _useState53 = useState(""),
+  var _useState53 = useState("idle"),
     _useState54 = _slicedToArray(_useState53, 2),
-    toast = _useState54[0],
-    setToast = _useState54[1];
-  var _useState55 = useState(function () {
+    speechStatus = _useState54[0],
+    setSpeechStatus = _useState54[1];
+  var _useState55 = useState(""),
+    _useState56 = _slicedToArray(_useState55, 2),
+    toast = _useState56[0],
+    setToast = _useState56[1];
+  var _useState57 = useState(function () {
       return getNativeWindowState();
     }),
-    _useState56 = _slicedToArray(_useState55, 2),
-    nativeWindow = _useState56[0],
-    setNativeWindow = _useState56[1];
+    _useState58 = _slicedToArray(_useState57, 2),
+    nativeWindow = _useState58[0],
+    setNativeWindow = _useState58[1];
+  var _useState59 = useState(function () {
+      return getNativeCapabilities();
+    }),
+    _useState60 = _slicedToArray(_useState59, 2),
+    nativeCapabilities = _useState60[0],
+    setNativeCapabilities = _useState60[1];
   var recognitionRef = useRef(null);
   var toastTimerRef = useRef(null);
   var scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
@@ -3142,7 +3240,7 @@ function MobileDesignApp() {
     applyTheme();
     try {
       localStorage.setItem("jinke-theme", themeMode);
-    } catch (_unused8) {}
+    } catch (_unused9) {}
     if (themeMode === "system") media.addEventListener("change", applyTheme);
     return function () {
       return media.removeEventListener("change", applyTheme);
@@ -3166,24 +3264,36 @@ function MobileDesignApp() {
     };
   }, [Boolean(nativeWindow)]);
   useEffect(function () {
+    var _window$JinkeAndroid3;
+    if (!((_window$JinkeAndroid3 = window.JinkeAndroid) !== null && _window$JinkeAndroid3 !== void 0 && _window$JinkeAndroid3.getSystemCapabilities)) return undefined;
+    var updateCapabilities = function updateCapabilities(payload) {
+      return setNativeCapabilities(getNativeCapabilities(payload));
+    };
+    window.JINKE_NATIVE_CAPABILITIES_CHANGED = updateCapabilities;
+    updateCapabilities();
+    return function () {
+      if (window.JINKE_NATIVE_CAPABILITIES_CHANGED === updateCapabilities) delete window.JINKE_NATIVE_CAPABILITIES_CHANGED;
+    };
+  }, []);
+  useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks));
-    } catch (_unused9) {}
+    } catch (_unused10) {}
   }, [dailyTasks]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-completions", JSON.stringify(dailyCompletionByDate));
-    } catch (_unused10) {}
+    } catch (_unused11) {}
   }, [dailyCompletionByDate]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-critical-tasks", JSON.stringify(criticalTasks));
-    } catch (_unused11) {}
+    } catch (_unused12) {}
   }, [criticalTasks]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-task-history", JSON.stringify(history));
-    } catch (_unused12) {}
+    } catch (_unused13) {}
   }, [history]);
   useEffect(function () {
     window.JINKE_DDL_REMINDER_TIME = ddlReminderTime;
@@ -3191,13 +3301,13 @@ function MobileDesignApp() {
     window.JINKE_DDL_REMINDER_FINAL_DAYS = ddlReminderFinalDays;
     try {
       localStorage.setItem("jinke-ddl-reminder-time", ddlReminderTime);
-    } catch (_unused13) {}
-    try {
-      localStorage.setItem("jinke-ddl-reminder-multiple", String(ddlReminderMultiple));
     } catch (_unused14) {}
     try {
-      localStorage.setItem("jinke-ddl-reminder-final-days", String(ddlReminderFinalDays));
+      localStorage.setItem("jinke-ddl-reminder-multiple", String(ddlReminderMultiple));
     } catch (_unused15) {}
+    try {
+      localStorage.setItem("jinke-ddl-reminder-final-days", String(ddlReminderFinalDays));
+    } catch (_unused16) {}
     setCriticalTasks(function (current) {
       return current.map(function (task) {
         return task.deadline ? _objectSpread(_objectSpread({}, task), {}, {
@@ -3207,8 +3317,8 @@ function MobileDesignApp() {
     });
   }, [ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
-    var _window$JinkeAndroid2;
-    if (!((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.syncDdlReminders)) return;
+    var _window$JinkeAndroid4;
+    if (!((_window$JinkeAndroid4 = window.JinkeAndroid) !== null && _window$JinkeAndroid4 !== void 0 && _window$JinkeAndroid4.syncDdlReminders)) return;
     var payload = criticalTasks.filter(function (task) {
       return task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0;
     }).map(function (task) {
@@ -3220,7 +3330,7 @@ function MobileDesignApp() {
     });
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
-    } catch (_unused16) {}
+    } catch (_unused17) {}
   }, [criticalTasks, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
     return function () {
@@ -3399,23 +3509,32 @@ function MobileDesignApp() {
     showToast("DDL \u5DF2\u7EED\u671F ".concat(days, " \u5929"));
   };
   var startVoice = function startVoice() {
-    var _window$JinkeAndroid3;
+    var _window$JinkeAndroid5;
     setTranscript("");
     setVoiceDraft(null);
     setVoicePhase("listening");
+    setSpeechStatus("starting");
     setOverlay("voice");
-    if ((_window$JinkeAndroid3 = window.JinkeAndroid) !== null && _window$JinkeAndroid3 !== void 0 && _window$JinkeAndroid3.startSpeechRecognition) {
+    if ((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.startSpeechRecognition) {
+      window.JINKE_NATIVE_SPEECH_STATUS = function (status) {
+        setSpeechStatus(String(status || "idle"));
+        setSpeechAvailable(status !== "error" && status !== "permission-denied");
+      };
+      window.JINKE_NATIVE_SPEECH_PARTIAL = function (next) {
+        setTranscript(String(next || ""));
+        setSpeechAvailable(true);
+      };
       window.JINKE_NATIVE_SPEECH_RESULT = function (next) {
         setTranscript(String(next || ""));
-        setSpeechAvailable(Boolean(next));
-        if (next) window.setTimeout(function () {
+        setSpeechStatus("idle");
+        window.setTimeout(function () {
           return setVoicePhase("review");
         }, 80);
       };
       try {
         window.JinkeAndroid.startSpeechRecognition();
         setSpeechAvailable(true);
-      } catch (_unused17) {
+      } catch (_unused18) {
         setSpeechAvailable(false);
       }
       return;
@@ -3442,15 +3561,25 @@ function MobileDesignApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setSpeechAvailable(true);
-    } catch (_unused18) {
+    } catch (_unused19) {
       setSpeechAvailable(false);
     }
   };
   var stopVoice = function stopVoice() {
+    var _window$JinkeAndroid6;
+    if ((_window$JinkeAndroid6 = window.JinkeAndroid) !== null && _window$JinkeAndroid6 !== void 0 && _window$JinkeAndroid6.stopSpeechRecognition) {
+      setSpeechStatus("processing");
+      try {
+        window.JinkeAndroid.stopSpeechRecognition();
+      } catch (_unused20) {
+        setSpeechAvailable(false);
+      }
+      return;
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_unused19) {}
+      } catch (_unused21) {}
       recognitionRef.current = null;
     }
     if (!transcript.trim()) setTranscript(VOICE_EXAMPLE);
@@ -3695,10 +3824,16 @@ function MobileDesignApp() {
     setOverlay(null);
   };
   var closeOverlay = function closeOverlay() {
+    var _window$JinkeAndroid7;
+    if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.stopSpeechRecognition) {
+      try {
+        window.JinkeAndroid.stopSpeechRecognition();
+      } catch (_unused22) {}
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused20) {}
+      } catch (_unused23) {}
       recognitionRef.current = null;
     }
     setOverlay(null);
@@ -3755,6 +3890,13 @@ function MobileDesignApp() {
       }
     });
     if (secondary === "permissions") return React.createElement(PermissionsScreen, {
+      capabilities: nativeCapabilities,
+      onOpenCapability: function onOpenCapability(key) {
+        try {
+          var _window$JinkeAndroid8, _window$JinkeAndroid9;
+          (_window$JinkeAndroid8 = window.JinkeAndroid) === null || _window$JinkeAndroid8 === void 0 || (_window$JinkeAndroid9 = _window$JinkeAndroid8.openCapabilitySettings) === null || _window$JinkeAndroid9 === void 0 || _window$JinkeAndroid9.call(_window$JinkeAndroid8, key);
+        } catch (_unused24) {}
+      },
       onBack: function onBack() {
         return setSecondary(null);
       }
@@ -3780,6 +3922,7 @@ function MobileDesignApp() {
       }
     });
     if (secondary === "voice") return React.createElement(VoiceSettingsScreen, {
+      capabilities: nativeCapabilities,
       onBack: function onBack() {
         return setSecondary(null);
       }
@@ -3858,7 +4001,8 @@ function MobileDesignApp() {
       onUseExample: useVoiceExample,
       onConfirm: confirmVoiceCommand,
       onClose: closeOverlay,
-      speechAvailable: speechAvailable
+      speechAvailable: speechAvailable,
+      speechStatus: speechStatus
     }) : null, overlay === "daily-edit" ? React.createElement(DailyEditSheet, {
       task: selectedDaily,
       draft: dailyDraft,

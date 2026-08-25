@@ -19,8 +19,8 @@ android {
         applicationId "com.junyingjun.jinke"
         minSdk 28
         targetSdk 36
-        versionCode 5
-        versionName "1.0.4"
+        versionCode 6
+        versionName "1.0.5"
     }
 
     signingConfigs {
@@ -68,6 +68,7 @@ tasks.register("syncWebAssets", Copy) {
         include "app-bundle.js"
         include "manifest.webmanifest"
         include "project-identity.json"
+        include "THIRD_PARTY_NOTICES.md"
         include "assets/**"
         include "vendor/**"
         exclude "vendor/babel.min.js"
@@ -76,3 +77,8 @@ tasks.register("syncWebAssets", Copy) {
 }
 
 tasks.named("preBuild").configure { dependsOn("syncWebAssets") }
+
+dependencies {
+    implementation "net.java.dev.jna:jna:5.18.1@aar"
+    implementation "com.alphacephei:vosk-android:0.3.75@aar"
+}

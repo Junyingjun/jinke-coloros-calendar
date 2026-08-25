@@ -472,6 +472,15 @@ function getNativeWindowState(payload) {
   }
 }
 
+function getNativeCapabilities(payload) {
+  try {
+    const supplied = typeof payload === "string" ? JSON.parse(payload) : payload;
+    if (supplied && typeof supplied === "object") return supplied;
+    if (window.JinkeAndroid?.getSystemCapabilities) return JSON.parse(window.JinkeAndroid.getSystemCapabilities());
+  } catch {}
+  return null;
+}
+
 function MobileDesignApp() {
   const [themeMode, setThemeMode] = useState(() => {
     try { return localStorage.getItem("jinke-theme") || "dark"; } catch { return "dark"; }
@@ -522,8 +531,10 @@ function MobileDesignApp() {
   const [archiveActive, setArchiveActive] = useState("china");
   const [archiveIndex, setArchiveIndex] = useState(0);
   const [speechAvailable, setSpeechAvailable] = useState(true);
+  const [speechStatus, setSpeechStatus] = useState("idle");
   const [toast, setToast] = useState("");
   const [nativeWindow, setNativeWindow] = useState(() => getNativeWindowState());
+  const [nativeCapabilities, setNativeCapabilities] = useState(() => getNativeCapabilities());
   const recognitionRef = useRef(null);
   const toastTimerRef = useRef(null);
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
@@ -570,6 +581,16 @@ function MobileDesignApp() {
       if (window.JINKE_NATIVE_WINDOW_CHANGED === updateNativeWindow) delete window.JINKE_NATIVE_WINDOW_CHANGED;
     };
   }, [Boolean(nativeWindow)]);
+
+  useEffect(() => {
+    if (!window.JinkeAndroid?.getSystemCapabilities) return undefined;
+    const updateCapabilities = (payload) => setNativeCapabilities(getNativeCapabilities(payload));
+    window.JINKE_NATIVE_CAPABILITIES_CHANGED = updateCapabilities;
+    updateCapabilities();
+    return () => {
+      if (window.JINKE_NATIVE_CAPABILITIES_CHANGED === updateCapabilities) delete window.JINKE_NATIVE_CAPABILITIES_CHANGED;
+    };
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks)); } catch {}
@@ -749,12 +770,21 @@ function MobileDesignApp() {
     setTranscript("");
     setVoiceDraft(null);
     setVoicePhase("listening");
+    setSpeechStatus("starting");
     setOverlay("voice");
     if (window.JinkeAndroid?.startSpeechRecognition) {
+      window.JINKE_NATIVE_SPEECH_STATUS = (status) => {
+        setSpeechStatus(String(status || "idle"));
+        setSpeechAvailable(status !== "error" && status !== "permission-denied");
+      };
+      window.JINKE_NATIVE_SPEECH_PARTIAL = (next) => {
+        setTranscript(String(next || ""));
+        setSpeechAvailable(true);
+      };
       window.JINKE_NATIVE_SPEECH_RESULT = (next) => {
         setTranscript(String(next || ""));
-        setSpeechAvailable(Boolean(next));
-        if (next) window.setTimeout(() => setVoicePhase("review"), 80);
+        setSpeechStatus("idle");
+        window.setTimeout(() => setVoicePhase("review"), 80);
       };
       try {
         window.JinkeAndroid.startSpeechRecognition();
@@ -788,6 +818,11 @@ function MobileDesignApp() {
   };
 
   const stopVoice = () => {
+    if (window.JinkeAndroid?.stopSpeechRecognition) {
+      setSpeechStatus("processing");
+      try { window.JinkeAndroid.stopSpeechRecognition(); } catch { setSpeechAvailable(false); }
+      return;
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
@@ -969,6 +1004,9 @@ function MobileDesignApp() {
   };
 
   const closeOverlay = () => {
+    if (window.JinkeAndroid?.stopSpeechRecognition) {
+      try { window.JinkeAndroid.stopSpeechRecognition(); } catch {}
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
@@ -1013,10 +1051,10 @@ function MobileDesignApp() {
     if (secondary === "history") return <HistoryScreen items={history} onBack={() => setSecondary(null)} />;
     if (secondary === "month") return <ReportScreen type="month" onBack={() => setSecondary(null)} />;
     if (secondary === "year") return <ReportScreen type="year" onBack={() => setSecondary(null)} />;
-    if (secondary === "permissions") return <PermissionsScreen onBack={() => setSecondary(null)} />;
+    if (secondary === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={() => setSecondary(null)} />;
     if (secondary === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => setSecondary("permissions")} onBack={() => setSecondary(null)} />;
     if (secondary === "version") return <VersionScreen onBack={() => setSecondary(null)} />;
-    if (secondary === "voice") return <VoiceSettingsScreen onBack={() => setSecondary(null)} />;
+    if (secondary === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={() => setSecondary(null)} />;
     if (activeTab === "critical") return <CriticalScreen tasks={criticalTasks} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
     return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={APP_DATA.today.dateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
   };
@@ -1027,7 +1065,7 @@ function MobileDesignApp() {
       {!secondary ? <BottomNav activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setViewMode("day"); }} onVoice={startVoice} /> : null}
       {overlay === "view" ? <ViewMenu onClose={closeOverlay} onSelect={(mode) => { setViewMode(mode); setOverlay(null); }} /> : null}
       {overlay === "more" ? <MoreSheet onClose={closeOverlay} onOpen={openMore} themeMode={themeMode} onThemeChange={setThemeMode} /> : null}
-      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseExample={useVoiceExample} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} /> : null}
+      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseExample={useVoiceExample} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} /> : null}
       {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} /> : null}
       {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onComplete={completeCritical} onRenew={renewCritical} onSave={saveCritical} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}

@@ -163,9 +163,16 @@ assert.match(activitySource, /onConfigurationChanged[\s\S]*deliverWindowLayout/,
 assert.match(manifestSource, /android:resizeableActivity="true"/, "Android activity must be resizeable on foldables");
 assert.match(manifestSource, /android\.permission\.RECORD_AUDIO/, "Android APK must declare microphone access");
 assert.match(activitySource, /requestPermissions\(new String\[\]\{Manifest\.permission\.RECORD_AUDIO\}, REQUEST_MICROPHONE\)/, "microphone permission must be requested at runtime");
-assert.match(activitySource, /onRequestPermissionsResult[\s\S]*openSpeechRecognizer/, "speech recognition must continue after microphone permission is granted");
+assert.match(activitySource, /onRequestPermissionsResult[\s\S]*offlineSpeechEngine\.start/, "offline speech recognition must continue after microphone permission is granted");
 assert.match(activitySource, /RESOURCE_AUDIO_CAPTURE[\s\S]*RECORD_AUDIO/, "WebView audio capture must be gated by the Android permission");
 assert.ok(appSource.indexOf("window.JinkeAndroid?.startSpeechRecognition") < appSource.indexOf("const Recognition = window.SpeechRecognition"), "native APK must prefer the ColorOS speech bridge over WebView speech recognition");
+assert.doesNotMatch(activitySource, /RecognizerIntent|ACTION_RECOGNIZE_SPEECH/, "native speech must not depend on an optional system recognition service");
+assert.match(appSource, /JINKE_NATIVE_SPEECH_PARTIAL/, "offline partial recognition must update the assistant transcript");
+assert.match(appSource, /JINKE_NATIVE_SPEECH_STATUS/, "offline model and permission states must be visible in the assistant");
+assert.match(screensSource, /function PermissionsScreen\(\{ capabilities/, "permission screen must render native capability data");
+assert.doesNotMatch(screensSource, /已加入 ColorOS 白名单|\["通知权限"[^\n]*"已开启"/, "permission screen must never claim static system authorization");
+assert.doesNotMatch(screensSource, /sherpa-onnx|Zipformer/, "voice settings must not claim unbundled recognizers or models");
+assert.match(screensSource, /Vosk Offline[\s\S]*vosk-model-small-cn-0\.22[\s\S]*Vosk Android 0\.3\.75/, "voice settings must describe the engine and model actually packaged in the APK");
 assert.match(primitivesSource, /function SwipeTaskActions[\s\S]*swipe-edit[\s\S]*编辑[\s\S]*swipe-delete[\s\S]*删除/, "every task row must expose edit and delete after a left swipe");
 assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*width: 36%/, "swipe actions must be sized relative to the task row");
 assert.match(appSource, /jinke-seed-migration-v2[\s\S]*legacyDailyIds[\s\S]*legacyCriticalIds/, "upgrades must remove legacy built-in task seeds while preserving custom entries");

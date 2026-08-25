@@ -310,7 +310,7 @@ function Waveform() {
   return <div className="waveform" aria-hidden="true">{[11, 20, 26, 16, 24, 18, 9].map((height, index) => <span key={index} style={{ height }} />)}</div>;
 }
 
-function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTaskChange, onTranscript, onStop, onUseExample, onConfirm, onClose, speechAvailable }) {
+function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTaskChange, onTranscript, onStop, onUseExample, onConfirm, onClose, speechAvailable, speechStatus }) {
   const text = transcript.trim();
   const editableTask = draftTask || parsedCommand.task;
   const updateDraft = (field, value) => onDraftTaskChange({ ...(draftTask || parsedCommand.task), [field]: value });
@@ -327,6 +327,16 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
     }
   };
   const canConfirm = parsedCommand.valid && (parsedCommand.intent !== "create" || Boolean(editableTask?.title?.trim()));
+  const statusText = {
+    starting: "正在启动离线语音…",
+    "requesting-permission": "等待麦克风授权…",
+    "preparing-model": "正在准备离线中文模型…",
+    "model-ready": "离线中文模型已就绪…",
+    listening: "正在听…",
+    processing: "正在处理…",
+    "permission-denied": "麦克风权限未开启",
+    error: "离线语音组件启动失败",
+  }[speechStatus] || "正在听…";
   return (
     <Sheet onClose={onClose} labelledBy={phase === "listening" ? "voice-title" : undefined} label={phase === "review" ? "确认语音指令" : undefined}>
       {phase === "listening" ? (
@@ -334,7 +344,7 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
           <h2 className="sheet-title" id="voice-title">今刻助手</h2>
           <div className="voice-stage">
             <button className="voice-orbit pressable" onClick={onStop} aria-label="停止并处理"><Waveform /></button>
-            <div className="voice-transcript">{text || "正在听…"}</div>
+            <div className="voice-transcript">{text || statusText}</div>
           </div>
           <input className="composer-input" value={transcript} onChange={(event) => onTranscript(event.target.value)} placeholder="输入操作或安排" aria-label={speechAvailable ? "输入操作或安排" : "语音不可用，请输入操作或安排"} />
           <div className="button-row">
@@ -517,23 +527,34 @@ function DeleteConfirmSheet({ target, onClose, onConfirm }) {
   );
 }
 
-function PermissionsScreen({ onBack }) {
+function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
+  const known = Boolean(capabilities);
+  const state = (value, yes = "已开启", no = "未开启") => known ? (value ? yes : no) : "仅手机检测";
   const rows = [
-    ["麦克风权限", "用于语音识别与助手指令", "按需授权"],
-    ["通知权限", "锁屏和通知中心可见", "已开启"],
-    ["精确闹钟", "保证事项按设定时间出现", "已开启"],
-    ["后台运行", "已加入 ColorOS 白名单", "正常"],
-    ["电池优化", "允许今刻在后台保持提醒", "不限制"],
+    { key: "microphone", title: "麦克风", note: "语音识别与助手指令", status: state(capabilities?.microphone, "已授权", "未授权"), ok: capabilities?.microphone },
+    { key: null, title: "离线中文识别", note: "Vosk 中文模型随 APK 内置", status: known ? (capabilities?.offlineSpeechReady ? "已加载" : capabilities?.offlineSpeechBundled ? "已内置" : "组件缺失") : "APK 内置", ok: capabilities?.offlineSpeechBundled },
+    { key: "notifications", title: "通知", note: "锁屏和通知中心提醒", status: state(capabilities?.notifications), ok: capabilities?.notifications },
+    { key: "exactAlarm", title: "精确闹钟", note: "按设定时间触发 DDL 提醒", status: state(capabilities?.exactAlarm), ok: capabilities?.exactAlarm },
+    { key: "background", title: "ColorOS 后台运行", note: "需在系统中允许自启动和后台活动", status: "需系统确认", ok: false },
+    { key: "battery", title: "电池优化", note: "后台提醒不被系统休眠", status: state(capabilities?.batteryUnrestricted, "不限制", "受限制"), ok: capabilities?.batteryUnrestricted },
+    { key: "installUpdates", title: "安装更新", note: "从 GitHub 安装新版 APK", status: state(capabilities?.installUpdates, "已允许", "未允许"), ok: capabilities?.installUpdates },
+    { key: null, title: "联网", note: "节日资料和版本检测", status: state(capabilities?.network, "可用", "当前离线"), ok: capabilities?.network },
+    { key: null, title: "开机恢复提醒", note: "重启后重新安排 DDL 闹钟", status: state(capabilities?.bootRestore, "已内置", "组件缺失"), ok: capabilities?.bootRestore },
   ];
   return (
     <main className="screen secondary">
-      <BackHeader title="通知与权限" onBack={onBack} />
+      <BackHeader title="权限与组件" onBack={onBack} />
       <div className="notice-preview">
         <div className="notice-app"><span className="notice-mark"><img src="./assets/app-icon-512.png" alt="" /></span>今刻 · 现在</div>
         <div className="notice-title">写今日日志</div>
         <div className="notice-copy">记录今天完成了什么，还有什么需要调整。</div>
       </div>
-      <div style={{ marginTop: 17 }}>{rows.map(([title, note, status]) => <div className="permission-row" key={title}><div><div className="permission-title">{title}</div><div className="permission-note">{note}</div></div><span className="status-badge">{status}</span></div>)}</div>
+      <div style={{ marginTop: 17 }}>{rows.map((row) => {
+        const content = <><div><div className="permission-title">{row.title}</div><div className="permission-note">{row.note}</div></div><span className={`status-badge ${row.ok ? "" : "needs-action"}`}>{row.status}</span></>;
+        return row.key
+          ? <button type="button" className="permission-row permission-action" onClick={() => onOpenCapability(row.key)} key={row.title}>{content}</button>
+          : <div className="permission-row" key={row.title}>{content}</div>;
+      })}</div>
     </main>
   );
 }
@@ -589,7 +610,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.4";
+const JINKE_FALLBACK_VERSION = "1.0.5";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
@@ -657,19 +678,22 @@ function VersionScreen({ onBack }) {
   );
 }
 
-function VoiceSettingsScreen({ onBack }) {
+function VoiceSettingsScreen({ capabilities, onBack }) {
+  const modelStatus = capabilities
+    ? (capabilities.offlineSpeechReady ? "已加载" : capabilities.offlineSpeechBundled ? "已内置" : "组件缺失")
+    : "APK 内置";
   return (
     <main className="screen secondary">
       <BackHeader title="语音模型" onBack={onBack} />
       <div className="summary-hero">
         <div className="summary-kicker">当前方案</div>
-        <div className="summary-value" style={{ fontSize: 28 }}>sherpa-onnx</div>
-        <div className="summary-caption">端侧中文流式识别，录音不离开设备。</div>
+        <div className="summary-value" style={{ fontSize: 28 }}>Vosk Offline</div>
+        <div className="summary-caption">端侧普通话流式识别，不依赖系统语音服务。</div>
       </div>
       <SectionHeader title="识别能力" note="离线" />
-      <div className="permission-row"><div><div className="permission-title">普通话与英文</div><div className="permission-note">Zipformer 双语模型</div></div><span className="status-badge">已下载</span></div>
-      <div className="permission-row"><div><div className="permission-title">自然语言时间解析</div><div className="permission-note">日期、星期、重复与提前提醒</div></div><span className="status-badge">本地</span></div>
-      <div className="permission-row"><div><div className="permission-title">个性词表</div><div className="permission-note">健身、日志、DDL 等常用词</div></div><span className="status-badge">自动</span></div>
+      <div className="permission-row"><div><div className="permission-title">普通话模型</div><div className="permission-note">vosk-model-small-cn-0.22 · 约 68 MB</div></div><span className="status-badge">{modelStatus}</span></div>
+      <div className="permission-row"><div><div className="permission-title">原生识别引擎</div><div className="permission-note">Vosk Android 0.3.75 · ARM64</div></div><span className="status-badge">已内置</span></div>
+      <div className="permission-row"><div><div className="permission-title">自然语言指令解析</div><div className="permission-note">日期、星期、重复、DDL 与应用操作</div></div><span className="status-badge">本地</span></div>
       <SectionHeader title="全局语音指令" note="执行前确认" />
       <div className="permission-row"><div><div className="permission-title">创建与修改</div><div className="permission-note">名称、时间、重复、提醒和备注</div></div><span className="status-badge">可用</span></div>
       <div className="permission-row"><div><div className="permission-title">完成与删除</div><div className="permission-note">勾选、取消勾选、归档或删除</div></div><span className="status-badge">可用</span></div>

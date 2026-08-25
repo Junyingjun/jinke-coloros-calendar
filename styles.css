@@ -336,9 +336,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .rank-title { font-size: 12px; font-weight: 620; }
 .rank-days { color: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
 .permission-row { min-height: 67px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+.permission-action { width: 100%; padding: 0; color: inherit; background: transparent; text-align: left; }
+.permission-action:active { transform: scale(.985); opacity: .86; }
 .permission-title { font-size: 14px; font-weight: 650; }
 .permission-note { margin-top: 4px; color: var(--ink-3); font-size: 11px; }
 .status-badge { padding: 6px 8px; border-radius: 10px; background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); font-size: 10px; font-weight: 700; }
+.status-badge.needs-action { color: var(--accent); background: var(--accent-soft); }
 .notice-preview { margin-top: 20px; padding: 14px; border-radius: 20px; background: var(--surface-muted); }
 .notice-app { display: flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 10px; }
 .notice-mark { width: 21px; height: 21px; border-radius: 7px; display: grid; place-items: center; overflow: hidden; }

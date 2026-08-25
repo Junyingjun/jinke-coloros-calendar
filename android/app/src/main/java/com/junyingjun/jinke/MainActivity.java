@@ -3,19 +3,23 @@ package com.junyingjun.jinke;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.DownloadManager;
-import android.content.ActivityNotFoundException;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.PowerManager;
 import android.provider.Settings;
-import android.speech.RecognizerIntent;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -27,14 +31,13 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final int REQUEST_SPEECH = 9021;
     private static final int REQUEST_NOTIFICATIONS = 9022;
     private static final int REQUEST_MICROPHONE = 9023;
     private WebView webView;
+    private OfflineSpeechEngine offlineSpeechEngine;
     private boolean openSpeechAfterPermission;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface", "ObsoleteSdkInt"})
@@ -90,6 +93,35 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new AndroidBridge(), "JinkeAndroid");
         setContentView(webView);
         webView.loadUrl("file:///android_asset/www/index.html");
+        offlineSpeechEngine = new OfflineSpeechEngine(this, new OfflineSpeechEngine.Callback() {
+            @Override
+            public void onStatus(String status) {
+                runOnUiThread(() -> {
+                    deliverSpeechStatus(status);
+                    deliverSystemCapabilities();
+                });
+            }
+
+            @Override
+            public void onPartial(String text) {
+                runOnUiThread(() -> deliverSpeechPartial(text));
+            }
+
+            @Override
+            public void onFinal(String text) {
+                runOnUiThread(() -> deliverSpeechResult(text));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    deliverSpeechStatus("error");
+                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                    deliverSpeechResult("");
+                    deliverSystemCapabilities();
+                });
+            }
+        });
     }
 
     private void requestNotificationPermissionIfNeeded() {
@@ -99,54 +131,33 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void openSpeechRecognizer() {
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.SIMPLIFIED_CHINESE.toLanguageTag());
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "告诉今刻要创建、修改、完成或删除什么");
-        try {
-            startActivityForResult(intent, REQUEST_SPEECH);
-        } catch (ActivityNotFoundException error) {
-            Toast.makeText(this, "系统中没有可用的语音识别服务", Toast.LENGTH_LONG).show();
-            deliverSpeechResult("");
-        }
-    }
-
     private void startSpeechRecognitionWithPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M
                 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            openSpeechRecognizer();
+            if (offlineSpeechEngine != null) offlineSpeechEngine.start();
             return;
         }
         openSpeechAfterPermission = true;
+        deliverSpeechStatus("requesting-permission");
         requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_MICROPHONE);
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_MICROPHONE) return;
-        boolean shouldOpenSpeech = openSpeechAfterPermission;
-        openSpeechAfterPermission = false;
-        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (granted && shouldOpenSpeech) {
-            openSpeechRecognizer();
-            return;
+        if (requestCode == REQUEST_MICROPHONE) {
+            boolean shouldOpenSpeech = openSpeechAfterPermission;
+            openSpeechAfterPermission = false;
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted && shouldOpenSpeech) {
+                if (offlineSpeechEngine != null) offlineSpeechEngine.start();
+            } else if (!granted && shouldOpenSpeech) {
+                deliverSpeechStatus("permission-denied");
+                Toast.makeText(this, "需要麦克风权限才能使用语音助手", Toast.LENGTH_LONG).show();
+                deliverSpeechResult("");
+            }
         }
-        Toast.makeText(this, "需要麦克风权限才能使用语音助手", Toast.LENGTH_LONG).show();
-        deliverSpeechResult("");
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_SPEECH) return;
-        String result = "";
-        if (resultCode == RESULT_OK && data != null) {
-            ArrayList<String> values = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (values != null && !values.isEmpty()) result = values.get(0);
-        }
-        deliverSpeechResult(result);
+        deliverSystemCapabilities();
     }
 
     private void deliverSpeechResult(String result) {
@@ -154,6 +165,113 @@ public class MainActivity extends Activity {
         String script = "window.JINKE_NATIVE_SPEECH_RESULT && window.JINKE_NATIVE_SPEECH_RESULT("
                 + JSONObject.quote(result) + ");";
         webView.evaluateJavascript(script, null);
+    }
+
+    private void deliverSpeechPartial(String result) {
+        if (webView == null) return;
+        String script = "window.JINKE_NATIVE_SPEECH_PARTIAL && window.JINKE_NATIVE_SPEECH_PARTIAL("
+                + JSONObject.quote(result) + ");";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void deliverSpeechStatus(String status) {
+        if (webView == null) return;
+        String script = "window.JINKE_NATIVE_SPEECH_STATUS && window.JINKE_NATIVE_SPEECH_STATUS("
+                + JSONObject.quote(status) + ");";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private String currentSystemCapabilities() {
+        try {
+            JSONObject payload = new JSONObject();
+            boolean microphone = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                    || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            boolean notifications = (Build.VERSION.SDK_INT < 33
+                    || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+                    && (notificationManager == null || notificationManager.areNotificationsEnabled());
+            AlarmManager alarmManager = getSystemService(AlarmManager.class);
+            boolean exactAlarm = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                    || (alarmManager != null && alarmManager.canScheduleExactAlarms());
+            PowerManager powerManager = getSystemService(PowerManager.class);
+            boolean batteryUnrestricted = powerManager != null
+                    && powerManager.isIgnoringBatteryOptimizations(getPackageName());
+            boolean installUpdates = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                    || getPackageManager().canRequestPackageInstalls();
+            payload.put("microphone", microphone);
+            payload.put("notifications", notifications);
+            payload.put("exactAlarm", exactAlarm);
+            payload.put("batteryUnrestricted", batteryUnrestricted);
+            payload.put("installUpdates", installUpdates);
+            payload.put("network", hasValidatedNetwork());
+            payload.put("offlineSpeechBundled", true);
+            payload.put("offlineSpeechReady", offlineSpeechEngine != null && offlineSpeechEngine.isReady());
+            payload.put("bootRestore", true);
+            return payload.toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
+    }
+
+    private boolean hasValidatedNetwork() {
+        ConnectivityManager manager = getSystemService(ConnectivityManager.class);
+        if (manager == null) return false;
+        Network network = manager.getActiveNetwork();
+        NetworkCapabilities capabilities = network == null ? null : manager.getNetworkCapabilities(network);
+        return capabilities != null
+                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    }
+
+    private void deliverSystemCapabilities() {
+        if (webView == null) return;
+        String script = "window.JINKE_NATIVE_CAPABILITIES_CHANGED && window.JINKE_NATIVE_CAPABILITIES_CHANGED("
+                + JSONObject.quote(currentSystemCapabilities()) + ");";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void openCapabilitySettings(String capability) {
+        if ("microphone".equals(capability)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                    && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_MICROPHONE);
+            } else {
+                openAppDetails();
+            }
+            return;
+        }
+        if ("notifications".equals(capability)) {
+            if (Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
+            } else {
+                Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+                startActivity(intent);
+            }
+            return;
+        }
+        if ("exactAlarm".equals(capability) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        if ("battery".equals(capability) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        if ("installUpdates".equals(capability) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        openAppDetails();
+    }
+
+    private void openAppDetails() {
+        startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:" + getPackageName())));
     }
 
     private String currentWindowLayout() {
@@ -189,7 +307,10 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (webView != null) webView.post(this::deliverWindowLayout);
+        if (webView != null) webView.post(() -> {
+            deliverWindowLayout();
+            deliverSystemCapabilities();
+        });
     }
 
     @Override
@@ -213,6 +334,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (offlineSpeechEngine != null) {
+            offlineSpeechEngine.close();
+            offlineSpeechEngine = null;
+        }
         if (webView != null) {
             webView.removeJavascriptInterface("JinkeAndroid");
             webView.destroy();
@@ -237,8 +362,25 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String getSystemCapabilities() {
+            return currentSystemCapabilities();
+        }
+
+        @JavascriptInterface
         public void startSpeechRecognition() {
             runOnUiThread(MainActivity.this::startSpeechRecognitionWithPermission);
+        }
+
+        @JavascriptInterface
+        public void stopSpeechRecognition() {
+            runOnUiThread(() -> {
+                if (offlineSpeechEngine != null) offlineSpeechEngine.stop();
+            });
+        }
+
+        @JavascriptInterface
+        public void openCapabilitySettings(String capability) {
+            runOnUiThread(() -> MainActivity.this.openCapabilitySettings(capability));
         }
 
         @JavascriptInterface
