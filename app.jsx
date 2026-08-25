@@ -750,22 +750,22 @@ function MobileDesignApp() {
     setVoiceDraft(null);
     setVoicePhase("listening");
     setOverlay("voice");
+    if (window.JinkeAndroid?.startSpeechRecognition) {
+      window.JINKE_NATIVE_SPEECH_RESULT = (next) => {
+        setTranscript(String(next || ""));
+        setSpeechAvailable(Boolean(next));
+        if (next) window.setTimeout(() => setVoicePhase("review"), 80);
+      };
+      try {
+        window.JinkeAndroid.startSpeechRecognition();
+        setSpeechAvailable(true);
+      } catch {
+        setSpeechAvailable(false);
+      }
+      return;
+    }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
-      if (window.JinkeAndroid?.startSpeechRecognition) {
-        window.JINKE_NATIVE_SPEECH_RESULT = (next) => {
-          setTranscript(String(next || ""));
-          setSpeechAvailable(Boolean(next));
-          if (next) window.setTimeout(() => setVoicePhase("review"), 80);
-        };
-        try {
-          window.JinkeAndroid.startSpeechRecognition();
-          setSpeechAvailable(true);
-        } catch {
-          setSpeechAvailable(false);
-        }
-        return;
-      }
       setSpeechAvailable(false);
       return;
     }

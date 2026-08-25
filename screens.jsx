@@ -519,6 +519,7 @@ function DeleteConfirmSheet({ target, onClose, onConfirm }) {
 
 function PermissionsScreen({ onBack }) {
   const rows = [
+    ["麦克风权限", "用于语音识别与助手指令", "按需授权"],
     ["通知权限", "锁屏和通知中心可见", "已开启"],
     ["精确闹钟", "保证事项按设定时间出现", "已开启"],
     ["后台运行", "已加入 ColorOS 白名单", "正常"],
@@ -588,7 +589,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.3";
+const JINKE_FALLBACK_VERSION = "1.0.4";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

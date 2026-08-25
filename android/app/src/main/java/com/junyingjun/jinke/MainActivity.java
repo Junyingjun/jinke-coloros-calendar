@@ -33,7 +33,9 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final int REQUEST_SPEECH = 9021;
     private static final int REQUEST_NOTIFICATIONS = 9022;
+    private static final int REQUEST_MICROPHONE = 9023;
     private WebView webView;
+    private boolean openSpeechAfterPermission;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface", "ObsoleteSdkInt"})
     @Override
@@ -67,7 +69,22 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
+                runOnUiThread(() -> {
+                    boolean requestsAudio = false;
+                    for (String resource : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                            requestsAudio = true;
+                            break;
+                        }
+                    }
+                    if (requestsAudio
+                            && (Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                            || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)) {
+                        request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                    } else {
+                        request.deny();
+                    }
+                });
             }
         });
         webView.addJavascriptInterface(new AndroidBridge(), "JinkeAndroid");
@@ -93,6 +110,31 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "系统中没有可用的语音识别服务", Toast.LENGTH_LONG).show();
             deliverSpeechResult("");
         }
+    }
+
+    private void startSpeechRecognitionWithPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            openSpeechRecognizer();
+            return;
+        }
+        openSpeechAfterPermission = true;
+        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_MICROPHONE);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_MICROPHONE) return;
+        boolean shouldOpenSpeech = openSpeechAfterPermission;
+        openSpeechAfterPermission = false;
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (granted && shouldOpenSpeech) {
+            openSpeechRecognizer();
+            return;
+        }
+        Toast.makeText(this, "需要麦克风权限才能使用语音助手", Toast.LENGTH_LONG).show();
+        deliverSpeechResult("");
     }
 
     @Override
@@ -196,7 +238,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void startSpeechRecognition() {
-            runOnUiThread(MainActivity.this::openSpeechRecognizer);
+            runOnUiThread(MainActivity.this::startSpeechRecognitionWithPermission);
         }
 
         @JavascriptInterface

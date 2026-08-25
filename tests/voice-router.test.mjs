@@ -161,6 +161,11 @@ assert.match(stylesSource, /\.native-app \{[\s\S]*width: 100vw;[\s\S]*height: 10
 assert.match(stylesSource, /\.native-app\.native-expanded[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, "unfolded layout must split panes by relative fractions");
 assert.match(activitySource, /onConfigurationChanged[\s\S]*deliverWindowLayout/, "fold configuration changes must be delivered without restarting the activity");
 assert.match(manifestSource, /android:resizeableActivity="true"/, "Android activity must be resizeable on foldables");
+assert.match(manifestSource, /android\.permission\.RECORD_AUDIO/, "Android APK must declare microphone access");
+assert.match(activitySource, /requestPermissions\(new String\[\]\{Manifest\.permission\.RECORD_AUDIO\}, REQUEST_MICROPHONE\)/, "microphone permission must be requested at runtime");
+assert.match(activitySource, /onRequestPermissionsResult[\s\S]*openSpeechRecognizer/, "speech recognition must continue after microphone permission is granted");
+assert.match(activitySource, /RESOURCE_AUDIO_CAPTURE[\s\S]*RECORD_AUDIO/, "WebView audio capture must be gated by the Android permission");
+assert.ok(appSource.indexOf("window.JinkeAndroid?.startSpeechRecognition") < appSource.indexOf("const Recognition = window.SpeechRecognition"), "native APK must prefer the ColorOS speech bridge over WebView speech recognition");
 assert.match(primitivesSource, /function SwipeTaskActions[\s\S]*swipe-edit[\s\S]*编辑[\s\S]*swipe-delete[\s\S]*删除/, "every task row must expose edit and delete after a left swipe");
 assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*width: 36%/, "swipe actions must be sized relative to the task row");
 assert.match(appSource, /jinke-seed-migration-v2[\s\S]*legacyDailyIds[\s\S]*legacyCriticalIds/, "upgrades must remove legacy built-in task seeds while preserving custom entries");

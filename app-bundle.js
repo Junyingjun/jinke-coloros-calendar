@@ -1923,7 +1923,7 @@ function DeleteConfirmSheet(_ref19) {
 }
 function PermissionsScreen(_ref20) {
   var onBack = _ref20.onBack;
-  var rows = [["通知权限", "锁屏和通知中心可见", "已开启"], ["精确闹钟", "保证事项按设定时间出现", "已开启"], ["后台运行", "已加入 ColorOS 白名单", "正常"], ["电池优化", "允许今刻在后台保持提醒", "不限制"]];
+  var rows = [["麦克风权限", "用于语音识别与助手指令", "按需授权"], ["通知权限", "锁屏和通知中心可见", "已开启"], ["精确闹钟", "保证事项按设定时间出现", "已开启"], ["后台运行", "已加入 ColorOS 白名单", "正常"], ["电池优化", "允许今刻在后台保持提醒", "不限制"]];
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -2081,7 +2081,7 @@ function CriticalReminderScreen(_ref23) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.3";
+var JINKE_FALLBACK_VERSION = "1.0.4";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3399,29 +3399,29 @@ function MobileDesignApp() {
     showToast("DDL \u5DF2\u7EED\u671F ".concat(days, " \u5929"));
   };
   var startVoice = function startVoice() {
+    var _window$JinkeAndroid3;
     setTranscript("");
     setVoiceDraft(null);
     setVoicePhase("listening");
     setOverlay("voice");
+    if ((_window$JinkeAndroid3 = window.JinkeAndroid) !== null && _window$JinkeAndroid3 !== void 0 && _window$JinkeAndroid3.startSpeechRecognition) {
+      window.JINKE_NATIVE_SPEECH_RESULT = function (next) {
+        setTranscript(String(next || ""));
+        setSpeechAvailable(Boolean(next));
+        if (next) window.setTimeout(function () {
+          return setVoicePhase("review");
+        }, 80);
+      };
+      try {
+        window.JinkeAndroid.startSpeechRecognition();
+        setSpeechAvailable(true);
+      } catch (_unused17) {
+        setSpeechAvailable(false);
+      }
+      return;
+    }
     var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
-      var _window$JinkeAndroid3;
-      if ((_window$JinkeAndroid3 = window.JinkeAndroid) !== null && _window$JinkeAndroid3 !== void 0 && _window$JinkeAndroid3.startSpeechRecognition) {
-        window.JINKE_NATIVE_SPEECH_RESULT = function (next) {
-          setTranscript(String(next || ""));
-          setSpeechAvailable(Boolean(next));
-          if (next) window.setTimeout(function () {
-            return setVoicePhase("review");
-          }, 80);
-        };
-        try {
-          window.JinkeAndroid.startSpeechRecognition();
-          setSpeechAvailable(true);
-        } catch (_unused17) {
-          setSpeechAvailable(false);
-        }
-        return;
-      }
       setSpeechAvailable(false);
       return;
     }
