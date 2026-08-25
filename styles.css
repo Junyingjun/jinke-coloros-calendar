@@ -353,6 +353,27 @@ button:disabled { cursor: default; }
 .jinke-segments button.selected { color: var(--selected-ink); background: var(--selected-surface); box-shadow: 0 4px 14px rgba(0, 0, 0, .14); }
 .jinke-segments button:active { transform: scale(.96); }
 .jinke-segments.compact button { min-height: 40px; padding-inline: 5px; font-size: 11px; }
+.task-sound-picker { width: 100%; display: grid; gap: 10px; }
+.sound-picker-head { min-height: 30px; padding: 2px 4px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-3); font-size: 12px; }
+.sound-picker-head strong { color: var(--ink); font-size: 12px; font-weight: 720; }
+.sound-picker-subhead { margin-top: 6px; }
+.sound-choice-list { width: 100%; display: grid; gap: 8px; }
+.sound-choice { min-width: 0; min-height: 58px; display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface-muted); transition: transform 170ms var(--ease-out), border-color 170ms var(--ease-out), background 170ms var(--ease-out); }
+.sound-choice.selected { border-color: color-mix(in oklch, var(--accent) 72%, var(--line)); background: var(--accent-soft); }
+.sound-choice:active { transform: scale(.985); }
+.sound-choice-main { min-width: 0; padding: 10px 14px; display: grid; align-content: center; gap: 3px; color: var(--ink); background: transparent; text-align: left; }
+.sound-choice-main span { overflow: hidden; font-size: 13px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.sound-choice-main small { color: var(--ink-3); font-size: 10px; font-weight: 620; }
+.sound-preview { min-width: 62px; padding: 0 13px; color: var(--accent); background: transparent; border-left: 1px solid var(--line); font-size: 12px; font-weight: 720; transition: transform 160ms var(--ease-out), background 160ms var(--ease-out); }
+.sound-preview:active { transform: scale(.94); background: var(--surface-pressed); }
+.sound-choice button:disabled { opacity: .4; pointer-events: none; }
+.sound-import-button { min-height: 50px; width: 100%; padding: 0 15px; border-radius: 16px; color: var(--ink); background: var(--surface-muted); font-size: 13px; font-weight: 700; transition: transform 170ms var(--ease-out), color 170ms var(--ease-out), background 170ms var(--ease-out); }
+.sound-import-button:active { transform: scale(.975); color: var(--accent); background: var(--surface-pressed); }
+.settings-screen { display: flex; flex-direction: column; }
+.settings-section { margin-top: 18px; padding: 16px; display: grid; gap: 12px; border-radius: 22px; background: var(--surface-muted); border: 1px solid var(--line); }
+.settings-section-title { color: var(--ink); font-size: 14px; font-weight: 740; }
+.settings-section.muted .settings-sound-list { opacity: .48; }
+.settings-permission-link { margin-top: 18px; }
 .weekday-picker, .jinke-time-picker, .jinke-reminder-picker, .jinke-date-picker { width: 100%; }
 .weekday-summary, .picker-head { min-height: 38px; padding: 0 4px 5px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ink-3); font-size: 12px; }
 .weekday-summary strong { color: var(--ink); font-size: 13px; font-weight: 700; }

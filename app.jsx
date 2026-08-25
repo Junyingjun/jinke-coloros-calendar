@@ -28,11 +28,20 @@ const {
   ReportScreen,
   DeleteConfirmSheet,
   PermissionsScreen,
+  SettingsScreen,
   CriticalReminderScreen,
   VersionScreen,
   VoiceSettingsScreen,
 } = window;
 const DOMAIN_NLU = window.JINKE_DOMAIN_NLU;
+
+const BUILT_IN_REMINDER_SOUNDS = [
+  { id: "chime", name: "今刻清音", source: "built-in" },
+  { id: "bell", name: "轻铃", source: "built-in" },
+  { id: "glass", name: "玻璃音", source: "built-in" },
+  { id: "pop", name: "短促音", source: "built-in" },
+  { id: "soft", name: "柔和提示", source: "built-in" },
+];
 
 const PHONE_WIDTH = 430;
 const EXPANDED_WIDTH = 860;
@@ -142,7 +151,7 @@ function withCriticalReminderDefaults(task) {
   const plan = normalizedPlan.reminderMode === "final-days" && Number.isFinite(task.daysLeft)
     ? { ...normalizedPlan, reminderFinalDays: Math.min(Math.max(1, task.daysLeft), Math.max(1, normalizedPlan.reminderFinalDays)) }
     : normalizedPlan;
-  const next = { ...task, deadlineTime, time: deadlineTime, ...plan };
+  const next = { ...task, alertMode: task.alertMode || "inherit", soundId: task.soundId || "inherit", deadlineTime, time: deadlineTime, ...plan };
   return { ...next, reminder: getCriticalReminder(next) };
 }
 
@@ -412,7 +421,11 @@ function parseVoiceTask(rawText) {
   const withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   const durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   const duration = durationMatch ? `${parseNumber(durationMatch[1])} ${durationMatch[2]}` : "";
-  const isCritical = Boolean(span) || deadline.kind === "explicit-none" || (!repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|期限|到期|死线)/i.test(text) || deadline.kind === "absolute"));
+  const hasTemporalInstruction = Boolean(span || repeat.source || time.source || deadline.deadline || reminderMatch);
+  const isCritical = Boolean(span)
+    || deadline.kind === "explicit-none"
+    || (!repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|期限|到期|死线)/i.test(text) || deadline.kind === "absolute"))
+    || !hasTemporalInstruction;
 
   const spanSources = span ? [span.start.source, span.end.source] : [];
   const timeSources = timeRange?.sources || time.sources || [time.source];
@@ -442,6 +455,8 @@ function parseVoiceTask(rawText) {
     hasRepeat: Boolean(repeat.source),
     hasReminder: Boolean(reminderMatch),
     hasDeadline: Boolean(deadline.deadline),
+    alertMode: "inherit",
+    soundId: "inherit",
     span,
   };
 }
@@ -725,6 +740,13 @@ function MobileDesignApp() {
   const [themeMode, setThemeMode] = useState(() => {
     try { return localStorage.getItem("jinke-theme") || "dark"; } catch { return "dark"; }
   });
+  const [defaultAlertMode, setDefaultAlertMode] = useState(() => {
+    try { return localStorage.getItem("jinke-default-alert-mode") === "silent" ? "silent" : "sound"; } catch { return "sound"; }
+  });
+  const [defaultSoundId, setDefaultSoundId] = useState(() => {
+    try { return localStorage.getItem("jinke-default-sound-id") || "chime"; } catch { return "chime"; }
+  });
+  const [customSounds, setCustomSounds] = useState(() => readStoredJson("jinke-custom-reminder-sounds", [], Array.isArray));
   const [activeTab, setActiveTab] = useState("today");
   const [secondaryStack, setSecondaryStack] = useState([]);
   const secondary = secondaryStack[secondaryStack.length - 1] || null;
@@ -805,6 +827,8 @@ function MobileDesignApp() {
   const overlayCloseTimerRef = useRef(null);
   const secondaryClosingRef = useRef(false);
   const secondaryCloseTimerRef = useRef(null);
+  const soundImportCallbackRef = useRef(null);
+  const reminderSounds = [...BUILT_IN_REMINDER_SOUNDS, ...customSounds];
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
   const currentCriticalTasks = criticalTasks.map((task) => ({
     ...task,
@@ -915,6 +939,34 @@ function MobileDesignApp() {
   }, [history]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem("jinke-default-alert-mode", defaultAlertMode);
+      localStorage.setItem("jinke-default-sound-id", defaultSoundId);
+      localStorage.setItem("jinke-custom-reminder-sounds", JSON.stringify(customSounds.map(({ objectUrl, ...sound }) => sound)));
+    } catch {}
+  }, [defaultAlertMode, defaultSoundId, customSounds]);
+
+  useEffect(() => {
+    const receiveImportedSound = (payload) => {
+      try {
+        const sound = typeof payload === "string" ? JSON.parse(payload) : payload;
+        if (!sound?.id || !sound?.name) return;
+        setCustomSounds((current) => [...current.filter((item) => item.id !== sound.id), { ...sound, source: "local" }]);
+        const callback = soundImportCallbackRef.current;
+        soundImportCallbackRef.current = null;
+        callback?.(sound.id);
+        showToast(`已导入：${sound.name}`);
+      } catch {
+        showToast("音效导入失败");
+      }
+    };
+    window.JINKE_SOUND_IMPORTED = receiveImportedSound;
+    return () => {
+      if (window.JINKE_SOUND_IMPORTED === receiveImportedSound) delete window.JINKE_SOUND_IMPORTED;
+    };
+  }, []);
+
+  useEffect(() => {
     window.JINKE_DDL_REMINDER_TIME = ddlReminderTime;
     window.JINKE_DDL_REMINDER_MULTIPLE = ddlReminderMultiple;
     window.JINKE_DDL_REMINDER_FINAL_DAYS = ddlReminderFinalDays;
@@ -931,12 +983,20 @@ function MobileDesignApp() {
       .filter((task) => task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0)
       .map((task) => {
         const plan = normalizeCriticalReminderPlan(task, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
-        return { id: task.id, title: task.title, daysLeft: task.daysLeft, deadlineTime: task.deadlineTime || null, ...plan };
+        return {
+          id: task.id,
+          title: task.title,
+          daysLeft: task.daysLeft,
+          deadlineTime: task.deadlineTime || null,
+          alertMode: task.alertMode && task.alertMode !== "inherit" ? task.alertMode : defaultAlertMode,
+          soundId: task.soundId && task.soundId !== "inherit" ? task.soundId : defaultSoundId,
+          ...plan,
+        };
       });
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch {}
-  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
+  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays, defaultAlertMode, defaultSoundId]);
 
   useEffect(() => {
     if (!window.JinkeAndroid?.syncDailyReminders) return;
@@ -959,12 +1019,14 @@ function MobileDesignApp() {
         completionDateKey: todayDateKey,
         completed: Boolean(dailyCompletionByDate[`${task.id}:${todayDateKey}`]),
         completedDateKeys,
+        alertMode: task.alertMode && task.alertMode !== "inherit" ? task.alertMode : defaultAlertMode,
+        soundId: task.soundId && task.soundId !== "inherit" ? task.soundId : defaultSoundId,
       };
     });
     try {
       window.JinkeAndroid.syncDailyReminders(JSON.stringify(payload));
     } catch {}
-  }, [dailyTasks, dailyCompletionByDate, todayDateKey]);
+  }, [dailyTasks, dailyCompletionByDate, todayDateKey, defaultAlertMode, defaultSoundId]);
 
   useEffect(() => () => {
     if (recognitionRef.current) recognitionRef.current.abort();
@@ -977,6 +1039,74 @@ function MobileDesignApp() {
     setToast(message);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(""), 2200);
+  };
+
+  const previewReminderSound = (soundId) => {
+    try {
+      if (window.JinkeAndroid?.previewReminderSound) {
+        window.JinkeAndroid.previewReminderSound(soundId || "chime");
+        return;
+      }
+      const custom = customSounds.find((sound) => sound.id === soundId && sound.objectUrl);
+      if (custom) {
+        const audio = new Audio(custom.objectUrl);
+        audio.play().catch(() => showToast("浏览器未允许播放音效"));
+        return;
+      }
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const context = new AudioContext();
+      const patterns = {
+        chime: [[660, 0, 0.16], [880, 0.13, 0.25]],
+        bell: [[784, 0, 0.35], [1046, 0.05, 0.45]],
+        glass: [[988, 0, 0.12], [1318, 0.11, 0.32]],
+        pop: [[520, 0, 0.12]],
+        soft: [[440, 0, 0.22], [554, 0.17, 0.28]],
+      };
+      (patterns[soundId] || patterns.chime).forEach(([frequency, delay, duration]) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        const start = context.currentTime + delay;
+        oscillator.frequency.value = frequency;
+        oscillator.type = "sine";
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.2, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.02);
+      });
+      window.setTimeout(() => context.close(), 900);
+    } catch {
+      showToast("音效试听失败");
+    }
+  };
+
+  const importReminderSound = (onSelected) => {
+    soundImportCallbackRef.current = onSelected || null;
+    if (window.JinkeAndroid?.pickReminderSound) {
+      try {
+        window.JinkeAndroid.pickReminderSound();
+        return;
+      } catch {}
+    }
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "audio/*";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) {
+        soundImportCallbackRef.current = null;
+        return;
+      }
+      const sound = { id: `web-${Date.now()}`, name: file.name.replace(/\.[^.]+$/, "") || "本地音效", source: "local", objectUrl: URL.createObjectURL(file) };
+      setCustomSounds((current) => [...current, sound]);
+      const callback = soundImportCallbackRef.current;
+      soundImportCallbackRef.current = null;
+      callback?.(sound.id);
+      showToast(`已导入：${sound.name}`);
+    };
+    input.click();
   };
 
   const changeDdlReminderTime = (time) => {
@@ -1037,7 +1167,7 @@ function MobileDesignApp() {
 
   const openDaily = (task) => {
     setSelectedDaily(task);
-    setDailyDraft({ ...task, repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays), reminder: task.reminder || "到点提醒" });
+    setDailyDraft({ ...task, alertMode: task.alertMode || "inherit", soundId: task.soundId || "inherit", repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays), reminder: task.reminder || "到点提醒" });
     setOverlay("daily-edit");
   };
 
@@ -1083,7 +1213,7 @@ function MobileDesignApp() {
   };
 
   const openMore = (route) => {
-    pushSecondary(route === "settings" ? "permissions" : route);
+    pushSecondary(route);
   };
 
   const openCritical = (task) => {
@@ -1260,6 +1390,8 @@ function MobileDesignApp() {
             daysLeft: task.span.start.daysLeft,
             anchorDateKey: todayDateKey,
             deadlineTime: task.hasTime && task.time !== "待定" ? task.time : null,
+            alertMode: task.alertMode || "inherit",
+            soundId: task.soundId || "inherit",
             progress: 0,
           }),
           withCriticalReminderDefaults({
@@ -1272,6 +1404,8 @@ function MobileDesignApp() {
             daysLeft: task.span.end.daysLeft,
             anchorDateKey: todayDateKey,
             deadlineTime: task.endTime || null,
+            alertMode: task.alertMode || "inherit",
+            soundId: task.soundId || "inherit",
             progress: 0,
           }),
         ];
@@ -1292,8 +1426,10 @@ function MobileDesignApp() {
           reminderMode: task.reminderMode,
           reminderMultiple: task.reminderMultiple,
           reminderFinalDays: task.reminderFinalDays,
-          progress: 0,
-        });
+           progress: 0,
+           alertMode: task.alertMode || "inherit",
+           soundId: task.soundId || "inherit",
+         });
         setCriticalTasks((current) => [created, ...current]);
         setActiveTab("critical");
       } else {
@@ -1309,8 +1445,10 @@ function MobileDesignApp() {
           scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length
             ? null
             : (task.scheduledDateKey && task.scheduledDateKey >= todayDateKey ? task.scheduledDateKey : todayDateKey),
-          reminder: task.reminder || "到点提醒",
-          activeFrom: todayDateKey,
+           reminder: task.reminder || "到点提醒",
+           alertMode: task.alertMode || "inherit",
+           soundId: task.soundId || "inherit",
+           activeFrom: todayDateKey,
           done: false,
         };
         setDailyTasks((current) => [...current, created].sort((a, b) => a.time.localeCompare(b.time)));
@@ -1441,7 +1579,7 @@ function MobileDesignApp() {
       showToast(`已修改：${target.task.title}`);
     } else if (intent === "navigate") {
       const route = command.route;
-      if (["history", "month", "year", "permissions", "critical-reminders", "version", "voice"].includes(route)) {
+      if (["history", "month", "year", "permissions", "settings", "critical-reminders", "version", "voice"].includes(route)) {
         setSecondary(route);
       } else {
         setSecondary(null);
@@ -1576,6 +1714,7 @@ function MobileDesignApp() {
     if (route === "month") return <ReportScreen type="month" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "year") return <ReportScreen type="year" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={closeSecondary} />;
+    if (route === "settings") return <SettingsScreen alertMode={defaultAlertMode} defaultSoundId={defaultSoundId} sounds={reminderSounds} onAlertModeChange={(mode) => { setDefaultAlertMode(mode); showToast(mode === "silent" ? "默认改为静音提醒" : "默认改为响铃提醒"); }} onDefaultSoundChange={(soundId) => { setDefaultSoundId(soundId); showToast("默认音效已更新"); }} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "critical-reminders") return <CriticalReminderScreen tasks={activeCriticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "version") return <VersionScreen onBack={closeSecondary} />;
     if (route === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={closeSecondary} />;
@@ -1593,9 +1732,9 @@ function MobileDesignApp() {
           {renderSecondaryScreen(route)}
         </Sheet>
       ))}
-      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} /> : null}
-      {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} /> : null}
-      {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onRenew={renewCritical} onSave={saveCritical} /> : null}
+      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} /> : null}
+      {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} /> : null}
+      {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onRenew={renewCritical} onSave={saveCritical} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}
       {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} selectedDateKey={selectedDateKey} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
       {toast ? <div className="sr-only" role="status" aria-live="polite">{toast}</div> : null}

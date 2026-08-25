@@ -69,7 +69,7 @@
 - 包名：`com.junyingjun.jinke`
 - 最低 Android 9（API 28），目标 Android 16（API 36）
 - 构建：`scripts/build-android.ps1`
-- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.21.apk`
+- Release APK：GitHub Releases 中的 `jinke-coloros-v1.1.0.apk`
 - 更新源：`https://api.github.com/repos/Junyingjun/jinke-coloros-calendar/releases/latest`
 
 首次从 GitHub 更新时，Android 会要求授予“安装未知应用”权限；下载完成后仍由系统安装器显示最终确认，这是 Android 对侧载更新的安全要求。发布签名保存在本机工作区之外，不进入 Git 仓库；后续版本必须沿用同一签名才能覆盖安装。

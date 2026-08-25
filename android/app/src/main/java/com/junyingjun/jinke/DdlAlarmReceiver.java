@@ -27,6 +27,7 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
         int defaultFinalDays = Math.max(0, prefs.getInt(DdlScheduler.KEY_FINAL_DAYS, 5));
         long elapsedDays = LocalDate.now().toEpochDay() - prefs.getLong(DdlScheduler.KEY_SYNC_DAY, LocalDate.now().toEpochDay());
         List<String> eligible = new ArrayList<>();
+        List<JSONObject> eligibleTasks = new ArrayList<>();
         try {
             JSONArray tasks = new JSONArray(prefs.getString(DdlScheduler.KEY_TASKS, "[]"));
             for (int index = 0; index < tasks.length(); index++) {
@@ -41,10 +42,18 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
                 if (!isEligible(daysLeft, mode, multiple, finalDays, DdlScheduler.reminderDayOffsetFor(task))) continue;
                 String suffix = daysLeft == 0 ? "今天截止" : "剩 " + daysLeft + " 天";
                 eligible.add(task.optString("title", "关键事项") + " · " + suffix);
+                eligibleTasks.add(task);
             }
         } catch (Exception ignored) {}
 
         if (!eligible.isEmpty() && canNotify(context)) {
+            boolean ringing = false;
+            for (JSONObject task : eligibleTasks) {
+                if (NotificationSupport.isRinging(task.optString("alertMode", "sound"))) {
+                    ringing = true;
+                    break;
+                }
+            }
             int minuteOfDay = Integer.parseInt(triggerTime.substring(0, 2)) * 60 + Integer.parseInt(triggerTime.substring(3));
             String title = "关键事项 · " + eligible.size() + " 项";
             String message = String.join("\n", eligible);
@@ -54,7 +63,7 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
                     "com.junyingjun.jinke.OPEN_DDL." + triggerTime);
             Notification.InboxStyle style = new Notification.InboxStyle();
             for (String line : eligible) style.addLine(line);
-            Notification notification = new Notification.Builder(context, NotificationSupport.DDL_CHANNEL)
+            Notification.Builder builder = new Notification.Builder(context, NotificationSupport.ddlChannel(ringing))
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle(title)
                     .setContentText(eligible.get(0))
@@ -72,11 +81,17 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
                     .setShowWhen(true)
                     .setVisibility(Notification.VISIBILITY_PUBLIC)
                     .setPriority(Notification.PRIORITY_MAX)
-                    .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE | Notification.DEFAULT_LIGHTS)
-                    .build();
+                    .setDefaults(Notification.DEFAULT_LIGHTS);
+            if (ringing) builder.setVibrate(new long[]{0, 260, 120, 260});
+            Notification notification = builder.build();
             NotificationSupport.wakeForReminder(context);
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) manager.notify(7000 + minuteOfDay, notification);
+            for (JSONObject task : eligibleTasks) {
+                if (NotificationSupport.isRinging(task.optString("alertMode", "sound"))) {
+                    NotificationSupport.enqueueReminderSound(context, task.optString("soundId", "chime"));
+                }
+            }
         }
         DdlScheduler.schedule(context);
     }

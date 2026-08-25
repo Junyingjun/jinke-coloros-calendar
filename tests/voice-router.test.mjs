@@ -70,6 +70,7 @@ const cases = [
   ["创建一个有DDL的任务，九月三十号提交报告", "create"],
   ["创建一个有deadline的任务，九月三十号提交报告", "create"],
   ["创建一个有滴滴艾尔的任务，九月三十号提交报告", "create"],
+  ["修桑顿皮卡德相机", "create"],
 ];
 
 for (const [text, intent] of cases) {
@@ -102,6 +103,9 @@ assert.match(route("每周一三五晚上七点健身四十五分钟").task.note
 assert.equal(route("周一到周五点外卖").task.title, "点外卖");
 assert.equal(route("周一到周五点外卖").task.repeat, "工作日");
 assert.equal(route("周一到周五点外卖").task.time, "待定");
+assert.equal(route("修桑顿皮卡德相机").task.type, "critical", "a bare task name must default to a critical task");
+assert.equal(route("修桑顿皮卡德相机").task.deadline, null, "a bare task name must default to no-DDL");
+assert.equal(route("修桑顿皮卡德相机").task.time, "待定", "a bare task name must not invent a clock time");
 assert.equal(route("周 一 到 周 五 点 外 卖").task.title, "点外卖");
 assert.equal(route("周 一 到 周 五 点 外 卖").task.repeat, "工作日");
 assert.equal(route("周一到周五每天十一点点外卖").task.title, "点外卖");
@@ -371,8 +375,12 @@ assert.match(stylesSource, /\.section-note\.is-complete\s*\{[^}]*color:\s*var\(-
 assert.match(screensSource, /className="fold-divider"/g, "expanded primary screens must render a dedicated fold divider");
 assert.match(stylesSource, /\.phone-shell-expanded \.fold-divider\s*\{[^}]*top:\s*19\.1%[^}]*height:\s*61\.8%/, "the expanded fold divider must be a centered golden-ratio segment");
 assert.doesNotMatch(stylesSource, /\.phone-shell-expanded \.today-daily-pane[^}]*border-left|\.phone-shell-expanded \.critical-without-ddl[^}]*border-left/, "expanded dividers must not inherit either column's content height");
-assert.match(indexSource, /app-bundle\.js\?v=1\.0\.17/, "release HTML must cache-bust the current domain model bundle");
-assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.0\.17"/, "the service worker cache must advance with the APK version");
+assert.match(indexSource, /app-bundle\.js\?v=1\.1\.0/, "release HTML must cache-bust the current reminder-settings bundle");
+assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.1\.0"/, "the service worker cache must advance with the APK version");
+assert.match(screensSource, /function ReminderSoundPicker[\s\S]*默认响铃[\s\S]*响铃[\s\S]*静音[\s\S]*导入本地音效/, "every task editor must expose inherit, ring, silent, sound, and local import controls");
+assert.match(screensSource, /function SettingsScreen[\s\S]*响铃提醒[\s\S]*静音提醒[\s\S]*默认音效[\s\S]*导入本地音效/, "settings must expose global reminder mode and sound-library controls");
+assert.match(appSource, /jinke-default-alert-mode[\s\S]*jinke-default-sound-id[\s\S]*jinke-custom-reminder-sounds/, "global reminder policy and custom sound library must persist locally");
+assert.match(appSource, /alertMode: task\.alertMode && task\.alertMode !== "inherit" \? task\.alertMode : defaultAlertMode[\s\S]*soundId: task\.soundId && task\.soundId !== "inherit" \? task\.soundId : defaultSoundId/, "native reminder payloads must resolve task overrides against global defaults");
 
 const ambiguous = route("调整所有安排");
 assert.notEqual(ambiguous.intent, "create", "unclear action must never create a task");

@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -20,6 +21,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.provider.OpenableColumns;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -28,14 +30,20 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import android.webkit.MimeTypeMap;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.Locale;
+import java.util.UUID;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_NOTIFICATIONS = 9022;
     private static final int REQUEST_MICROPHONE = 9023;
+    private static final int REQUEST_REMINDER_SOUND = 9024;
     private static final String SYSTEM_PREFS = "jinke-system-state";
     private static final String BACKGROUND_SETTINGS_OPENED = "background-settings-opened";
     private WebView webView;
@@ -179,6 +187,70 @@ public class MainActivity extends Activity {
             }
         }
         deliverSystemCapabilities();
+    }
+
+    private void pickReminderSound() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("audio/*")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_REMINDER_SOUND);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_REMINDER_SOUND || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri source = data.getData();
+        try {
+            String displayName = reminderSoundDisplayName(source);
+            String extension = reminderSoundExtension(source, displayName);
+            String id = "custom-" + UUID.randomUUID().toString().replace("-", "");
+            File directory = new File(getFilesDir(), NotificationSupport.SOUND_DIRECTORY);
+            if (!directory.exists() && !directory.mkdirs()) throw new IllegalStateException("sound directory unavailable");
+            File destination = new File(directory, id + "." + extension);
+            try (InputStream input = getContentResolver().openInputStream(source);
+                 FileOutputStream output = new FileOutputStream(destination)) {
+                if (input == null) throw new IllegalStateException("sound stream unavailable");
+                byte[] buffer = new byte[32768];
+                int read;
+                while ((read = input.read(buffer)) >= 0) output.write(buffer, 0, read);
+            }
+            JSONObject payload = new JSONObject();
+            payload.put("id", id);
+            payload.put("name", displayName.replaceFirst("\\.[^.]+$", ""));
+            payload.put("source", "local");
+            deliverImportedSound(payload.toString());
+        } catch (Exception ignored) {
+            Toast.makeText(this, "音效导入失败，请选择常见的音频文件", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private String reminderSoundDisplayName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (column >= 0) {
+                    String value = cursor.getString(column);
+                    if (value != null && !value.trim().isEmpty()) return value.trim();
+                }
+            }
+        } catch (Exception ignored) {}
+        return "本地音效";
+    }
+
+    private String reminderSoundExtension(Uri uri, String displayName) {
+        String fromName = MimeTypeMap.getFileExtensionFromUrl(displayName);
+        if (fromName != null && fromName.matches("[A-Za-z0-9]{1,8}")) return fromName.toLowerCase(Locale.ROOT);
+        String mimeType = getContentResolver().getType(uri);
+        String fromMime = mimeType == null ? null : MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType);
+        return fromMime == null || fromMime.isEmpty() ? "audio" : fromMime.toLowerCase(Locale.ROOT);
+    }
+
+    private void deliverImportedSound(String payload) {
+        if (webView == null) return;
+        String script = "window.JINKE_SOUND_IMPORTED && window.JINKE_SOUND_IMPORTED(" + JSONObject.quote(payload) + ");";
+        webView.evaluateJavascript(script, null);
     }
 
     private void deliverSpeechResult(String result) {
@@ -499,6 +571,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void syncDailyReminders(String tasksJson) {
             DailyScheduler.saveAndSchedule(MainActivity.this, tasksJson);
+        }
+
+        @JavascriptInterface
+        public void pickReminderSound() {
+            runOnUiThread(MainActivity.this::pickReminderSound);
+        }
+
+        @JavascriptInterface
+        public void previewReminderSound(String soundId) {
+            runOnUiThread(() -> NotificationSupport.enqueueReminderSound(MainActivity.this, soundId));
         }
 
         @JavascriptInterface

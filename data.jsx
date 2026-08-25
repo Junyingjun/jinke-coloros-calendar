@@ -342,10 +342,10 @@ window.APP_DATA = {
     active: item.dateKey === STARTUP_DATE_KEY,
   })),
   dailyTasks: [
-    { id: "demo-daily", demo: true, activeFrom: STARTUP_DATE_KEY, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },
+    { id: "demo-daily", demo: true, activeFrom: STARTUP_DATE_KEY, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", alertMode: "inherit", soundId: "inherit", done: false },
   ],
   criticalTasks: [
-    { id: "demo-ddl", demo: true, title: "演示：完成第一个 DDL", note: "向左滑动可编辑或删除", deadline: "7天后", daysLeft: 7, deadlineTime: null, reminderEnabled: true, reminderTime: "10:00", reminderMode: "smart", reminderMultiple: 5, reminderFinalDays: 5, reminder: "每 5 天 · 最后 5 天每天 · 10:00", progress: 0 },
+    { id: "demo-ddl", demo: true, title: "演示：完成第一个 DDL", note: "向左滑动可编辑或删除", deadline: "7天后", daysLeft: 7, deadlineTime: null, reminderEnabled: true, reminderTime: "10:00", reminderMode: "smart", reminderMultiple: 5, reminderFinalDays: 5, reminder: "每 5 天 · 最后 5 天每天 · 10:00", alertMode: "inherit", soundId: "inherit", progress: 0 },
   ],
   history: [],
   monthRanking: [],

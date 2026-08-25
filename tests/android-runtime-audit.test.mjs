@@ -73,8 +73,17 @@ assert.match(dailyReceiver, /occursOn\(task, logicalDate\)/, "daily notification
 assert.match(dailyReceiver, /isCompleted\(task, logicalDate\)/, "manually completed daily occurrences must not notify again");
 assert.doesNotMatch(dailyReceiver, /\.edit\(\)|putBoolean|setDailyCompletion|toggleDaily/, "a daily notification receiver must never mark a task complete");
 assert.doesNotMatch(ddlReceiver, /\.edit\(\)|putBoolean|setDailyCompletion|toggleDaily/, "a DDL notification receiver must never mark a task complete");
-assert.match(notificationSupport, /jinke_daily_v2[\s\S]*jinke_ddl_v2/, "fresh high-priority channels must replace immutable legacy reminder settings");
-assert.match(notificationSupport, /setSound[\s\S]*enableVibration\(true\)[\s\S]*setLockscreenVisibility\(Notification\.VISIBILITY_PUBLIC\)/, "reminder channels must enable sound, vibration, and public lock-screen content");
+assert.match(notificationSupport, /jinke_daily_ring_v3[\s\S]*jinke_daily_silent_v3[\s\S]*jinke_ddl_ring_v3[\s\S]*jinke_ddl_silent_v3/, "ringing and silent reminders must use separate immutable Android channels");
+assert.match(notificationSupport, /setSound\(null, null\)[\s\S]*enableVibration\(vibrate\)[\s\S]*setLockscreenVisibility\(Notification\.VISIBILITY_PUBLIC\)/, "app-controlled reminder channels must preserve vibration policy and public lock-screen content");
+assert.match(notificationSupport, /enqueueReminderSound[\s\S]*SOUND_QUEUE[\s\S]*USAGE_NOTIFICATION_EVENT/, "task sounds must be queued and played as notification sonification");
+for (const resource of ["jinke_chime", "jinke_bell", "jinke_glass", "jinke_pop", "jinke_soft"]) {
+  assert.match(notificationSupport, new RegExp(`R\\.raw\\.${resource}`), `${resource} must be wired into the native player`);
+}
+assert.match(notificationSupport, /getFilesDir\(\)[\s\S]*SOUND_DIRECTORY/, "imported sounds must resolve from app-private local storage");
+assert.match(activity, /ACTION_OPEN_DOCUMENT[\s\S]*audio\/\*[\s\S]*REQUEST_REMINDER_SOUND/, "local reminder sounds must use Android's system audio picker");
+assert.match(activity, /JINKE_SOUND_IMPORTED/, "imported sound metadata must return to the WebView sound library");
+assert.match(dailyReceiver, /dailyChannel\(ringing\)[\s\S]*if \(ringing\) builder\.setVibrate[\s\S]*enqueueReminderSound/, "daily reminders must choose ring or silent delivery and play each selected sound");
+assert.match(ddlReceiver, /ddlChannel\(ringing\)[\s\S]*if \(ringing\) builder\.setVibrate[\s\S]*enqueueReminderSound/, "DDL reminders must choose ring or silent delivery and play each selected sound");
 assert.match(dailyReceiver, /setFullScreenIntent[\s\S]*setVisibility\(Notification\.VISIBILITY_PUBLIC\)[\s\S]*setPriority\(Notification\.PRIORITY_MAX\)/, "daily reminders must show as urgent lock-screen notifications");
 assert.match(ddlReceiver, /setFullScreenIntent[\s\S]*setVisibility\(Notification\.VISIBILITY_PUBLIC\)[\s\S]*setPriority\(Notification\.PRIORITY_MAX\)/, "DDL reminders must show as urgent lock-screen notifications");
 assert.match(reminderAlert, /setShowWhenLocked\(true\)[\s\S]*setTurnScreenOn\(true\)/, "the reminder alert must wake a locked device");
@@ -98,6 +107,10 @@ const requiredModelFiles = [
 for (const relative of requiredModelFiles) {
   const file = path.join(modelRoot, relative);
   assert.ok(fs.statSync(file).size > 0, `offline Chinese model file ${relative} must be non-empty`);
+}
+for (const sound of ["jinke_chime.wav", "jinke_bell.wav", "jinke_glass.wav", "jinke_pop.wav", "jinke_soft.wav"]) {
+  const file = path.join(root, "android/app/src/main/res/raw", sound);
+  assert.ok(fs.statSync(file).size > 8_000, `built-in reminder sound ${sound} must be a non-empty audio asset`);
 }
 const walkSize = (directory) => fs.readdirSync(directory, { withFileTypes: true }).reduce(
   (sum, entry) => sum + (entry.isDirectory() ? walkSize(path.join(directory, entry.name)) : fs.statSync(path.join(directory, entry.name)).size),

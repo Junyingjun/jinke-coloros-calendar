@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $sourceApk = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $releaseDir = Join-Path $projectRoot "release"
-$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.21.apk"
+$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.1.0.apk"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 
@@ -63,5 +63,8 @@ foreach ($entry in $requiredEntries) {
     if ($apkEntries -notmatch [regex]::Escape($entry)) { throw "APK is missing runtime component: $entry" }
 }
 if ((Get-Item -LiteralPath $releaseApk).Length -lt 80000000) { throw "APK size is unexpectedly small; the offline Chinese model may be missing." }
-Write-Host "RUNTIME_AUDIT_OK=permissions+arm64-vosk+chinese-model"
+foreach ($sound in @("jinke_chime.wav", "jinke_bell.wav", "jinke_glass.wav", "jinke_pop.wav", "jinke_soft.wav")) {
+    if (-not (Test-Path (Join-Path $projectRoot "android\app\src\main\res\raw\$sound"))) { throw "Bundled reminder sound is missing: $sound" }
+}
+Write-Host "RUNTIME_AUDIT_OK=permissions+arm64-vosk+chinese-model+5-reminder-sounds"
 Write-Host "APK_READY=$releaseApk"
