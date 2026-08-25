@@ -21,7 +21,6 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
@@ -338,6 +337,14 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript(script, null);
     }
 
+    private void deliverSystemTimeChanged() {
+        if (webView == null) return;
+        webView.evaluateJavascript(
+                "window.JINKE_REFRESH_SYSTEM_TIME && window.JINKE_REFRESH_SYSTEM_TIME();",
+                null
+        );
+    }
+
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -350,6 +357,7 @@ public class MainActivity extends Activity {
         if (webView != null) webView.post(() -> {
             deliverWindowLayout();
             deliverSystemCapabilities();
+            deliverSystemTimeChanged();
         });
     }
 
@@ -423,15 +431,6 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 openSpeechAfterPermission = false;
                 if (offlineSpeechEngine != null) offlineSpeechEngine.cancel();
-            });
-        }
-
-        @JavascriptInterface
-        public void showSoftKeyboard() {
-            runOnUiThread(() -> {
-                webView.requestFocus(View.FOCUS_DOWN);
-                InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (keyboard != null) keyboard.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT);
             });
         }
 

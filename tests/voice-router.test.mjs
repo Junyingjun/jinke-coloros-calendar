@@ -126,6 +126,16 @@ assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机"
 assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.deadline, null);
 assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.title, "修桑顿皮卡德相机", "the explicit no-deadline phrase must not leak into the title");
 
+const runtimeNow = new Date();
+const runtimeDateKey = `${runtimeNow.getFullYear()}-${String(runtimeNow.getMonth() + 1).padStart(2, "0")}-${String(runtimeNow.getDate()).padStart(2, "0")}`;
+assert.equal(context.APP_DATA.today.dateKey, runtimeDateKey, "startup calendar data must come from the system date");
+assert.match(appSource, /useState\(\(\) => localDateKey\(\)\)/, "selected date and today must initialize from the system clock");
+assert.match(appSource, /setInterval\(refreshSystemDate, 30000\)/, "the running app must detect midnight rollover");
+assert.match(appSource, /visibilitychange[\s\S]*pageshow[\s\S]*JINKE_REFRESH_SYSTEM_TIME|JINKE_REFRESH_SYSTEM_TIME[\s\S]*pageshow[\s\S]*visibilitychange/, "foreground and native clock events must refresh the date");
+assert.match(appSource, /voiceInputModeRef\.current === "input-method"[\s\S]*setVoicePhase\("review"\)/, "IME text must enter review without waiting for a canceled speech callback");
+assert.doesNotMatch(screensSource, /composer-ime-button|>输入法<|showSoftKeyboard/, "the assistant must have one keyboard entry point instead of a redundant button");
+assert.match(screensSource, /className="composer-input"[\s\S]*onFocus=\{onUseInputMethod\}/, "focusing the text field must switch safely into IME mode");
+
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-28", "2026-08-24"), true, "workday tasks must show on Friday");
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-29", "2026-08-24"), false, "workday tasks must not leak into Saturday");
 assert.equal(context.window.taskOccursOnDate({ repeat: "周末" }, "2026-08-29", "2026-08-24"), true, "weekend tasks must show on Saturday");
@@ -219,8 +229,8 @@ assert.match(appSource, /JINKE_NATIVE_SPEECH_STATUS/, "offline model and permiss
 assert.doesNotMatch(screensSource, /使用示例/, "the listening sheet must offer cancellation instead of injecting a demo command");
 assert.match(screensSource, /onClick=\{onClose\}>取消<\/button>[\s\S]*停止并处理/, "cancel must be available beside stop-and-process");
 assert.match(appSource, /cancelSpeechRecognition/, "canceling the voice sheet must discard the native recognition session");
-assert.match(screensSource, /使用当前输入法语音[\s\S]*输入法/, "the assistant must expose the current keyboard's higher-accuracy dictation path");
-assert.match(activitySource, /showSoftKeyboard[\s\S]*InputMethodManager\.SHOW_IMPLICIT/, "the APK must be able to reveal the active Doubao or WeChat keyboard");
+assert.match(screensSource, /composer-input[\s\S]*onFocus=\{onUseInputMethod\}/, "the focused field must expose the current keyboard's higher-accuracy dictation path");
+assert.doesNotMatch(activitySource, /showSoftKeyboard|InputMethodManager\.SHOW_IMPLICIT/, "the APK must rely on normal focused-input IME behavior without a duplicate keyboard trigger");
 assert.match(appSource, /useInputMethodVoice[\s\S]*cancelSpeechRecognition[\s\S]*recognitionRef\.current\.abort/, "switching to input-method dictation must release the offline microphone first");
 assert.doesNotMatch(appSource, /parseVoiceCommand\(transcript \|\| VOICE_EXAMPLE/, "an empty recognition result must never silently execute the demo command");
 assert.match(appSource, /commandResult\("invalid", "没有识别到内容"/, "empty recognition must produce an explicit retry state");
@@ -281,7 +291,7 @@ assert.match(screensSource, /function DatePicker[\s\S]*截止年份[\s\S]*截止
 assert.match(primitivesSource, /function DailyTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a daily task must only toggle completion");
 assert.match(primitivesSource, /function CriticalTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a critical task must only toggle completion");
 assert.doesNotMatch(primitivesSource, /task-time-edit|task-edit-button/, "task bodies must not retain hidden click-to-edit affordances");
-assert.match(appSource, /displayedDailyTasks = dailyTasks\s*\.filter\(\(task\) => taskOccursOnDate\(task, selectedDateKey, APP_DATA\.today\.dateKey\)\)/, "daily list must be filtered by the selected date and weekday schedule");
+assert.match(appSource, /displayedDailyTasks = dailyTasks\s*\.filter\(\(task\) => taskOccursOnDate\(task, selectedDateKey, todayDateKey\)\)/, "daily list must be filtered by the selected date and current system-day schedule");
 
 const ambiguous = route("调整所有安排");
 assert.notEqual(ambiguous.intent, "create", "unclear action must never create a task");

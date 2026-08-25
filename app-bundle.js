@@ -228,51 +228,27 @@ window.shiftDateKeyByMonth = function shiftDateKeyByMonth(dateKey, offset) {
   targetMonth.setDate(Math.min(selected.getDate(), lastDate));
   return calendarDateKey(targetMonth);
 };
+var STARTUP_DATE = new Date();
+var STARTUP_DATE_KEY = calendarDateKey(STARTUP_DATE);
+var STARTUP_DATE_META = window.getDateMeta(STARTUP_DATE_KEY);
+var STARTUP_WEEK = window.getWeekDates(STARTUP_DATE_KEY);
 window.APP_DATA = {
   today: {
-    date: "8月24日",
-    dateKey: "2026-08-24",
-    weekday: "星期一",
-    solar: "处暑一候"
+    date: "".concat(STARTUP_DATE_META.month, "\u6708").concat(STARTUP_DATE_META.date, "\u65E5"),
+    dateKey: STARTUP_DATE_KEY,
+    weekday: "\u661F\u671F".concat(STARTUP_DATE_META.day),
+    solar: window.getCalendarMarker(STARTUP_DATE_KEY).short
   },
-  week: [{
-    day: "一",
-    date: 24,
-    dateKey: "2026-08-24",
-    today: true,
-    active: true,
-    load: 5
-  }, {
-    day: "二",
-    date: 25,
-    dateKey: "2026-08-25",
-    load: 3
-  }, {
-    day: "三",
-    date: 26,
-    dateKey: "2026-08-26",
-    load: 5
-  }, {
-    day: "四",
-    date: 27,
-    dateKey: "2026-08-27",
-    load: 2
-  }, {
-    day: "五",
-    date: 28,
-    dateKey: "2026-08-28",
-    load: 4
-  }, {
-    day: "六",
-    date: 29,
-    dateKey: "2026-08-29",
-    load: 2
-  }, {
-    day: "日",
-    date: 30,
-    dateKey: "2026-08-30",
-    load: 1
-  }],
+  week: STARTUP_WEEK.map(function (item) {
+    return {
+      day: item.day,
+      date: item.date,
+      dateKey: item.dateKey,
+      today: item.dateKey === STARTUP_DATE_KEY,
+      active: item.dateKey === STARTUP_DATE_KEY,
+      load: item.load
+    };
+  }),
   dailyTasks: [{
     id: "demo-daily",
     demo: true,
@@ -1729,7 +1705,6 @@ function VoiceComposer(_ref15) {
     onClose = _ref15.onClose,
     speechAvailable = _ref15.speechAvailable,
     speechStatus = _ref15.speechStatus;
-  var composerRef = React.useRef(null);
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
@@ -1770,19 +1745,6 @@ function VoiceComposer(_ref15) {
     }
   };
   var canConfirm = parsedCommand.valid && (parsedCommand.intent !== "create" || Boolean(editableTask === null || editableTask === void 0 || (_editableTask$title = editableTask.title) === null || _editableTask$title === void 0 ? void 0 : _editableTask$title.trim()));
-  var openInputMethod = function openInputMethod() {
-    onUseInputMethod === null || onUseInputMethod === void 0 || onUseInputMethod();
-    window.setTimeout(function () {
-      var _composerRef$current;
-      (_composerRef$current = composerRef.current) === null || _composerRef$current === void 0 || _composerRef$current.focus({
-        preventScroll: true
-      });
-      try {
-        var _window$JinkeAndroid, _window$JinkeAndroid$;
-        (_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.showSoftKeyboard) === null || _window$JinkeAndroid$ === void 0 || _window$JinkeAndroid$.call(_window$JinkeAndroid);
-      } catch (_unused3) {}
-    }, 40);
-  };
   var statusText = {
     starting: "正在启动离线语音…",
     "requesting-permission": "等待麦克风授权…",
@@ -1808,23 +1770,16 @@ function VoiceComposer(_ref15) {
     "aria-label": "\u505C\u6B62\u5E76\u5904\u7406"
   }, React.createElement(Waveform, null)), React.createElement("div", {
     className: "voice-transcript"
-  }, text || statusText)), React.createElement("div", {
-    className: "composer-shell"
-  }, React.createElement("input", {
-    ref: composerRef,
+  }, text || statusText)), React.createElement("input", {
     className: "composer-input",
     value: transcript,
+    onFocus: onUseInputMethod,
     onChange: function onChange(event) {
       return onTranscript(event.target.value);
     },
     placeholder: "\u8F93\u5165\u64CD\u4F5C\u6216\u5B89\u6392",
     "aria-label": speechAvailable ? "输入操作或安排" : "语音不可用，请输入操作或安排"
-  }), React.createElement("button", {
-    className: "composer-ime-button pressable",
-    type: "button",
-    onClick: openInputMethod,
-    "aria-label": "\u4F7F\u7528\u5F53\u524D\u8F93\u5165\u6CD5\u8BED\u97F3"
-  }, "\u8F93\u5165\u6CD5")), React.createElement("div", {
+  }), React.createElement("div", {
     className: "button-row"
   }, React.createElement("button", {
     className: "secondary-button pressable",
@@ -2558,7 +2513,7 @@ function CriticalReminderScreen(_ref29) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.10";
+var JINKE_FALLBACK_VERSION = "1.0.11";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2578,9 +2533,9 @@ function VersionScreen(_ref30) {
   var onBack = _ref30.onBack;
   var currentVersion = function () {
     try {
-      var _window$JinkeAndroid2, _window$JinkeAndroid3;
-      return ((_window$JinkeAndroid2 = window.JinkeAndroid) === null || _window$JinkeAndroid2 === void 0 || (_window$JinkeAndroid3 = _window$JinkeAndroid2.getAppVersion) === null || _window$JinkeAndroid3 === void 0 ? void 0 : _window$JinkeAndroid3.call(_window$JinkeAndroid2)) || JINKE_FALLBACK_VERSION;
-    } catch (_unused4) {
+      var _window$JinkeAndroid, _window$JinkeAndroid$;
+      return ((_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.getAppVersion) === null || _window$JinkeAndroid$ === void 0 ? void 0 : _window$JinkeAndroid$.call(_window$JinkeAndroid)) || JINKE_FALLBACK_VERSION;
+    } catch (_unused3) {
       return JINKE_FALLBACK_VERSION;
     }
   }();
@@ -2631,9 +2586,9 @@ function VersionScreen(_ref30) {
   var installUpdate = function installUpdate() {
     if (!state.apkUrl) return;
     try {
-      var _window$JinkeAndroid4;
-      if ((_window$JinkeAndroid4 = window.JinkeAndroid) !== null && _window$JinkeAndroid4 !== void 0 && _window$JinkeAndroid4.installApk) window.JinkeAndroid.installApk(state.apkUrl);else window.open(state.apkUrl, "_blank", "noopener,noreferrer");
-    } catch (_unused5) {
+      var _window$JinkeAndroid2;
+      if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.installApk) window.JinkeAndroid.installApk(state.apkUrl);else window.open(state.apkUrl, "_blank", "noopener,noreferrer");
+    } catch (_unused4) {
       window.location.href = state.apkUrl;
     }
   };
@@ -2916,6 +2871,11 @@ function dateKeyOffset(fromKey, toKey) {
   var from = Date.UTC(fromYear, fromMonth - 1, fromDay);
   var to = Date.UTC(toYear, toMonth - 1, toDay);
   return Math.round((to - from) / 86400000);
+}
+function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
+  if (!Number.isFinite(task === null || task === void 0 ? void 0 : task.daysLeft)) return null;
+  var anchorKey = task.anchorDateKey || fallbackAnchorKey;
+  return task.daysLeft - dateKeyOffset(anchorKey, dateKey);
 }
 var CN_DIGITS = {
   "零": 0,
@@ -3412,13 +3372,19 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   var dateSelection = text.match(/(?:切换|打开|查看|前往|去|到)\s*(?:到)?\s*([零〇一二三四五六七八九十两\d]{1,3})[日号]/);
   if (dateSelection) {
     var day = parseNumber(dateSelection[1]);
-    var dateItem = APP_DATA.week.find(function (item) {
+    var now = new Date();
+    var runtimeDateKey = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, "0"), "-").concat(String(now.getDate()).padStart(2, "0"));
+    var currentWeek = window.getWeekDates(runtimeDateKey);
+    var dateItem = currentWeek.find(function (item) {
       return item.date === day;
     });
-    return dateItem ? commandResult("select-date", "\u5207\u6362\u5230 8 \u6708 ".concat(day, " \u65E5"), [["日期", "8\u6708".concat(day, "\u65E5")]], {
+    var first = currentWeek[0];
+    var last = currentWeek[currentWeek.length - 1];
+    var range = "".concat(first.month, "\u6708").concat(first.date, "\u65E5\u2014").concat(last.month, "\u6708").concat(last.date, "\u65E5");
+    return dateItem ? commandResult("select-date", "\u5207\u6362\u5230 ".concat(dateItem.month, " \u6708 ").concat(day, " \u65E5"), [["日期", "".concat(dateItem.month, "\u6708").concat(day, "\u65E5")]], {
       dateKey: dateItem.dateKey,
       confirmLabel: "切换"
-    }) : commandResult("select-date", "当前周没有这个日期", [["当前范围", "8月24日—8月30日"]], {
+    }) : commandResult("select-date", "当前周没有这个日期", [["当前范围", range]], {
       valid: false,
       error: "请说当前周日期"
     });
@@ -3701,33 +3667,46 @@ function MobileDesignApp() {
     _useState12 = _slicedToArray(_useState11, 2),
     viewMode = _useState12[0],
     setViewMode = _useState12[1];
-  var _useState13 = useState(APP_DATA.today.dateKey),
+  var _useState13 = useState(function () {
+      return localDateKey();
+    }),
     _useState14 = _slicedToArray(_useState13, 2),
-    selectedDateKey = _useState14[0],
-    setSelectedDateKey = _useState14[1];
+    todayDateKey = _useState14[0],
+    setTodayDateKey = _useState14[1];
   var _useState15 = useState(function () {
-      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray);
+      return localDateKey();
     }),
     _useState16 = _slicedToArray(_useState15, 2),
-    dailyTasks = _useState16[0],
-    setDailyTasks = _useState16[1];
+    selectedDateKey = _useState16[0],
+    setSelectedDateKey = _useState16[1];
   var _useState17 = useState(function () {
+      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray);
+    }),
+    _useState18 = _slicedToArray(_useState17, 2),
+    dailyTasks = _useState18[0],
+    setDailyTasks = _useState18[1];
+  var _useState19 = useState(function () {
       return readStoredJson("jinke-daily-completions", Object.fromEntries(APP_DATA.dailyTasks.map(function (task) {
         return ["".concat(task.id, ":").concat(localDateKey()), Boolean(task.done)];
       })), function (value) {
         return value && _typeof(value) === "object" && !Array.isArray(value);
       });
     }),
-    _useState18 = _slicedToArray(_useState17, 2),
-    dailyCompletionByDate = _useState18[0],
-    setDailyCompletionByDate = _useState18[1];
-  var _useState19 = useState(function () {
-      return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray);
-    }),
     _useState20 = _slicedToArray(_useState19, 2),
-    criticalTasks = _useState20[0],
-    setCriticalTasks = _useState20[1];
+    dailyCompletionByDate = _useState20[0],
+    setDailyCompletionByDate = _useState20[1];
   var _useState21 = useState(function () {
+      var anchorDateKey = localDateKey();
+      return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map(function (task) {
+        return task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? _objectSpread(_objectSpread({}, task), {}, {
+          anchorDateKey: anchorDateKey
+        }) : task;
+      });
+    }),
+    _useState22 = _slicedToArray(_useState21, 2),
+    criticalTasks = _useState22[0],
+    setCriticalTasks = _useState22[1];
+  var _useState23 = useState(function () {
       var value = "10:00";
       try {
         value = localStorage.getItem("jinke-ddl-reminder-time") || value;
@@ -3735,10 +3714,10 @@ function MobileDesignApp() {
       window.JINKE_DDL_REMINDER_TIME = value;
       return value;
     }),
-    _useState22 = _slicedToArray(_useState21, 2),
-    ddlReminderTime = _useState22[0],
-    setDdlReminderTime = _useState22[1];
-  var _useState23 = useState(function () {
+    _useState24 = _slicedToArray(_useState23, 2),
+    ddlReminderTime = _useState24[0],
+    setDdlReminderTime = _useState24[1];
+  var _useState25 = useState(function () {
       var value = 5;
       try {
         value = Math.max(1, Number(localStorage.getItem("jinke-ddl-reminder-multiple")) || value);
@@ -3746,10 +3725,10 @@ function MobileDesignApp() {
       window.JINKE_DDL_REMINDER_MULTIPLE = value;
       return value;
     }),
-    _useState24 = _slicedToArray(_useState23, 2),
-    ddlReminderMultiple = _useState24[0],
-    setDdlReminderMultiple = _useState24[1];
-  var _useState25 = useState(function () {
+    _useState26 = _slicedToArray(_useState25, 2),
+    ddlReminderMultiple = _useState26[0],
+    setDdlReminderMultiple = _useState26[1];
+  var _useState27 = useState(function () {
       var value = 5;
       try {
         var stored = localStorage.getItem("jinke-ddl-reminder-final-days");
@@ -3758,108 +3737,141 @@ function MobileDesignApp() {
       window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
       return value;
     }),
-    _useState26 = _slicedToArray(_useState25, 2),
-    ddlReminderFinalDays = _useState26[0],
-    setDdlReminderFinalDays = _useState26[1];
-  var _useState27 = useState(function () {
+    _useState28 = _slicedToArray(_useState27, 2),
+    ddlReminderFinalDays = _useState28[0],
+    setDdlReminderFinalDays = _useState28[1];
+  var _useState29 = useState(function () {
       return readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray);
     }),
-    _useState28 = _slicedToArray(_useState27, 2),
-    history = _useState28[0],
-    setHistory = _useState28[1];
-  var _useState29 = useState(null),
     _useState30 = _slicedToArray(_useState29, 2),
-    deleteTarget = _useState30[0],
-    setDeleteTarget = _useState30[1];
+    history = _useState30[0],
+    setHistory = _useState30[1];
   var _useState31 = useState(null),
     _useState32 = _slicedToArray(_useState31, 2),
-    selectedDaily = _useState32[0],
-    setSelectedDaily = _useState32[1];
+    deleteTarget = _useState32[0],
+    setDeleteTarget = _useState32[1];
   var _useState33 = useState(null),
     _useState34 = _slicedToArray(_useState33, 2),
-    dailyDraft = _useState34[0],
-    setDailyDraft = _useState34[1];
+    selectedDaily = _useState34[0],
+    setSelectedDaily = _useState34[1];
   var _useState35 = useState(null),
     _useState36 = _slicedToArray(_useState35, 2),
-    selectedCritical = _useState36[0],
-    setSelectedCritical = _useState36[1];
+    dailyDraft = _useState36[0],
+    setDailyDraft = _useState36[1];
   var _useState37 = useState(null),
     _useState38 = _slicedToArray(_useState37, 2),
-    criticalDraft = _useState38[0],
-    setCriticalDraft = _useState38[1];
-  var _useState39 = useState(7),
+    selectedCritical = _useState38[0],
+    setSelectedCritical = _useState38[1];
+  var _useState39 = useState(null),
     _useState40 = _slicedToArray(_useState39, 2),
-    renewDays = _useState40[0],
-    setRenewDays = _useState40[1];
-  var _useState41 = useState("listening"),
+    criticalDraft = _useState40[0],
+    setCriticalDraft = _useState40[1];
+  var _useState41 = useState(7),
     _useState42 = _slicedToArray(_useState41, 2),
-    voicePhase = _useState42[0],
-    setVoicePhase = _useState42[1];
-  var _useState43 = useState(""),
+    renewDays = _useState42[0],
+    setRenewDays = _useState42[1];
+  var _useState43 = useState("listening"),
     _useState44 = _slicedToArray(_useState43, 2),
-    transcript = _useState44[0],
-    setTranscript = _useState44[1];
-  var _useState45 = useState(null),
+    voicePhase = _useState44[0],
+    setVoicePhase = _useState44[1];
+  var _useState45 = useState(""),
     _useState46 = _slicedToArray(_useState45, 2),
-    voiceDraft = _useState46[0],
-    setVoiceDraft = _useState46[1];
-  var _useState47 = useState("china"),
+    transcript = _useState46[0],
+    setTranscript = _useState46[1];
+  var _useState47 = useState(null),
     _useState48 = _slicedToArray(_useState47, 2),
-    archiveActive = _useState48[0],
-    setArchiveActive = _useState48[1];
-  var _useState49 = useState(0),
+    voiceDraft = _useState48[0],
+    setVoiceDraft = _useState48[1];
+  var _useState49 = useState("china"),
     _useState50 = _slicedToArray(_useState49, 2),
-    archiveIndex = _useState50[0],
-    setArchiveIndex = _useState50[1];
-  var _useState51 = useState(true),
+    archiveActive = _useState50[0],
+    setArchiveActive = _useState50[1];
+  var _useState51 = useState(0),
     _useState52 = _slicedToArray(_useState51, 2),
-    speechAvailable = _useState52[0],
-    setSpeechAvailable = _useState52[1];
-  var _useState53 = useState("idle"),
+    archiveIndex = _useState52[0],
+    setArchiveIndex = _useState52[1];
+  var _useState53 = useState(true),
     _useState54 = _slicedToArray(_useState53, 2),
-    speechStatus = _useState54[0],
-    setSpeechStatus = _useState54[1];
-  var _useState55 = useState(""),
+    speechAvailable = _useState54[0],
+    setSpeechAvailable = _useState54[1];
+  var _useState55 = useState("idle"),
     _useState56 = _slicedToArray(_useState55, 2),
-    toast = _useState56[0],
-    setToast = _useState56[1];
-  var _useState57 = useState(function () {
+    speechStatus = _useState56[0],
+    setSpeechStatus = _useState56[1];
+  var _useState57 = useState(""),
+    _useState58 = _slicedToArray(_useState57, 2),
+    toast = _useState58[0],
+    setToast = _useState58[1];
+  var _useState59 = useState(function () {
       return getNativeWindowState();
     }),
-    _useState58 = _slicedToArray(_useState57, 2),
-    nativeWindow = _useState58[0],
-    setNativeWindow = _useState58[1];
-  var _useState59 = useState(function () {
+    _useState60 = _slicedToArray(_useState59, 2),
+    nativeWindow = _useState60[0],
+    setNativeWindow = _useState60[1];
+  var _useState61 = useState(function () {
       return getNativeCapabilities();
     }),
-    _useState60 = _slicedToArray(_useState59, 2),
-    nativeCapabilities = _useState60[0],
-    setNativeCapabilities = _useState60[1];
+    _useState62 = _slicedToArray(_useState61, 2),
+    nativeCapabilities = _useState62[0],
+    setNativeCapabilities = _useState62[1];
   var recognitionRef = useRef(null);
+  var voiceInputModeRef = useRef("offline");
   var toastTimerRef = useRef(null);
   var scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
-  var parsedVoiceCommand = transcript.trim() ? parseVoiceCommand(transcript, dailyTasks, criticalTasks) : commandResult("invalid", "没有识别到内容", [["建议", "再说一次，或直接输入安排"]], {
+  var currentCriticalTasks = criticalTasks.map(function (task) {
+    return _objectSpread(_objectSpread({}, task), {}, {
+      daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey)
+    });
+  });
+  var parsedVoiceCommand = transcript.trim() ? parseVoiceCommand(transcript, dailyTasks, currentCriticalTasks) : commandResult("invalid", "没有识别到内容", [["建议", "再说一次，或直接输入安排"]], {
     valid: false,
     error: "没有听清，请重试"
   });
   var displayedDailyTasks = dailyTasks.filter(function (task) {
-    return taskOccursOnDate(task, selectedDateKey, APP_DATA.today.dateKey);
+    return taskOccursOnDate(task, selectedDateKey, todayDateKey);
   }).map(function (task) {
     return _objectSpread(_objectSpread({}, task), {}, {
       done: Boolean(dailyCompletionByDate["".concat(task.id, ":").concat(selectedDateKey)])
     });
   });
-  var selectedDateOffset = dateKeyOffset(APP_DATA.today.dateKey, selectedDateKey);
   var displayedDeadlineTasks = criticalTasks.filter(function (task) {
     return task.deadline;
   }).map(function (task) {
     return _objectSpread(_objectSpread({}, task), {}, {
-      daysLeft: Number.isFinite(task.daysLeft) ? task.daysLeft - selectedDateOffset : null
+      daysLeft: criticalDaysLeftOn(task, selectedDateKey, todayDateKey)
     });
   });
   useEffect(function () {
     if (voicePhase === "review" && parsedVoiceCommand.intent === "create") setVoiceDraft(_objectSpread({}, parsedVoiceCommand.task));
   }, [voicePhase, transcript]);
+  useEffect(function () {
+    var refreshSystemDate = function refreshSystemDate() {
+      var nextDateKey = localDateKey(new Date());
+      setTodayDateKey(function (currentDateKey) {
+        if (currentDateKey === nextDateKey) return currentDateKey;
+        setSelectedDateKey(function (selected) {
+          return selected === currentDateKey ? nextDateKey : selected;
+        });
+        return nextDateKey;
+      });
+    };
+    var onVisibilityChange = function onVisibilityChange() {
+      if (document.visibilityState === "visible") refreshSystemDate();
+    };
+    window.JINKE_REFRESH_SYSTEM_TIME = refreshSystemDate;
+    window.addEventListener("focus", refreshSystemDate);
+    window.addEventListener("pageshow", refreshSystemDate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    var clockTimer = window.setInterval(refreshSystemDate, 30000);
+    refreshSystemDate();
+    return function () {
+      window.clearInterval(clockTimer);
+      window.removeEventListener("focus", refreshSystemDate);
+      window.removeEventListener("pageshow", refreshSystemDate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (window.JINKE_REFRESH_SYSTEM_TIME === refreshSystemDate) delete window.JINKE_REFRESH_SYSTEM_TIME;
+    };
+  }, []);
   useEffect(function () {
     var media = window.matchMedia("(prefers-color-scheme: dark)");
     var applyTheme = function applyTheme() {
@@ -3951,7 +3963,11 @@ function MobileDesignApp() {
   useEffect(function () {
     var _window$JinkeAndroid4;
     if (!((_window$JinkeAndroid4 = window.JinkeAndroid) !== null && _window$JinkeAndroid4 !== void 0 && _window$JinkeAndroid4.syncDdlReminders)) return;
-    var payload = criticalTasks.filter(function (task) {
+    var payload = criticalTasks.map(function (task) {
+      return _objectSpread(_objectSpread({}, task), {}, {
+        daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey)
+      });
+    }).filter(function (task) {
       return task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0;
     }).map(function (task) {
       return {
@@ -3963,7 +3979,7 @@ function MobileDesignApp() {
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch (_unused18) {}
-  }, [criticalTasks, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
+  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
     return function () {
       if (recognitionRef.current) recognitionRef.current.abort();
@@ -4094,7 +4110,8 @@ function MobileDesignApp() {
       return current.map(function (task) {
         return task.id === taskId ? _objectSpread(_objectSpread(_objectSpread({}, task), changes), {}, {
           deadline: deadlineText,
-          daysLeft: deadlineText ? parsed !== null && parsed !== void 0 && parsed.deadline ? parsed.daysLeft : task.daysLeft : null,
+          daysLeft: deadlineText ? parsed !== null && parsed !== void 0 && parsed.deadline ? parsed.daysLeft : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(task, todayDateKey, todayDateKey) : null,
+          anchorDateKey: deadlineText ? todayDateKey : null,
           time: eventTime,
           reminder: getCriticalReminder(eventTime)
         }) : task;
@@ -4141,9 +4158,11 @@ function MobileDesignApp() {
     setCriticalTasks(function (current) {
       return current.map(function (task) {
         if (task.id !== taskId) return task;
-        var daysLeft = (task.daysLeft || 0) + days;
+        var currentDaysLeft = criticalDaysLeftOn(task, todayDateKey, todayDateKey) || 0;
+        var daysLeft = currentDaysLeft + days;
         return _objectSpread(_objectSpread({}, task), {}, {
           daysLeft: daysLeft,
+          anchorDateKey: todayDateKey,
           deadline: deadlineLabelFromDays(daysLeft)
         });
       });
@@ -4156,6 +4175,7 @@ function MobileDesignApp() {
   };
   var startVoice = function startVoice() {
     var _window$JinkeAndroid5;
+    voiceInputModeRef.current = "offline";
     setTranscript("");
     setVoiceDraft(null);
     setVoicePhase("listening");
@@ -4213,6 +4233,13 @@ function MobileDesignApp() {
   };
   var stopVoice = function stopVoice() {
     var _window$JinkeAndroid6;
+    if (voiceInputModeRef.current === "input-method") {
+      setSpeechStatus("idle");
+      window.setTimeout(function () {
+        return setVoicePhase("review");
+      }, 50);
+      return;
+    }
     if ((_window$JinkeAndroid6 = window.JinkeAndroid) !== null && _window$JinkeAndroid6 !== void 0 && _window$JinkeAndroid6.stopSpeechRecognition) {
       setSpeechStatus("processing");
       try {
@@ -4234,6 +4261,8 @@ function MobileDesignApp() {
   };
   var useInputMethodVoice = function useInputMethodVoice() {
     var _window$JinkeAndroid7, _window$JinkeAndroid8;
+    if (voiceInputModeRef.current === "input-method") return;
+    voiceInputModeRef.current = "input-method";
     if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
@@ -4268,6 +4297,7 @@ function MobileDesignApp() {
           note: task.note || "",
           deadline: task.span.start.deadline,
           daysLeft: task.span.start.daysLeft,
+          anchorDateKey: todayDateKey,
           time: task.hasTime && task.time !== "待定" ? task.time : null,
           reminder: getCriticalReminder(task.hasTime ? task.time : null),
           progress: 0
@@ -4279,6 +4309,7 @@ function MobileDesignApp() {
           note: task.note || "",
           deadline: task.span.end.deadline,
           daysLeft: task.span.end.daysLeft,
+          anchorDateKey: todayDateKey,
           time: task.endTime || null,
           reminder: getCriticalReminder(task.endTime || null),
           progress: 0
@@ -4296,6 +4327,7 @@ function MobileDesignApp() {
           note: task.note,
           deadline: task.deadline,
           daysLeft: (_normalizedDeadline$d = normalizedDeadline === null || normalizedDeadline === void 0 ? void 0 : normalizedDeadline.daysLeft) !== null && _normalizedDeadline$d !== void 0 ? _normalizedDeadline$d : task.daysLeft,
+          anchorDateKey: task.deadline ? todayDateKey : null,
           time: task.hasTime && task.time !== "待定" ? task.time : null,
           reminder: getCriticalReminder(task.hasTime ? task.time : null),
           progress: 0
@@ -4414,9 +4446,11 @@ function MobileDesignApp() {
       setCriticalTasks(function (current) {
         return current.map(function (task) {
           if (task.id !== target.task.id) return task;
-          var daysLeft = (task.daysLeft || 0) + command.days;
+          var currentDaysLeft = criticalDaysLeftOn(task, todayDateKey, todayDateKey) || 0;
+          var daysLeft = currentDaysLeft + command.days;
           return _objectSpread(_objectSpread({}, task), {}, {
             daysLeft: daysLeft,
+            anchorDateKey: todayDateKey,
             deadline: deadlineLabelFromDays(daysLeft),
             reminder: getCriticalReminder(task.time)
           });
@@ -4431,6 +4465,7 @@ function MobileDesignApp() {
           return task.id === target.task.id ? _objectSpread(_objectSpread({}, task), {}, {
             deadline: command.deadline.deadline,
             daysLeft: command.deadline.daysLeft,
+            anchorDateKey: todayDateKey,
             time: command.eventTime || task.time || null,
             reminder: getCriticalReminder(command.eventTime || task.time)
           }) : task;
@@ -4457,6 +4492,7 @@ function MobileDesignApp() {
             note: changes.note || target.task.note,
             deadline: changes.deadline || null,
             daysLeft: (_changes$daysLeft = changes.daysLeft) !== null && _changes$daysLeft !== void 0 ? _changes$daysLeft : null,
+            anchorDateKey: changes.deadline ? todayDateKey : null,
             time: changes.time && changes.time !== "待定" ? changes.time : null,
             reminder: getCriticalReminder(changes.time),
             progress: 0
@@ -4485,7 +4521,9 @@ function MobileDesignApp() {
         setActiveTab("today");
       } else {
         var applyChanges = function applyChanges(task) {
-          return task.id === target.task.id ? _objectSpread(_objectSpread({}, task), changes) : task;
+          return task.id === target.task.id ? _objectSpread(_objectSpread(_objectSpread({}, task), changes), target.kind === "critical" && Object.prototype.hasOwnProperty.call(changes, "daysLeft") ? {
+            anchorDateKey: todayDateKey
+          } : {}) : task;
         };
         if (target.kind === "daily") setDailyTasks(function (current) {
           return current.map(applyChanges);
@@ -4626,7 +4664,7 @@ function MobileDesignApp() {
       }
     });
     if (activeTab === "critical") return React.createElement(CriticalScreen, {
-      tasks: criticalTasks,
+      tasks: currentCriticalTasks,
       onToggle: toggleCriticalCheck,
       onOpen: openCritical,
       onDelete: function onDelete(task) {
@@ -4660,7 +4698,7 @@ function MobileDesignApp() {
         return setOverlay("view");
       },
       selectedDateKey: selectedDateKey,
-      todayDateKey: APP_DATA.today.dateKey,
+      todayDateKey: todayDateKey,
       onSelectDate: selectDate,
       onOpenDayArchive: function onOpenDayArchive() {
         setArchiveActive("china");

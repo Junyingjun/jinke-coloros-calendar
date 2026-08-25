@@ -184,17 +184,26 @@ window.shiftDateKeyByMonth = function shiftDateKeyByMonth(dateKey, offset) {
   return calendarDateKey(targetMonth);
 };
 
+const STARTUP_DATE = new Date();
+const STARTUP_DATE_KEY = calendarDateKey(STARTUP_DATE);
+const STARTUP_DATE_META = window.getDateMeta(STARTUP_DATE_KEY);
+const STARTUP_WEEK = window.getWeekDates(STARTUP_DATE_KEY);
+
 window.APP_DATA = {
-  today: { date: "8月24日", dateKey: "2026-08-24", weekday: "星期一", solar: "处暑一候" },
-  week: [
-    { day: "一", date: 24, dateKey: "2026-08-24", today: true, active: true, load: 5 },
-    { day: "二", date: 25, dateKey: "2026-08-25", load: 3 },
-    { day: "三", date: 26, dateKey: "2026-08-26", load: 5 },
-    { day: "四", date: 27, dateKey: "2026-08-27", load: 2 },
-    { day: "五", date: 28, dateKey: "2026-08-28", load: 4 },
-    { day: "六", date: 29, dateKey: "2026-08-29", load: 2 },
-    { day: "日", date: 30, dateKey: "2026-08-30", load: 1 },
-  ],
+  today: {
+    date: `${STARTUP_DATE_META.month}月${STARTUP_DATE_META.date}日`,
+    dateKey: STARTUP_DATE_KEY,
+    weekday: `星期${STARTUP_DATE_META.day}`,
+    solar: window.getCalendarMarker(STARTUP_DATE_KEY).short,
+  },
+  week: STARTUP_WEEK.map((item) => ({
+    day: item.day,
+    date: item.date,
+    dateKey: item.dateKey,
+    today: item.dateKey === STARTUP_DATE_KEY,
+    active: item.dateKey === STARTUP_DATE_KEY,
+    load: item.load,
+  })),
   dailyTasks: [
     { id: "demo-daily", demo: true, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },
   ],

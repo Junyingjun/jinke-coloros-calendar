@@ -107,6 +107,12 @@ function dateKeyOffset(fromKey, toKey) {
   return Math.round((to - from) / 86400000);
 }
 
+function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
+  if (!Number.isFinite(task?.daysLeft)) return null;
+  const anchorKey = task.anchorDateKey || fallbackAnchorKey;
+  return task.daysLeft - dateKeyOffset(anchorKey, dateKey);
+}
+
 const CN_DIGITS = { "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
 
 function normalizeSpeechText(value) {
@@ -490,10 +496,16 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   const dateSelection = text.match(/(?:切换|打开|查看|前往|去|到)\s*(?:到)?\s*([零〇一二三四五六七八九十两\d]{1,3})[日号]/);
   if (dateSelection) {
     const day = parseNumber(dateSelection[1]);
-    const dateItem = APP_DATA.week.find((item) => item.date === day);
+    const now = new Date();
+    const runtimeDateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const currentWeek = window.getWeekDates(runtimeDateKey);
+    const dateItem = currentWeek.find((item) => item.date === day);
+    const first = currentWeek[0];
+    const last = currentWeek[currentWeek.length - 1];
+    const range = `${first.month}月${first.date}日—${last.month}月${last.date}日`;
     return dateItem
-      ? commandResult("select-date", `切换到 8 月 ${day} 日`, [["日期", `8月${day}日`]], { dateKey: dateItem.dateKey, confirmLabel: "切换" })
-      : commandResult("select-date", "当前周没有这个日期", [["当前范围", "8月24日—8月30日"]], { valid: false, error: "请说当前周日期" });
+      ? commandResult("select-date", `切换到 ${dateItem.month} 月 ${day} 日`, [["日期", `${dateItem.month}月${day}日`]], { dateKey: dateItem.dateKey, confirmLabel: "切换" })
+      : commandResult("select-date", "当前周没有这个日期", [["当前范围", range]], { valid: false, error: "请说当前周日期" });
   }
 
   if (!wantsCreate && hasAll && arrangementNoun && /(清空|清除|删除|移除|删掉)/.test(text)) {
@@ -658,14 +670,20 @@ function MobileDesignApp() {
   const [secondary, setSecondary] = useState(null);
   const [overlay, setOverlay] = useState(null);
   const [viewMode, setViewMode] = useState("day");
-  const [selectedDateKey, setSelectedDateKey] = useState(APP_DATA.today.dateKey);
+  const [todayDateKey, setTodayDateKey] = useState(() => localDateKey());
+  const [selectedDateKey, setSelectedDateKey] = useState(() => localDateKey());
   const [dailyTasks, setDailyTasks] = useState(() => readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray));
   const [dailyCompletionByDate, setDailyCompletionByDate] = useState(() => readStoredJson(
     "jinke-daily-completions",
     Object.fromEntries(APP_DATA.dailyTasks.map((task) => [`${task.id}:${localDateKey()}`, Boolean(task.done)])),
     (value) => value && typeof value === "object" && !Array.isArray(value),
   ));
-  const [criticalTasks, setCriticalTasks] = useState(() => readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray));
+  const [criticalTasks, setCriticalTasks] = useState(() => {
+    const anchorDateKey = localDateKey();
+    return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map((task) => (
+      task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? { ...task, anchorDateKey } : task
+    ));
+  });
   const [ddlReminderTime, setDdlReminderTime] = useState(() => {
     let value = "10:00";
     try { value = localStorage.getItem("jinke-ddl-reminder-time") || value; } catch {}
@@ -705,25 +723,56 @@ function MobileDesignApp() {
   const [nativeWindow, setNativeWindow] = useState(() => getNativeWindowState());
   const [nativeCapabilities, setNativeCapabilities] = useState(() => getNativeCapabilities());
   const recognitionRef = useRef(null);
+  const voiceInputModeRef = useRef("offline");
   const toastTimerRef = useRef(null);
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
+  const currentCriticalTasks = criticalTasks.map((task) => ({
+    ...task,
+    daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey),
+  }));
   const parsedVoiceCommand = transcript.trim()
-    ? parseVoiceCommand(transcript, dailyTasks, criticalTasks)
+    ? parseVoiceCommand(transcript, dailyTasks, currentCriticalTasks)
     : commandResult("invalid", "没有识别到内容", [["建议", "再说一次，或直接输入安排"]], { valid: false, error: "没有听清，请重试" });
   const displayedDailyTasks = dailyTasks
-    .filter((task) => taskOccursOnDate(task, selectedDateKey, APP_DATA.today.dateKey))
+    .filter((task) => taskOccursOnDate(task, selectedDateKey, todayDateKey))
     .map((task) => ({
       ...task,
       done: Boolean(dailyCompletionByDate[`${task.id}:${selectedDateKey}`]),
     }));
-  const selectedDateOffset = dateKeyOffset(APP_DATA.today.dateKey, selectedDateKey);
   const displayedDeadlineTasks = criticalTasks
     .filter((task) => task.deadline)
-    .map((task) => ({ ...task, daysLeft: Number.isFinite(task.daysLeft) ? task.daysLeft - selectedDateOffset : null }));
+    .map((task) => ({ ...task, daysLeft: criticalDaysLeftOn(task, selectedDateKey, todayDateKey) }));
 
   useEffect(() => {
     if (voicePhase === "review" && parsedVoiceCommand.intent === "create") setVoiceDraft({ ...parsedVoiceCommand.task });
   }, [voicePhase, transcript]);
+
+  useEffect(() => {
+    const refreshSystemDate = () => {
+      const nextDateKey = localDateKey(new Date());
+      setTodayDateKey((currentDateKey) => {
+        if (currentDateKey === nextDateKey) return currentDateKey;
+        setSelectedDateKey((selected) => selected === currentDateKey ? nextDateKey : selected);
+        return nextDateKey;
+      });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshSystemDate();
+    };
+    window.JINKE_REFRESH_SYSTEM_TIME = refreshSystemDate;
+    window.addEventListener("focus", refreshSystemDate);
+    window.addEventListener("pageshow", refreshSystemDate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const clockTimer = window.setInterval(refreshSystemDate, 30000);
+    refreshSystemDate();
+    return () => {
+      window.clearInterval(clockTimer);
+      window.removeEventListener("focus", refreshSystemDate);
+      window.removeEventListener("pageshow", refreshSystemDate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (window.JINKE_REFRESH_SYSTEM_TIME === refreshSystemDate) delete window.JINKE_REFRESH_SYSTEM_TIME;
+    };
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -794,12 +843,13 @@ function MobileDesignApp() {
   useEffect(() => {
     if (!window.JinkeAndroid?.syncDdlReminders) return;
     const payload = criticalTasks
+      .map((task) => ({ ...task, daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey) }))
       .filter((task) => task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0)
       .map((task) => ({ id: task.id, title: task.title, daysLeft: task.daysLeft }));
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch {}
-  }, [criticalTasks, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
+  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
 
   useEffect(() => () => {
     if (recognitionRef.current) recognitionRef.current.abort();
@@ -909,7 +959,10 @@ function MobileDesignApp() {
       ...task,
       ...changes,
       deadline: deadlineText,
-      daysLeft: deadlineText ? (parsed?.deadline ? parsed.daysLeft : task.daysLeft) : null,
+      daysLeft: deadlineText ? (parsed?.deadline
+        ? parsed.daysLeft
+        : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(task, todayDateKey, todayDateKey)) : null,
+      anchorDateKey: deadlineText ? todayDateKey : null,
       time: eventTime,
       reminder: getCriticalReminder(eventTime),
     } : task));
@@ -939,8 +992,9 @@ function MobileDesignApp() {
     const days = Math.min(3650, Math.max(1, Number(requestedDays) || 7));
     setCriticalTasks((current) => current.map((task) => {
       if (task.id !== taskId) return task;
-      const daysLeft = (task.daysLeft || 0) + days;
-      return { ...task, daysLeft, deadline: deadlineLabelFromDays(daysLeft) };
+      const currentDaysLeft = criticalDaysLeftOn(task, todayDateKey, todayDateKey) || 0;
+      const daysLeft = currentDaysLeft + days;
+      return { ...task, daysLeft, anchorDateKey: todayDateKey, deadline: deadlineLabelFromDays(daysLeft) };
     }));
     setOverlay(null);
     setSelectedCritical(null);
@@ -950,6 +1004,7 @@ function MobileDesignApp() {
   };
 
   const startVoice = () => {
+    voiceInputModeRef.current = "offline";
     setTranscript("");
     setVoiceDraft(null);
     setVoicePhase("listening");
@@ -1001,6 +1056,11 @@ function MobileDesignApp() {
   };
 
   const stopVoice = () => {
+    if (voiceInputModeRef.current === "input-method") {
+      setSpeechStatus("idle");
+      window.setTimeout(() => setVoicePhase("review"), 50);
+      return;
+    }
     if (window.JinkeAndroid?.stopSpeechRecognition) {
       setSpeechStatus("processing");
       try { window.JinkeAndroid.stopSpeechRecognition(); } catch { setSpeechAvailable(false); }
@@ -1014,6 +1074,8 @@ function MobileDesignApp() {
   };
 
   const useInputMethodVoice = () => {
+    if (voiceInputModeRef.current === "input-method") return;
+    voiceInputModeRef.current = "input-method";
     if (window.JinkeAndroid?.cancelSpeechRecognition) {
       try { window.JinkeAndroid.cancelSpeechRecognition(); } catch {}
     } else if (window.JinkeAndroid?.stopSpeechRecognition) {
@@ -1044,6 +1106,7 @@ function MobileDesignApp() {
             note: task.note || "",
             deadline: task.span.start.deadline,
             daysLeft: task.span.start.daysLeft,
+            anchorDateKey: todayDateKey,
             time: task.hasTime && task.time !== "待定" ? task.time : null,
             reminder: getCriticalReminder(task.hasTime ? task.time : null),
             progress: 0,
@@ -1056,6 +1119,7 @@ function MobileDesignApp() {
             note: task.note || "",
             deadline: task.span.end.deadline,
             daysLeft: task.span.end.daysLeft,
+            anchorDateKey: todayDateKey,
             time: task.endTime || null,
             reminder: getCriticalReminder(task.endTime || null),
             progress: 0,
@@ -1071,6 +1135,7 @@ function MobileDesignApp() {
           note: task.note,
           deadline: task.deadline,
           daysLeft: normalizedDeadline?.daysLeft ?? task.daysLeft,
+          anchorDateKey: task.deadline ? todayDateKey : null,
           time: task.hasTime && task.time !== "待定" ? task.time : null,
           reminder: getCriticalReminder(task.hasTime ? task.time : null),
           progress: 0,
@@ -1155,8 +1220,9 @@ function MobileDesignApp() {
     } else if (intent === "extend") {
       setCriticalTasks((current) => current.map((task) => {
         if (task.id !== target.task.id) return task;
-        const daysLeft = (task.daysLeft || 0) + command.days;
-        return { ...task, daysLeft, deadline: deadlineLabelFromDays(daysLeft), reminder: getCriticalReminder(task.time) };
+        const currentDaysLeft = criticalDaysLeftOn(task, todayDateKey, todayDateKey) || 0;
+        const daysLeft = currentDaysLeft + command.days;
+        return { ...task, daysLeft, anchorDateKey: todayDateKey, deadline: deadlineLabelFromDays(daysLeft), reminder: getCriticalReminder(task.time) };
       }));
       setActiveTab("critical");
       setSecondary(null);
@@ -1166,6 +1232,7 @@ function MobileDesignApp() {
         ...task,
         deadline: command.deadline.deadline,
         daysLeft: command.deadline.daysLeft,
+        anchorDateKey: todayDateKey,
         time: command.eventTime || task.time || null,
         reminder: getCriticalReminder(command.eventTime || task.time),
       } : task));
@@ -1182,6 +1249,7 @@ function MobileDesignApp() {
           note: changes.note || target.task.note,
           deadline: changes.deadline || null,
           daysLeft: changes.daysLeft ?? null,
+          anchorDateKey: changes.deadline ? todayDateKey : null,
           time: changes.time && changes.time !== "待定" ? changes.time : null,
           reminder: getCriticalReminder(changes.time),
           progress: 0,
@@ -1200,7 +1268,11 @@ function MobileDesignApp() {
         }].sort((a, b) => a.time.localeCompare(b.time)));
         setActiveTab("today");
       } else {
-        const applyChanges = (task) => task.id === target.task.id ? { ...task, ...changes } : task;
+        const applyChanges = (task) => task.id === target.task.id ? {
+          ...task,
+          ...changes,
+          ...(target.kind === "critical" && Object.prototype.hasOwnProperty.call(changes, "daysLeft") ? { anchorDateKey: todayDateKey } : {}),
+        } : task;
         if (target.kind === "daily") setDailyTasks((current) => current.map(applyChanges));
         else setCriticalTasks((current) => current.map(applyChanges));
         setActiveTab(target.kind === "daily" ? "today" : "critical");
@@ -1284,8 +1356,8 @@ function MobileDesignApp() {
     if (secondary === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => setSecondary("permissions")} onBack={() => setSecondary(null)} />;
     if (secondary === "version") return <VersionScreen onBack={() => setSecondary(null)} />;
     if (secondary === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={() => setSecondary(null)} />;
-    if (activeTab === "critical") return <CriticalScreen tasks={criticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
-    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={APP_DATA.today.dateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
+    if (activeTab === "critical") return <CriticalScreen tasks={currentCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
+    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
   };
 
   const renderDevice = (variant) => (

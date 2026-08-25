@@ -36,7 +36,7 @@ assert.match(engine, /committedText = appendSegment\(committedText, text\)/, "pa
 assert.match(engine, /if \(!latestText\.isBlank\(\)\)[\s\S]*finish\(latestText\)/, "a late audio error must preserve an already recognized transcript");
 assert.match(engine, /synchronized void cancel\(\)[\s\S]*cleanupSession\(\)/, "canceling voice input must release the microphone without delivering a command");
 assert.match(activity, /cancelSpeechRecognition[\s\S]*offlineSpeechEngine\.cancel\(\)/, "the web voice sheet must be able to cancel native recognition");
-assert.match(activity, /showSoftKeyboard[\s\S]*InputMethodManager\.SHOW_IMPLICIT/, "the assistant must expose the active input method for high-accuracy dictation");
+assert.doesNotMatch(activity, /showSoftKeyboard|InputMethodManager\.SHOW_IMPLICIT/, "the focused input must open the IME without a redundant native button bridge");
 assert.match(engine, /copyAssetTree[\s\S]*MODEL_ASSET_DIR/, "bundled model must be copied into private storage before loading");
 assert.match(activity, /getSystemCapabilities/, "native bridge must expose live permission and component states");
 assert.match(activity, /ACTION_REQUEST_SCHEDULE_EXACT_ALARM/, "exact-alarm settings must be actionable");
@@ -45,6 +45,8 @@ assert.match(activity, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/, "APK update installa
 assert.match(activity, /backgroundConfigured/, "native capabilities must expose the ColorOS background configuration state");
 assert.match(activity, /openBackgroundSettings[\s\S]*com\.oplus\.safecenter[\s\S]*com\.coloros\.safecenter/, "background management must deep-link through known OPlus and ColorOS settings");
 assert.match(activity, /BACKGROUND_SETTINGS_OPENED/, "returning from the OEM background settings must not keep showing a false failure");
+assert.match(activity, /deliverSystemTimeChanged[\s\S]*JINKE_REFRESH_SYSTEM_TIME/, "returning to the app must refresh the JavaScript system clock");
+assert.match(manifest, /android\.intent\.action\.DATE_CHANGED/, "date rollover must reschedule Android reminders");
 
 const requiredModelFiles = [
   "am/final.mdl",
