@@ -31,6 +31,9 @@ assert.match(build, /net\.java\.dev\.jna:jna:5\.18\.1@aar/, "Vosk native bridge 
 assert.match(engine, /class OfflineSpeechEngine implements RecognitionListener/, "APK must include its own offline recognizer");
 assert.match(engine, /new SpeechService\(recognizer, SAMPLE_RATE\)/, "offline engine must record directly from the microphone");
 assert.match(engine, /Log\.i\(LOG_TAG, "Offline microphone recognition started"\)/, "offline microphone startup must leave a diagnostic log");
+assert.match(engine, /LISTEN_TIMEOUT_MS = 30000/, "offline listening must leave enough time for a follow-up phrase");
+assert.match(engine, /committedText = appendSegment\(committedText, text\)/, "pause-separated recognition segments must accumulate instead of replacing each other");
+assert.match(engine, /if \(!latestText\.isBlank\(\)\)[\s\S]*finish\(latestText\)/, "a late audio error must preserve an already recognized transcript");
 assert.match(engine, /copyAssetTree[\s\S]*MODEL_ASSET_DIR/, "bundled model must be copied into private storage before loading");
 assert.match(activity, /getSystemCapabilities/, "native bridge must expose live permission and component states");
 assert.match(activity, /ACTION_REQUEST_SCHEDULE_EXACT_ALARM/, "exact-alarm settings must be actionable");

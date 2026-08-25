@@ -30,13 +30,15 @@ function WeekdayPicker({ value, repeatDays, onChange }) {
   );
 }
 
-function Stepper({ label, value, min, max, step = 1, onChange, format = (item) => item }) {
+function Stepper({ label, value, min, max, step = 1, wrap = false, onChange, format = (item) => item }) {
   const safeValue = Math.min(max, Math.max(min, Number(value) || 0));
+  const decrease = () => onChange(wrap && safeValue <= min ? max : Math.max(min, safeValue - step));
+  const increase = () => onChange(wrap && safeValue >= max ? min : Math.min(max, safeValue + step));
   return (
     <div className="jinke-stepper" role="group" aria-label={label}>
-      <button type="button" aria-label={`${label}减少`} disabled={safeValue <= min} onClick={() => onChange(Math.max(min, safeValue - step))}>−</button>
+      <button type="button" aria-label={`${label}减少`} disabled={!wrap && safeValue <= min} onClick={decrease}>−</button>
       <output aria-label={label}>{format(safeValue)}</output>
-      <button type="button" aria-label={`${label}增加`} disabled={safeValue >= max} onClick={() => onChange(Math.min(max, safeValue + step))}>＋</button>
+      <button type="button" aria-label={`${label}增加`} disabled={!wrap && safeValue >= max} onClick={increase}>＋</button>
     </div>
   );
 }
@@ -45,7 +47,7 @@ function parseClock(value, fallback = "09:00") {
   const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
   const source = match || fallback.match(/^(\d{1,2}):(\d{2})$/);
   const minute = Math.min(55, Math.max(0, Math.round(Number(source?.[2] || 0) / 5) * 5));
-  return { hour: Number(source?.[1] || 9), minute };
+  return { hour: Math.min(24, Math.max(0, Number(source?.[1] || 9))), minute };
 }
 
 function TimePicker({ label, value, onChange, allowUnset = true }) {
@@ -56,9 +58,9 @@ function TimePicker({ label, value, onChange, allowUnset = true }) {
     <div className="jinke-time-picker" aria-label={label}>
       <div className="picker-head"><span>{label}</span>{allowUnset ? <button type="button" aria-pressed={enabled} onClick={() => onChange(enabled ? null : "09:00")}>{enabled ? "清除" : "设置"}</button> : null}</div>
       {enabled || !allowUnset ? <div className="time-stepper-row">
-        <Stepper label={`${label}小时`} value={clock.hour} min={0} max={23} onChange={(hour) => update(hour, clock.minute)} format={(item) => String(item).padStart(2, "0")} />
+        <Stepper label={`${label}小时`} value={clock.hour} min={0} max={24} wrap onChange={(hour) => update(hour, clock.minute)} format={(item) => String(item).padStart(2, "0")} />
         <span className="time-colon">:</span>
-        <Stepper label={`${label}分钟`} value={clock.minute} min={0} max={55} step={5} onChange={(minute) => update(clock.hour, minute)} format={(item) => String(item).padStart(2, "0")} />
+        <Stepper label={`${label}分钟`} value={clock.minute} min={0} max={55} step={5} wrap onChange={(minute) => update(clock.hour, minute)} format={(item) => String(item).padStart(2, "0")} />
       </div> : <span className="picker-empty">未设置</span>}
     </div>
   );
@@ -94,8 +96,8 @@ function ReminderPicker({ value, onChange }) {
       <div className="picker-head"><span>提醒</span><button type="button" aria-pressed={enabled} className={enabled ? "enabled" : ""} onClick={() => onChange(enabled ? "不提醒" : "到点提醒")}>{enabled ? "已开启" : "不提醒"}</button></div>
       {enabled ? <>
         <div className="reminder-stepper-row">
-          <div><small>小时</small><Stepper label="提前小时" value={hours} min={0} max={23} onChange={(next) => update(next, minutes)} /></div>
-          <div><small>分钟</small><Stepper label="提前分钟" value={minutes} min={0} max={55} step={5} onChange={(next) => update(hours, next)} /></div>
+          <div><small>小时</small><Stepper label="提前小时" value={hours} min={0} max={23} wrap onChange={(next) => update(next, minutes)} /></div>
+          <div><small>分钟</small><Stepper label="提前分钟" value={minutes} min={0} max={55} step={5} wrap onChange={(next) => update(hours, next)} /></div>
         </div>
         <output className="reminder-summary">{reminderFromMinutes(safe)}</output>
       </> : null}
@@ -502,13 +504,25 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
         </>
       ) : (
         <>
-          {parsedCommand.intent === "create" && editableTask ? (
+          {parsedCommand.intent === "create" && editableTask?.span ? (
+            <div className="edit-form voice-edit-form edit-form-first">
+              <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={editableTask.title} onChange={(event) => updateDraft("title", event.target.value)} /></label>
+              <div className="parsed-card">
+                <div className="field-list">
+                  <div className="field-row"><span className="field-label">去程 DDL</span><span className="field-value">{editableTask.span.start.deadline}</span></div>
+                  <div className="field-row"><span className="field-label">返程 DDL</span><span className="field-value">{editableTask.span.end.deadline}</span></div>
+                </div>
+              </div>
+              <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={editableTask.note || ""} onChange={(event) => updateDraft("note", event.target.value)} /></label>
+            </div>
+          ) : parsedCommand.intent === "create" && editableTask ? (
             <div className="edit-form voice-edit-form edit-form-first">
               <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={editableTask.title} onChange={(event) => updateDraft("title", event.target.value)} /></label>
               <div className="edit-field stacked custom-control-field"><span className="edit-label">类型</span><SegmentedChoice label="任务类型" value={editableTask.type} options={[["daily", "日常事务"], ["critical", "关键事务"]]} onChange={updateType} /></div>
               {editableTask.type === "daily" ? (
                 <>
                   <div className="edit-field stacked custom-control-field"><TimePicker label="时间" value={editableTask.time === "待定" ? null : editableTask.time} onChange={(time) => updateDraft("time", time || "待定")} /></div>
+                  <div className="edit-field stacked custom-control-field"><TimePicker label="结束" value={editableTask.endTime || null} onChange={(time) => updateDraft("endTime", time || null)} /></div>
                   <div className="edit-field stacked custom-control-field"><WeekdayPicker value={editableTask.repeat} repeatDays={editableTask.repeatDays} onChange={updateRepeat} /></div>
                 </>
               ) : (
@@ -552,6 +566,7 @@ function DailyEditSheet({ task, draft, onDraftChange, onSave, onClose }) {
       <div className="edit-form edit-form-first">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
         <div className="edit-field stacked custom-control-field"><TimePicker label="时间" value={draft.time === "待定" ? null : draft.time} onChange={(time) => update("time", time || "待定")} /></div>
+        <div className="edit-field stacked custom-control-field"><TimePicker label="结束" value={draft.endTime || null} onChange={(time) => update("endTime", time || null)} /></div>
         <div className="edit-field stacked custom-control-field"><WeekdayPicker value={draft.repeat} repeatDays={draft.repeatDays} onChange={updateRepeat} /></div>
         <div className="edit-field stacked custom-control-field"><ReminderPicker value={draft.reminder} onChange={(reminder) => update("reminder", reminder)} /></div>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="3" value={draft.note} onChange={(event) => update("note", event.target.value)} /></label>
@@ -761,7 +776,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.8";
+const JINKE_FALLBACK_VERSION = "1.0.9";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

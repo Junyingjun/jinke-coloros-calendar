@@ -23,7 +23,7 @@ final class OfflineSpeechEngine implements RecognitionListener {
     private static final String LOG_TAG = "JinkeSpeech";
     static final String MODEL_ASSET_DIR = "vosk-model-small-cn-0.22";
     private static final float SAMPLE_RATE = 16000.0f;
-    private static final int LISTEN_TIMEOUT_MS = 15000;
+    private static final int LISTEN_TIMEOUT_MS = 30000;
 
     interface Callback {
         void onStatus(String status);
@@ -43,6 +43,7 @@ final class OfflineSpeechEngine implements RecognitionListener {
     private boolean startAfterLoading;
     private boolean resultDelivered;
     private boolean closed;
+    private String committedText = "";
     private String latestText = "";
 
     OfflineSpeechEngine(Context context, Callback callback) {
@@ -108,6 +109,7 @@ final class OfflineSpeechEngine implements RecognitionListener {
 
     private synchronized void startListening() {
         if (closed || model == null || speechService != null) return;
+        committedText = "";
         latestText = "";
         resultDelivered = false;
         try {
@@ -126,27 +128,33 @@ final class OfflineSpeechEngine implements RecognitionListener {
     public void onPartialResult(String hypothesis) {
         String text = jsonText(hypothesis, "partial");
         if (text.isEmpty()) return;
-        latestText = text;
-        callback.onPartial(text);
+        latestText = previewText(committedText, text);
+        callback.onPartial(latestText);
     }
 
     @Override
     public void onResult(String hypothesis) {
         String text = jsonText(hypothesis, "text");
         if (text.isEmpty()) return;
-        latestText = text;
-        callback.onPartial(text);
+        committedText = appendSegment(committedText, text);
+        latestText = committedText;
+        callback.onPartial(committedText);
     }
 
     @Override
     public void onFinalResult(String hypothesis) {
         String text = jsonText(hypothesis, "text");
-        finish(text.isEmpty() ? latestText : text);
+        finish(text.isEmpty() ? latestText : appendSegment(committedText, text));
     }
 
     @Override
     public void onError(Exception error) {
         if (resultDelivered) return;
+        if (!latestText.isBlank()) {
+            Log.w(LOG_TAG, "Recognition ended after recoverable audio error; preserving transcript", error);
+            finish(latestText);
+            return;
+        }
         resultDelivered = true;
         cleanupSession();
         callback.onError("离线识别失败：" + safeMessage(error));
@@ -163,6 +171,26 @@ final class OfflineSpeechEngine implements RecognitionListener {
         cleanupSession();
         callback.onFinal(text == null ? "" : text.trim());
         Log.i(LOG_TAG, "Offline microphone recognition finished");
+    }
+
+    private String previewText(String committed, String partial) {
+        if (committed == null || committed.isBlank()) return partial.trim();
+        if (partial == null || partial.isBlank()) return committed.trim();
+        String base = committed.trim();
+        String next = partial.trim();
+        if (next.startsWith(base)) return next;
+        if (base.endsWith(next)) return base;
+        return base + "，" + next;
+    }
+
+    private String appendSegment(String committed, String segment) {
+        if (segment == null || segment.isBlank()) return committed == null ? "" : committed.trim();
+        if (committed == null || committed.isBlank()) return segment.trim();
+        String base = committed.trim();
+        String next = segment.trim();
+        if (next.startsWith(base)) return next;
+        if (base.endsWith(next) || base.equals(next)) return base;
+        return base + "，" + next;
     }
 
     private void cleanupSession() {

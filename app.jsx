@@ -82,6 +82,25 @@ function migrateLegacySeedData() {
 
 migrateLegacySeedData();
 
+function migrateVoiceCreatedNotes() {
+  const markerKey = "jinke-voice-note-migration-v3";
+  try {
+    if (localStorage.getItem(markerKey)) return;
+    ["jinke-daily-tasks", "jinke-critical-tasks"].forEach((key) => {
+      const stored = JSON.parse(localStorage.getItem(key) || "null");
+      if (!Array.isArray(stored)) return;
+      const cleaned = stored.map((task) => ({
+        ...task,
+        note: typeof task.note === "string" ? task.note.replace(/^语音创建(?:\s*·\s*)?/, "").trim() : task.note,
+      }));
+      localStorage.setItem(key, JSON.stringify(cleaned));
+    });
+    localStorage.setItem(markerKey, "1");
+  } catch {}
+}
+
+migrateVoiceCreatedNotes();
+
 function dateKeyOffset(fromKey, toKey) {
   const [fromYear, fromMonth, fromDay] = fromKey.split("-").map(Number);
   const [toYear, toMonth, toDay] = toKey.split("-").map(Number);
@@ -97,7 +116,7 @@ function normalizeSpeechText(value) {
   let previous = "";
   while (normalized !== previous) {
     previous = normalized;
-    normalized = normalized.replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, "$1");
+    normalized = normalized.replace(/([\u3400-\u9fff\d])\s+(?=[\u3400-\u9fff\d])/g, "$1");
   }
   return normalized;
 }
@@ -116,20 +135,41 @@ function parseNumber(value) {
 function parseTime(text) {
   const periodPattern = "(凌晨|早上|上午|中午|下午|傍晚|晚上)?";
   const numberPattern = "([零〇一二三四五六七八九十两\\d]{1,3})";
-  const colon = text.match(new RegExp(`${periodPattern}\\s*(\\d{1,2})[:：](\\d{2})`));
-  const spoken = text.match(new RegExp(`${periodPattern}\\s*${numberPattern}[点时](?:钟)?(半|[零〇一二三四五六七八九十两\\d]{1,3}分?)?`));
+  const colon = text.match(new RegExp(`${periodPattern}\\s*(\\d{1,2})\\s*[:：]\\s*(\\d{2})`));
+  const spoken = text.match(new RegExp(`${periodPattern}\\s*${numberPattern}\\s*[点时电](?:钟)?\\s*(半|[零〇一二三四五六七八九十两\\d]{1,3}分?)?`));
   const match = colon || spoken;
   if (!match) return { value: "待定", source: "" };
 
   const period = match[1] || "";
   let hour = parseNumber(match[2]);
   let minute = colon ? Number(match[3]) : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
-  if (["下午", "傍晚", "晚上"].includes(period) && hour < 12) hour += 12;
+  if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
+  if (period === "晚上") hour = hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
   if (period === "中午" && hour < 11) hour += 12;
   if (period === "凌晨" && hour === 12) hour = 0;
-  hour = Math.min(Math.max(hour, 0), 23);
+  if (!period && hour === 12 && /(睡觉|睡眠|上床|休息)/.test(text)) hour = 24;
+  hour = Math.min(Math.max(hour, 0), 24);
   minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
-  return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, source: match[0].trim() };
+  return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, source: match[0].trim(), period, dayBoundary: hour === 24 ? "end" : "start" };
+}
+
+function parseTimeRange(text) {
+  const connector = text.match(/(?:到|至|直到|—|–|-)/);
+  if (!connector) return null;
+  const index = connector.index;
+  const before = text.slice(0, index);
+  const after = text.slice(index + connector[0].length);
+  const start = parseTime(before);
+  if (!start.source) return null;
+  const inheritedPeriod = start.period && !/^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)/.test(after.trim()) ? start.period : "";
+  const end = parseTime(`${inheritedPeriod}${after}`);
+  if (!end.source) return null;
+  return {
+    start,
+    end,
+    source: `${start.source}${connector[0]}${end.source.replace(new RegExp(`^${inheritedPeriod}`), "")}`,
+    crossesMidnight: end.value < start.value || start.value.startsWith("24:"),
+  };
 }
 
 function parseRepeat(text) {
@@ -148,7 +188,7 @@ function parseRepeat(text) {
   if (/每(天|日)/.test(text)) return { value: "每天", days: [1, 2, 3, 4, 5, 6, 7], source: text.match(/每(天|日)/)[0] };
   if (/每个?工作日/.test(text)) return { value: "工作日", days: [1, 2, 3, 4, 5], source: text.match(/每个?工作日/)[0] };
   if (/每(个)?周末/.test(text)) return { value: "周末", days: [6, 7], source: text.match(/每(个)?周末/)[0] };
-  const match = text.match(/每(?:周|星期)([一二三四五六日天、，和及到至\-]+)/);
+  const match = text.match(/(?:每)?(?:周|星期)([一二三四五六日天、，和及到至\-]+)/);
   if (!match) return { value: "仅一次", days: [], source: "" };
   const days = [];
   for (const char of match[1]) {
@@ -177,6 +217,83 @@ function parseDeadline(text) {
   if (target < today) target = new Date(now.getFullYear() + 1, month - 1, day);
   const daysLeft = Math.ceil((target - today) / 86400000);
   return { deadline: `${month}月${day}日`, daysLeft, source: absolute[0], kind: "absolute" };
+}
+
+function datePointFromDate(target, source) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const normalized = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  return {
+    deadline: `${normalized.getMonth() + 1}月${normalized.getDate()}日`,
+    daysLeft: Math.round((normalized - today) / 86400000),
+    source,
+    date: normalized,
+  };
+}
+
+function parseDatePoints(text) {
+  const points = [];
+  const absolutePattern = /([零〇一二三四五六七八九十两\d]{1,3})月([零〇一二三四五六七八九十两\d]{1,3})[日号]?/g;
+  for (const match of text.matchAll(absolutePattern)) {
+    const month = parseNumber(match[1]);
+    const day = parseNumber(match[2]);
+    const now = new Date();
+    let target = new Date(now.getFullYear(), month - 1, day);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (target < today) target = new Date(now.getFullYear() + 1, month - 1, day);
+    points.push({ ...datePointFromDate(target, match[0]), index: match.index });
+  }
+
+  const relativePattern = /(今天|明天|后天|([零〇一二三四五六七八九十两\d]{1,3})天后)/g;
+  for (const match of text.matchAll(relativePattern)) {
+    if (points.some((point) => match.index >= point.index && match.index < point.index + point.source.length)) continue;
+    const offset = match[1] === "今天" ? 0 : match[1] === "明天" ? 1 : match[1] === "后天" ? 2 : parseNumber(match[2]);
+    const target = new Date();
+    target.setDate(target.getDate() + offset);
+    points.push({ ...datePointFromDate(target, match[0]), index: match.index });
+  }
+
+  const weekdayPattern = /((?:本|下)?周)([一二三四五六日天])/g;
+  for (const match of text.matchAll(weekdayPattern)) {
+    const weekday = match[2] === "天" ? 7 : ["一", "二", "三", "四", "五", "六", "日"].indexOf(match[2]) + 1;
+    const now = new Date();
+    const todayWeekday = now.getDay() || 7;
+    let offset = weekday - todayWeekday;
+    if (match[1] === "下周") offset += offset <= 0 ? 7 : 7;
+    else if (offset < 0) offset += 7;
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    points.push({ ...datePointFromDate(target, match[0]), index: match.index });
+  }
+  return points.sort((a, b) => a.index - b.index);
+}
+
+function parseTaskSpan(text) {
+  const datePoints = parseDatePoints(text);
+  const durationMatch = text.match(/(?:待|住|停留|相隔|隔|过|持续)?\s*([零〇一二三四五六七八九十两\d]{1,3})\s*天(?:后)?(?=\s*(?:回|回来|返程|回程|结束))/);
+  const durationDays = durationMatch ? Math.max(1, parseNumber(durationMatch[1])) : null;
+  const hasSpanLanguage = /(?:去|出发|前往|开始).*(?:回来|返程|回程|结束|回)|(?:从).*(?:到|至)/.test(text);
+  if (!hasSpanLanguage || (!durationDays && datePoints.length < 2)) return null;
+
+  const start = datePoints[0] || null;
+  let end = datePoints[1] || null;
+  if (start && !end && durationDays) {
+    const target = new Date(start.date);
+    target.setDate(target.getDate() + durationDays);
+    end = datePointFromDate(target, `${durationDays}天后`);
+  }
+  if (!start || !end) return null;
+
+  let subject = text;
+  [...datePoints.map((point) => point.source), durationMatch?.[0]].filter(Boolean).forEach((part) => { subject = subject.replace(part, " "); });
+  subject = subject
+    .replace(/(?:然后|之后|再)?\s*(?:回来|返程|回程|结束|回)/g, " ")
+    .replace(/(?:待|住|停留|相隔|隔|过|持续)/g, " ")
+    .replace(/(?:我|我们)?\s*(?:要|想|打算|计划)?\s*(?:去|出发去|前往|到)/g, " ")
+    .replace(/(?:开始|出发)/g, " ")
+    .replace(/[，,。；;！？!?\s]+/g, " ")
+    .trim();
+  const title = subject ? `${subject}行程` : "行程";
+  return { start, end, durationDays, title, original: text };
 }
 
 const TASK_ACTION_WORDS = [
@@ -225,9 +342,11 @@ function formatDailyReminder(totalMinutes) {
 
 function parseVoiceTask(rawText) {
   const text = normalizeSpeechText(rawText);
-  const repeat = parseRepeat(text);
+  const span = parseTaskSpan(text);
+  const repeat = span ? { value: "仅一次", days: [], source: "" } : parseRepeat(text);
   const withoutRepeat = repeat.source ? text.replace(repeat.source, " ") : text;
-  const time = parseTime(withoutRepeat);
+  const timeRange = parseTimeRange(withoutRepeat);
+  const time = timeRange?.start || parseTime(withoutRepeat);
   const deadline = parseDeadline(text);
   const reminderMatch = text.match(/提前\s*([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)(?:提醒)?/);
   const reminderAmount = reminderMatch ? parseNumber(reminderMatch[1]) : 0;
@@ -235,20 +354,25 @@ function parseVoiceTask(rawText) {
   const withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   const durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   const duration = durationMatch ? `${parseNumber(durationMatch[1])} ${durationMatch[2]}` : "";
-  const isCritical = !repeat.source && (/(重要|关键|特殊|ddl|截止|到期)/i.test(text) || deadline.kind === "absolute");
+  const isCritical = Boolean(span) || (!repeat.source && (/(重要|关键|特殊|ddl|截止|到期)/i.test(text) || deadline.kind === "absolute"));
 
-  const semantics = extractTaskSemantics(text, [reminderMatch?.[0], time.source, repeat.source, deadline.source], durationMatch?.[0]);
+  const spanSources = span ? [span.start.source, span.end.source] : [];
+  const semantics = extractTaskSemantics(text, [reminderMatch?.[0], time.source, timeRange?.end?.source, repeat.source, deadline.source, ...spanSources], durationMatch?.[0]);
+  const noteParts = [];
+  if (duration) noteParts.push(`持续 ${duration}`);
 
   return {
     type: isCritical ? "critical" : "daily",
-    title: semantics.title,
+    title: span?.title || semantics.title,
     time: time.value,
+    endTime: timeRange?.end?.value || null,
+    spansMidnight: Boolean(timeRange?.crossesMidnight),
     repeat: repeat.source ? repeat.value : (!isCritical && deadline.deadline ? deadline.deadline : repeat.value),
     repeatDays: repeat.days,
     reminder: isCritical ? getCriticalReminder(time.source ? time.value : null) : reminder,
     deadline: deadline.deadline,
     daysLeft: deadline.daysLeft,
-    note: `语音创建${duration ? ` · 持续 ${duration}` : ""}`,
+    note: noteParts.join(" · "),
     action: semantics.action,
     object: semantics.object,
     keywords: semantics.keywords,
@@ -256,6 +380,7 @@ function parseVoiceTask(rawText) {
     hasRepeat: Boolean(repeat.source),
     hasReminder: Boolean(reminderMatch),
     hasDeadline: Boolean(deadline.deadline),
+    span,
   };
 }
 
@@ -470,9 +595,11 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   }
 
   const task = parseVoiceTask(text);
-  const rows = task.type === "critical"
-    ? [["类型", "关键事务"], ["截止", task.deadline || "无 DDL"], ["时间", task.hasTime ? task.time : "未设置"], ["提醒", task.reminder]]
-    : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.time], ["提醒", task.reminder]];
+  const rows = task.span
+    ? [["类型", "时间段"], ["去程", task.span.start.deadline], ["返程", task.span.end.deadline], ["记录", "生成两个关联 DDL"]]
+    : task.type === "critical"
+      ? [["类型", "关键事务"], ["截止", task.deadline || "无 DDL"], ["时间", task.hasTime ? task.time : "未设置"], ["提醒", task.reminder]]
+      : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.endTime ? `${task.time}—${task.endTime}` : task.time], ["提醒", task.reminder]];
   return commandResult("create", task.title, rows, { task, confirmLabel: "创建任务" });
 }
 
@@ -578,7 +705,9 @@ function MobileDesignApp() {
   const recognitionRef = useRef(null);
   const toastTimerRef = useRef(null);
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
-  const parsedVoiceCommand = parseVoiceCommand(transcript || VOICE_EXAMPLE, dailyTasks, criticalTasks);
+  const parsedVoiceCommand = transcript.trim()
+    ? parseVoiceCommand(transcript, dailyTasks, criticalTasks)
+    : commandResult("invalid", "没有识别到内容", [["建议", "再说一次，或直接输入安排"]], { valid: false, error: "没有听清，请重试" });
   const displayedDailyTasks = dailyTasks
     .filter((task) => taskOccursOnDate(task, selectedDateKey, APP_DATA.today.dateKey))
     .map((task) => ({
@@ -879,7 +1008,6 @@ function MobileDesignApp() {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
     }
-    if (!transcript.trim()) setTranscript(VOICE_EXAMPLE);
     window.setTimeout(() => setVoicePhase("review"), 100);
   };
 
@@ -895,7 +1023,37 @@ function MobileDesignApp() {
 
     if (intent === "create") {
       const task = command.task;
-      if (task.type === "critical") {
+      if (task.span) {
+        const spanId = `voice-span-${Date.now()}`;
+        const created = [
+          {
+            id: `${spanId}-start`,
+            spanId,
+            spanRole: "start",
+            title: `${task.title} · 出发`,
+            note: task.note || "",
+            deadline: task.span.start.deadline,
+            daysLeft: task.span.start.daysLeft,
+            time: task.hasTime && task.time !== "待定" ? task.time : null,
+            reminder: getCriticalReminder(task.hasTime ? task.time : null),
+            progress: 0,
+          },
+          {
+            id: `${spanId}-end`,
+            spanId,
+            spanRole: "end",
+            title: `${task.title} · 返程`,
+            note: task.note || "",
+            deadline: task.span.end.deadline,
+            daysLeft: task.span.end.daysLeft,
+            time: task.endTime || null,
+            reminder: getCriticalReminder(task.endTime || null),
+            progress: 0,
+          },
+        ];
+        setCriticalTasks((current) => [...created, ...current]);
+        setActiveTab("critical");
+      } else if (task.type === "critical") {
         const normalizedDeadline = task.deadline ? parseDeadline(task.deadline) : null;
         const created = {
           id: `voice-critical-${Date.now()}`,
@@ -913,8 +1071,10 @@ function MobileDesignApp() {
         const created = {
           id: `voice-${Date.now()}`,
           time: task.time,
+          endTime: task.endTime || null,
+          spansMidnight: Boolean(task.spansMidnight),
           title: task.title,
-          note: task.note || "语音创建",
+          note: task.note || "",
           repeat: task.repeat,
           repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
           scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : selectedDateKey,

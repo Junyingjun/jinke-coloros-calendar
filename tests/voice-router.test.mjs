@@ -59,6 +59,8 @@ const cases = [
   ["周一到周五点外卖", "create"],
   ["周 一 到 周 五 点 外 卖", "create"],
   ["周一到周五每天十一点点外卖", "create"],
+  ["周一三五健身房", "create"],
+  ["九月一号去北京，九月五号回来", "create"],
 ];
 
 for (const [text, intent] of cases) {
@@ -100,6 +102,21 @@ assert.deepEqual(Array.from(route("周一到周五每天十一点点外卖").tas
 assert.equal(route("每天九点提前30小时提醒我写日志").task.reminder, "提前23小时55分钟", "daily voice reminders must stay inside 24 hours on the five-minute grid");
 assert.equal(route("每天十一点三分写日志").task.time, "11:05", "voice minutes must snap to the five-minute grid");
 assert.equal(route("每天十一点十二分写日志").task.time, "11:10", "voice minutes must use the nearest five-minute value");
+assert.equal(route("每天晚上十二点睡觉").task.time, "24:00", "evening twelve must remain the selected day's 24:00 boundary");
+assert.equal(route("每天12 点睡觉").task.time, "24:00", "spaced twelve o'clock sleep speech must infer the end-of-day boundary");
+assert.equal(route("每天12电睡觉").task.time, "24:00", "common 点/电 recognition confusion must not leak into the title");
+assert.equal(route("每天12电睡觉").task.title, "睡觉");
+assert.equal(route("每天零点起床").task.time, "00:00", "zero o'clock must remain the start of the selected day");
+assert.equal(route("每天晚上十点到十二点睡觉").task.time, "22:00");
+assert.equal(route("每天晚上十点到十二点睡觉").task.endTime, "24:00");
+assert.equal(route("每天晚上十点到十二点睡觉").task.spansMidnight, false);
+assert.equal(route("周一三五健身房").task.title, "健身房");
+assert.deepEqual(Array.from(route("周一三五健身房").task.repeatDays), [1, 3, 5]);
+assert.equal(route("每天晚上九点写日志").task.note, "", "voice creation must leave notes empty by default");
+assert.equal(route("九月一号去北京，九月五号回来").task.span.title, "北京行程");
+assert.equal(route("九月一号去北京，九月五号回来").task.span.start.deadline, "9月1日");
+assert.equal(route("九月一号去北京，九月五号回来").task.span.end.deadline, "9月5日");
+assert.equal(route("九月一号去北京，待五天回来").task.span.end.daysLeft - route("九月一号去北京，待五天回来").task.span.start.daysLeft, 5);
 
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-28", "2026-08-24"), true, "workday tasks must show on Friday");
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-29", "2026-08-24"), false, "workday tasks must not leak into Saturday");
@@ -191,6 +208,10 @@ assert.ok(appSource.indexOf("window.JinkeAndroid?.startSpeechRecognition") < app
 assert.doesNotMatch(activitySource, /RecognizerIntent|ACTION_RECOGNIZE_SPEECH/, "native speech must not depend on an optional system recognition service");
 assert.match(appSource, /JINKE_NATIVE_SPEECH_PARTIAL/, "offline partial recognition must update the assistant transcript");
 assert.match(appSource, /JINKE_NATIVE_SPEECH_STATUS/, "offline model and permission states must be visible in the assistant");
+assert.doesNotMatch(appSource, /parseVoiceCommand\(transcript \|\| VOICE_EXAMPLE/, "an empty recognition result must never silently execute the demo command");
+assert.match(appSource, /commandResult\("invalid", "没有识别到内容"/, "empty recognition must produce an explicit retry state");
+assert.match(appSource, /task\.span[\s\S]*spanRole:\s*"start"[\s\S]*spanRole:\s*"end"/, "multi-day voice ranges must create linked departure and return DDL records");
+assert.doesNotMatch(appSource, /task\.note \|\| "语音创建"/, "voice creation must not inject a default note");
 assert.match(screensSource, /function PermissionsScreen\(\{ capabilities/, "permission screen must render native capability data");
 assert.doesNotMatch(screensSource, /已加入 ColorOS 白名单|\["通知权限"[^\n]*"已开启"/, "permission screen must never claim static system authorization");
 assert.doesNotMatch(screensSource, /sherpa-onnx|Zipformer/, "voice settings must not claim unbundled recognizers or models");
@@ -198,6 +219,7 @@ assert.match(screensSource, /Vosk Offline[\s\S]*vosk-model-small-cn-0\.22[\s\S]*
 assert.match(primitivesSource, /function SwipeTaskActions[\s\S]*swipe-edit[\s\S]*编辑[\s\S]*swipe-delete[\s\S]*删除/, "every task row must expose edit and delete after a left swipe");
 assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*width: 36%/, "swipe actions must be sized relative to the task row");
 assert.match(appSource, /jinke-seed-migration-v2[\s\S]*legacyDailyIds[\s\S]*legacyCriticalIds/, "upgrades must remove legacy built-in task seeds while preserving custom entries");
+assert.match(appSource, /jinke-voice-note-migration-v3[\s\S]*replace\(\/\^语音创建/, "upgrades must remove the old synthetic voice-created note label");
 assert.match(screensSource, /左滑删除演示，点下方语音键创建第一项日程/, "daily demo must guide the first real task");
 assert.match(screensSource, /左滑删除演示，点下方语音键创建第一个 DDL/, "DDL demo must guide the first real deadline");
 assert.match(appSource, /const handleNativeBack[\s\S]*if \(overlay\)[\s\S]*if \(secondary\)[\s\S]*viewMode === "month"[\s\S]*activeTab === "critical"[\s\S]*window\.JINKE_NATIVE_BACK/, "native back must unwind the in-app navigation hierarchy");
@@ -230,6 +252,9 @@ assert.match(screensSource, /repeatLabelFromDays\(next\)/, "weekday selections m
 assert.match(screensSource, /function ReminderPicker[\s\S]*Math\.min\(1435/, "daily reminder editing must enforce a sub-24-hour five-minute limit");
 assert.match(screensSource, /label=\{`\$\{label\}分钟`\}[\s\S]*max=\{55\} step=\{5\}/, "clock minutes must advance in five-minute steps");
 assert.match(screensSource, /label="提前分钟"[\s\S]*max=\{55\} step=\{5\}/, "reminder minutes must advance in five-minute steps");
+assert.match(screensSource, /function Stepper\([^)]*wrap = false[\s\S]*wrap && safeValue <= min \? max[\s\S]*wrap && safeValue >= max \? min/, "time steppers must support cyclic boundaries");
+assert.match(screensSource, /label=\{`\$\{label\}小时`\}[\s\S]*max=\{24\} wrap/, "clock hours must expose both 0 and 24 and loop between them");
+assert.match(screensSource, /label=\{`\$\{label\}分钟`\}[\s\S]*step=\{5\} wrap/, "clock minutes must loop between 0 and 55");
 assert.match(stylesSource, /-webkit-tap-highlight-color:\s*transparent/, "WebView must suppress the Android system tap rectangle");
 assert.match(stylesSource, /\.reminder-time-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/, "phone DDL reminder time must use a non-overflowing single column");
 assert.match(stylesSource, /\.reminder-rule-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/, "phone DDL reminder rules must stack without horizontal overflow");

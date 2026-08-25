@@ -611,8 +611,8 @@ function DailyTaskRow(_ref6) {
       return onToggle(task.id);
     }
   }, React.createElement("span", {
-    className: "task-time"
-  }, task.time), React.createElement("span", {
+    className: "task-time ".concat(task.endTime ? "task-time-range" : "")
+  }, React.createElement("span", null, task.time), task.endTime ? React.createElement("span", null, "\u2192 ", task.endTime) : null), React.createElement("span", {
     className: "check-button ".concat(task.done ? "done" : ""),
     "aria-hidden": "true"
   }, task.done ? React.createElement(Icon, {
@@ -625,9 +625,9 @@ function DailyTaskRow(_ref6) {
     className: "task-edit-body"
   }, React.createElement("span", {
     className: "task-title ".concat(task.done ? "done" : "")
-  }, task.title), React.createElement("span", {
+  }, task.title), task.note ? React.createElement("span", {
     className: "task-note"
-  }, task.note), React.createElement("span", {
+  }, task.note) : null, React.createElement("span", {
     className: "task-tags"
   }, React.createElement("span", {
     className: "repeat-pill"
@@ -667,9 +667,9 @@ function CriticalTaskRow(_ref7) {
     strokeWidth: 2.3
   }) : null), React.createElement("div", null, React.createElement("div", {
     className: "critical-title ".concat(task.done ? "done" : "")
-  }, task.title), React.createElement("div", {
+  }, task.title), task.note ? React.createElement("div", {
     className: "critical-note"
-  }, task.note))), React.createElement("span", {
+  }, task.note) : null)), React.createElement("span", {
     className: "days-left ".concat(task.daysLeft <= 0 ? "today" : "")
   }, dueCopy)), React.createElement("div", {
     className: "critical-meta"
@@ -890,12 +890,20 @@ function Stepper(_ref5) {
     max = _ref5.max,
     _ref5$step = _ref5.step,
     step = _ref5$step === void 0 ? 1 : _ref5$step,
+    _ref5$wrap = _ref5.wrap,
+    wrap = _ref5$wrap === void 0 ? false : _ref5$wrap,
     onChange = _ref5.onChange,
     _ref5$format = _ref5.format,
     format = _ref5$format === void 0 ? function (item) {
       return item;
     } : _ref5$format;
   var safeValue = Math.min(max, Math.max(min, Number(value) || 0));
+  var decrease = function decrease() {
+    return onChange(wrap && safeValue <= min ? max : Math.max(min, safeValue - step));
+  };
+  var increase = function increase() {
+    return onChange(wrap && safeValue >= max ? min : Math.min(max, safeValue + step));
+  };
   return React.createElement("div", {
     className: "jinke-stepper",
     role: "group",
@@ -903,19 +911,15 @@ function Stepper(_ref5) {
   }, React.createElement("button", {
     type: "button",
     "aria-label": "".concat(label, "\u51CF\u5C11"),
-    disabled: safeValue <= min,
-    onClick: function onClick() {
-      return onChange(Math.max(min, safeValue - step));
-    }
+    disabled: !wrap && safeValue <= min,
+    onClick: decrease
   }, "\u2212"), React.createElement("output", {
     "aria-label": label
   }, format(safeValue)), React.createElement("button", {
     type: "button",
     "aria-label": "".concat(label, "\u589E\u52A0"),
-    disabled: safeValue >= max,
-    onClick: function onClick() {
-      return onChange(Math.min(max, safeValue + step));
-    }
+    disabled: !wrap && safeValue >= max,
+    onClick: increase
   }, "\uFF0B"));
 }
 function parseClock(value) {
@@ -924,7 +928,7 @@ function parseClock(value) {
   var source = match || fallback.match(/^(\d{1,2}):(\d{2})$/);
   var minute = Math.min(55, Math.max(0, Math.round(Number((source === null || source === void 0 ? void 0 : source[2]) || 0) / 5) * 5));
   return {
-    hour: Number((source === null || source === void 0 ? void 0 : source[1]) || 9),
+    hour: Math.min(24, Math.max(0, Number((source === null || source === void 0 ? void 0 : source[1]) || 9))),
     minute: minute
   };
 }
@@ -956,7 +960,8 @@ function TimePicker(_ref6) {
     label: "".concat(label, "\u5C0F\u65F6"),
     value: clock.hour,
     min: 0,
-    max: 23,
+    max: 24,
+    wrap: true,
     onChange: function onChange(hour) {
       return update(hour, clock.minute);
     },
@@ -971,6 +976,7 @@ function TimePicker(_ref6) {
     min: 0,
     max: 55,
     step: 5,
+    wrap: true,
     onChange: function onChange(minute) {
       return update(clock.hour, minute);
     },
@@ -1028,6 +1034,7 @@ function ReminderPicker(_ref7) {
     value: hours,
     min: 0,
     max: 23,
+    wrap: true,
     onChange: function onChange(next) {
       return update(next, minutes);
     }
@@ -1037,6 +1044,7 @@ function ReminderPicker(_ref7) {
     min: 0,
     max: 55,
     step: 5,
+    wrap: true,
     onChange: function onChange(next) {
       return update(hours, next);
     }
@@ -1802,7 +1810,46 @@ function VoiceComposer(_ref15) {
   }, "\u4F7F\u7528\u793A\u4F8B"), React.createElement("button", {
     className: "primary-button pressable",
     onClick: onStop
-  }, "\u505C\u6B62\u5E76\u5904\u7406"))) : React.createElement(React.Fragment, null, parsedCommand.intent === "create" && editableTask ? React.createElement("div", {
+  }, "\u505C\u6B62\u5E76\u5904\u7406"))) : React.createElement(React.Fragment, null, parsedCommand.intent === "create" && editableTask !== null && editableTask !== void 0 && editableTask.span ? React.createElement("div", {
+    className: "edit-form voice-edit-form edit-form-first"
+  }, React.createElement("label", {
+    className: "edit-field"
+  }, React.createElement("span", {
+    className: "edit-label"
+  }, "\u540D\u79F0"), React.createElement("input", {
+    className: "edit-input title-input",
+    value: editableTask.title,
+    onChange: function onChange(event) {
+      return updateDraft("title", event.target.value);
+    }
+  })), React.createElement("div", {
+    className: "parsed-card"
+  }, React.createElement("div", {
+    className: "field-list"
+  }, React.createElement("div", {
+    className: "field-row"
+  }, React.createElement("span", {
+    className: "field-label"
+  }, "\u53BB\u7A0B DDL"), React.createElement("span", {
+    className: "field-value"
+  }, editableTask.span.start.deadline)), React.createElement("div", {
+    className: "field-row"
+  }, React.createElement("span", {
+    className: "field-label"
+  }, "\u8FD4\u7A0B DDL"), React.createElement("span", {
+    className: "field-value"
+  }, editableTask.span.end.deadline)))), React.createElement("label", {
+    className: "edit-field stacked"
+  }, React.createElement("span", {
+    className: "edit-label"
+  }, "\u5907\u6CE8"), React.createElement("textarea", {
+    className: "edit-input edit-textarea",
+    rows: "2",
+    value: editableTask.note || "",
+    onChange: function onChange(event) {
+      return updateDraft("note", event.target.value);
+    }
+  }))) : parsedCommand.intent === "create" && editableTask ? React.createElement("div", {
     className: "edit-form voice-edit-form edit-form-first"
   }, React.createElement("label", {
     className: "edit-field"
@@ -1830,6 +1877,14 @@ function VoiceComposer(_ref15) {
     value: editableTask.time === "待定" ? null : editableTask.time,
     onChange: function onChange(time) {
       return updateDraft("time", time || "待定");
+    }
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(TimePicker, {
+    label: "\u7ED3\u675F",
+    value: editableTask.endTime || null,
+    onChange: function onChange(time) {
+      return updateDraft("endTime", time || null);
     }
   })), React.createElement("div", {
     className: "edit-field stacked custom-control-field"
@@ -1944,6 +1999,14 @@ function DailyEditSheet(_ref18) {
     value: draft.time === "待定" ? null : draft.time,
     onChange: function onChange(time) {
       return update("time", time || "待定");
+    }
+  })), React.createElement("div", {
+    className: "edit-field stacked custom-control-field"
+  }, React.createElement(TimePicker, {
+    label: "\u7ED3\u675F",
+    value: draft.endTime || null,
+    onChange: function onChange(time) {
+      return update("endTime", time || null);
     }
   })), React.createElement("div", {
     className: "edit-field stacked custom-control-field"
@@ -2473,7 +2536,7 @@ function CriticalReminderScreen(_ref29) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.8";
+var JINKE_FALLBACK_VERSION = "1.0.9";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2697,16 +2760,16 @@ Object.assign(window, {
 var _excluded = ["type"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -2800,6 +2863,24 @@ function migrateLegacySeedData() {
   } catch (_unused2) {}
 }
 migrateLegacySeedData();
+function migrateVoiceCreatedNotes() {
+  var markerKey = "jinke-voice-note-migration-v3";
+  try {
+    if (localStorage.getItem(markerKey)) return;
+    ["jinke-daily-tasks", "jinke-critical-tasks"].forEach(function (key) {
+      var stored = JSON.parse(localStorage.getItem(key) || "null");
+      if (!Array.isArray(stored)) return;
+      var cleaned = stored.map(function (task) {
+        return _objectSpread(_objectSpread({}, task), {}, {
+          note: typeof task.note === "string" ? task.note.replace(/^语音创建(?:\s*·\s*)?/, "").trim() : task.note
+        });
+      });
+      localStorage.setItem(key, JSON.stringify(cleaned));
+    });
+    localStorage.setItem(markerKey, "1");
+  } catch (_unused3) {}
+}
+migrateVoiceCreatedNotes();
 function dateKeyOffset(fromKey, toKey) {
   var _fromKey$split$map = fromKey.split("-").map(Number),
     _fromKey$split$map2 = _slicedToArray(_fromKey$split$map, 3),
@@ -2834,7 +2915,7 @@ function normalizeSpeechText(value) {
   var previous = "";
   while (normalized !== previous) {
     previous = normalized;
-    normalized = normalized.replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, "$1");
+    normalized = normalized.replace(/([\u3400-\u9fff\d])\s+(?=[\u3400-\u9fff\d])/g, "$1");
   }
   return normalized;
 }
@@ -2857,8 +2938,8 @@ function parseNumber(value) {
 function parseTime(text) {
   var periodPattern = "(凌晨|早上|上午|中午|下午|傍晚|晚上)?";
   var numberPattern = "([零〇一二三四五六七八九十两\\d]{1,3})";
-  var colon = text.match(new RegExp("".concat(periodPattern, "\\s*(\\d{1,2})[:\uFF1A](\\d{2})")));
-  var spoken = text.match(new RegExp("".concat(periodPattern, "\\s*").concat(numberPattern, "[\u70B9\u65F6](?:\u949F)?(\u534A|[\u96F6\u3007\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u4E24\\d]{1,3}\u5206?)?")));
+  var colon = text.match(new RegExp("".concat(periodPattern, "\\s*(\\d{1,2})\\s*[:\uFF1A]\\s*(\\d{2})")));
+  var spoken = text.match(new RegExp("".concat(periodPattern, "\\s*").concat(numberPattern, "\\s*[\u70B9\u65F6\u7535](?:\u949F)?\\s*(\u534A|[\u96F6\u3007\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u4E24\\d]{1,3}\u5206?)?")));
   var match = colon || spoken;
   if (!match) return {
     value: "待定",
@@ -2867,14 +2948,36 @@ function parseTime(text) {
   var period = match[1] || "";
   var hour = parseNumber(match[2]);
   var minute = colon ? Number(match[3]) : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
-  if (["下午", "傍晚", "晚上"].includes(period) && hour < 12) hour += 12;
+  if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
+  if (period === "晚上") hour = hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
   if (period === "中午" && hour < 11) hour += 12;
   if (period === "凌晨" && hour === 12) hour = 0;
-  hour = Math.min(Math.max(hour, 0), 23);
+  if (!period && hour === 12 && /(睡觉|睡眠|上床|休息)/.test(text)) hour = 24;
+  hour = Math.min(Math.max(hour, 0), 24);
   minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
   return {
     value: "".concat(String(hour).padStart(2, "0"), ":").concat(String(minute).padStart(2, "0")),
-    source: match[0].trim()
+    source: match[0].trim(),
+    period: period,
+    dayBoundary: hour === 24 ? "end" : "start"
+  };
+}
+function parseTimeRange(text) {
+  var connector = text.match(/(?:到|至|直到|—|–|-)/);
+  if (!connector) return null;
+  var index = connector.index;
+  var before = text.slice(0, index);
+  var after = text.slice(index + connector[0].length);
+  var start = parseTime(before);
+  if (!start.source) return null;
+  var inheritedPeriod = start.period && !/^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)/.test(after.trim()) ? start.period : "";
+  var end = parseTime("".concat(inheritedPeriod).concat(after));
+  if (!end.source) return null;
+  return {
+    start: start,
+    end: end,
+    source: "".concat(start.source).concat(connector[0]).concat(end.source.replace(new RegExp("^".concat(inheritedPeriod)), "")),
+    crossesMidnight: end.value < start.value || start.value.startsWith("24:")
   };
 }
 function parseRepeat(text) {
@@ -2915,7 +3018,7 @@ function parseRepeat(text) {
     days: [6, 7],
     source: text.match(/每(个)?周末/)[0]
   };
-  var match = text.match(/每(?:周|星期)([一二三四五六日天、，和及到至\-]+)/);
+  var match = text.match(/(?:每)?(?:周|星期)([一二三四五六日天、，和及到至\-]+)/);
   if (!match) return {
     value: "仅一次",
     days: [],
@@ -2982,6 +3085,119 @@ function parseDeadline(text) {
     kind: "absolute"
   };
 }
+function datePointFromDate(target, source) {
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var normalized = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  return {
+    deadline: "".concat(normalized.getMonth() + 1, "\u6708").concat(normalized.getDate(), "\u65E5"),
+    daysLeft: Math.round((normalized - today) / 86400000),
+    source: source,
+    date: normalized
+  };
+}
+function parseDatePoints(text) {
+  var points = [];
+  var absolutePattern = /([零〇一二三四五六七八九十两\d]{1,3})月([零〇一二三四五六七八九十两\d]{1,3})[日号]?/g;
+  var _iterator2 = _createForOfIteratorHelper(text.matchAll(absolutePattern)),
+    _step2;
+  try {
+    for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+      var match = _step2.value;
+      var month = parseNumber(match[1]);
+      var day = parseNumber(match[2]);
+      var now = new Date();
+      var target = new Date(now.getFullYear(), month - 1, day);
+      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (target < today) target = new Date(now.getFullYear() + 1, month - 1, day);
+      points.push(_objectSpread(_objectSpread({}, datePointFromDate(target, match[0])), {}, {
+        index: match.index
+      }));
+    }
+  } catch (err) {
+    _iterator2.e(err);
+  } finally {
+    _iterator2.f();
+  }
+  var relativePattern = /(今天|明天|后天|([零〇一二三四五六七八九十两\d]{1,3})天后)/g;
+  var _iterator3 = _createForOfIteratorHelper(text.matchAll(relativePattern)),
+    _step3;
+  try {
+    var _loop = function _loop() {
+      var match = _step3.value;
+      if (points.some(function (point) {
+        return match.index >= point.index && match.index < point.index + point.source.length;
+      })) return 1;
+      var offset = match[1] === "今天" ? 0 : match[1] === "明天" ? 1 : match[1] === "后天" ? 2 : parseNumber(match[2]);
+      var target = new Date();
+      target.setDate(target.getDate() + offset);
+      points.push(_objectSpread(_objectSpread({}, datePointFromDate(target, match[0])), {}, {
+        index: match.index
+      }));
+    };
+    for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+      if (_loop()) continue;
+    }
+  } catch (err) {
+    _iterator3.e(err);
+  } finally {
+    _iterator3.f();
+  }
+  var weekdayPattern = /((?:本|下)?周)([一二三四五六日天])/g;
+  var _iterator4 = _createForOfIteratorHelper(text.matchAll(weekdayPattern)),
+    _step4;
+  try {
+    for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+      var _match = _step4.value;
+      var weekday = _match[2] === "天" ? 7 : ["一", "二", "三", "四", "五", "六", "日"].indexOf(_match[2]) + 1;
+      var _now = new Date();
+      var todayWeekday = _now.getDay() || 7;
+      var offset = weekday - todayWeekday;
+      if (_match[1] === "下周") offset += offset <= 0 ? 7 : 7;else if (offset < 0) offset += 7;
+      var _target = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() + offset);
+      points.push(_objectSpread(_objectSpread({}, datePointFromDate(_target, _match[0])), {}, {
+        index: _match.index
+      }));
+    }
+  } catch (err) {
+    _iterator4.e(err);
+  } finally {
+    _iterator4.f();
+  }
+  return points.sort(function (a, b) {
+    return a.index - b.index;
+  });
+}
+function parseTaskSpan(text) {
+  var datePoints = parseDatePoints(text);
+  var durationMatch = text.match(/(?:待|住|停留|相隔|隔|过|持续)?\s*([零〇一二三四五六七八九十两\d]{1,3})\s*天(?:后)?(?=\s*(?:回|回来|返程|回程|结束))/);
+  var durationDays = durationMatch ? Math.max(1, parseNumber(durationMatch[1])) : null;
+  var hasSpanLanguage = /(?:去|出发|前往|开始).*(?:回来|返程|回程|结束|回)|(?:从).*(?:到|至)/.test(text);
+  if (!hasSpanLanguage || !durationDays && datePoints.length < 2) return null;
+  var start = datePoints[0] || null;
+  var end = datePoints[1] || null;
+  if (start && !end && durationDays) {
+    var target = new Date(start.date);
+    target.setDate(target.getDate() + durationDays);
+    end = datePointFromDate(target, "".concat(durationDays, "\u5929\u540E"));
+  }
+  if (!start || !end) return null;
+  var subject = text;
+  [].concat(_toConsumableArray(datePoints.map(function (point) {
+    return point.source;
+  })), [durationMatch === null || durationMatch === void 0 ? void 0 : durationMatch[0]]).filter(Boolean).forEach(function (part) {
+    subject = subject.replace(part, " ");
+  });
+  subject = subject.replace(/(?:然后|之后|再)?\s*(?:回来|返程|回程|结束|回)/g, " ").replace(/(?:待|住|停留|相隔|隔|过|持续)/g, " ").replace(/(?:我|我们)?\s*(?:要|想|打算|计划)?\s*(?:去|出发去|前往|到)/g, " ").replace(/(?:开始|出发)/g, " ").replace(/[，,。；;！？!?\s]+/g, " ").trim();
+  var title = subject ? "".concat(subject, "\u884C\u7A0B") : "行程";
+  return {
+    start: start,
+    end: end,
+    durationDays: durationDays,
+    title: title,
+    original: text
+  };
+}
 var TASK_ACTION_WORDS = ["取消预约", "提交", "打电话", "参加", "领取", "预约", "续期", "复习", "整理", "完成", "准备", "修改", "购买", "学习", "阅读", "跑步", "健身", "睡觉", "起床", "开会", "上课", "体检", "写", "读", "看", "买", "取", "拿", "办", "考"];
 function extractTaskSemantics(rawText, removableParts, durationSource) {
   var title = rawText;
@@ -3014,10 +3230,17 @@ function formatDailyReminder(totalMinutes) {
   return "\u63D0\u524D".concat(hours ? "".concat(hours, "\u5C0F\u65F6") : "").concat(minutes ? "".concat(minutes, "\u5206\u949F") : "");
 }
 function parseVoiceTask(rawText) {
+  var _timeRange$end, _timeRange$end2;
   var text = normalizeSpeechText(rawText);
-  var repeat = parseRepeat(text);
+  var span = parseTaskSpan(text);
+  var repeat = span ? {
+    value: "仅一次",
+    days: [],
+    source: ""
+  } : parseRepeat(text);
   var withoutRepeat = repeat.source ? text.replace(repeat.source, " ") : text;
-  var time = parseTime(withoutRepeat);
+  var timeRange = parseTimeRange(withoutRepeat);
+  var time = (timeRange === null || timeRange === void 0 ? void 0 : timeRange.start) || parseTime(withoutRepeat);
   var deadline = parseDeadline(text);
   var reminderMatch = text.match(/提前\s*([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)(?:提醒)?/);
   var reminderAmount = reminderMatch ? parseNumber(reminderMatch[1]) : 0;
@@ -3025,25 +3248,31 @@ function parseVoiceTask(rawText) {
   var withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   var durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   var duration = durationMatch ? "".concat(parseNumber(durationMatch[1]), " ").concat(durationMatch[2]) : "";
-  var isCritical = !repeat.source && (/(重要|关键|特殊|ddl|截止|到期)/i.test(text) || deadline.kind === "absolute");
-  var semantics = extractTaskSemantics(text, [reminderMatch === null || reminderMatch === void 0 ? void 0 : reminderMatch[0], time.source, repeat.source, deadline.source], durationMatch === null || durationMatch === void 0 ? void 0 : durationMatch[0]);
+  var isCritical = Boolean(span) || !repeat.source && (/(重要|关键|特殊|ddl|截止|到期)/i.test(text) || deadline.kind === "absolute");
+  var spanSources = span ? [span.start.source, span.end.source] : [];
+  var semantics = extractTaskSemantics(text, [reminderMatch === null || reminderMatch === void 0 ? void 0 : reminderMatch[0], time.source, timeRange === null || timeRange === void 0 || (_timeRange$end = timeRange.end) === null || _timeRange$end === void 0 ? void 0 : _timeRange$end.source, repeat.source, deadline.source].concat(spanSources), durationMatch === null || durationMatch === void 0 ? void 0 : durationMatch[0]);
+  var noteParts = [];
+  if (duration) noteParts.push("\u6301\u7EED ".concat(duration));
   return {
     type: isCritical ? "critical" : "daily",
-    title: semantics.title,
+    title: (span === null || span === void 0 ? void 0 : span.title) || semantics.title,
     time: time.value,
+    endTime: (timeRange === null || timeRange === void 0 || (_timeRange$end2 = timeRange.end) === null || _timeRange$end2 === void 0 ? void 0 : _timeRange$end2.value) || null,
+    spansMidnight: Boolean(timeRange === null || timeRange === void 0 ? void 0 : timeRange.crossesMidnight),
     repeat: repeat.source ? repeat.value : !isCritical && deadline.deadline ? deadline.deadline : repeat.value,
     repeatDays: repeat.days,
     reminder: isCritical ? getCriticalReminder(time.source ? time.value : null) : reminder,
     deadline: deadline.deadline,
     daysLeft: deadline.daysLeft,
-    note: "\u8BED\u97F3\u521B\u5EFA".concat(duration ? " \xB7 \u6301\u7EED ".concat(duration) : ""),
+    note: noteParts.join(" · "),
     action: semantics.action,
     object: semantics.object,
     keywords: semantics.keywords,
     hasTime: Boolean(time.source),
     hasRepeat: Boolean(repeat.source),
     hasReminder: Boolean(reminderMatch),
-    hasDeadline: Boolean(deadline.deadline)
+    hasDeadline: Boolean(deadline.deadline),
+    span: span
   };
 }
 function normalizeTaskText(value) {
@@ -3356,7 +3585,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     });
   }
   var task = parseVoiceTask(text);
-  var rows = task.type === "critical" ? [["类型", "关键事务"], ["截止", task.deadline || "无 DDL"], ["时间", task.hasTime ? task.time : "未设置"], ["提醒", task.reminder]] : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.time], ["提醒", task.reminder]];
+  var rows = task.span ? [["类型", "时间段"], ["去程", task.span.start.deadline], ["返程", task.span.end.deadline], ["记录", "生成两个关联 DDL"]] : task.type === "critical" ? [["类型", "关键事务"], ["截止", task.deadline || "无 DDL"], ["时间", task.hasTime ? task.time : "未设置"], ["提醒", task.reminder]] : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.endTime ? "".concat(task.time, "\u2014").concat(task.endTime) : task.time], ["提醒", task.reminder]];
   return commandResult("create", task.title, rows, {
     task: task,
     confirmLabel: "创建任务"
@@ -3408,7 +3637,7 @@ function getNativeWindowState(payload) {
       ratio: ratio,
       expanded: nativeInfo.expanded === true || ratio >= 0.68
     };
-  } catch (_unused3) {
+  } catch (_unused4) {
     return null;
   }
 }
@@ -3418,14 +3647,14 @@ function getNativeCapabilities(payload) {
     var supplied = typeof payload === "string" ? JSON.parse(payload) : payload;
     if (supplied && _typeof(supplied) === "object") return supplied;
     if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.getSystemCapabilities) return JSON.parse(window.JinkeAndroid.getSystemCapabilities());
-  } catch (_unused4) {}
+  } catch (_unused5) {}
   return null;
 }
 function MobileDesignApp() {
   var _useState3 = useState(function () {
       try {
         return localStorage.getItem("jinke-theme") || "dark";
-      } catch (_unused5) {
+      } catch (_unused6) {
         return "dark";
       }
     }),
@@ -3478,7 +3707,7 @@ function MobileDesignApp() {
       var value = "10:00";
       try {
         value = localStorage.getItem("jinke-ddl-reminder-time") || value;
-      } catch (_unused6) {}
+      } catch (_unused7) {}
       window.JINKE_DDL_REMINDER_TIME = value;
       return value;
     }),
@@ -3489,7 +3718,7 @@ function MobileDesignApp() {
       var value = 5;
       try {
         value = Math.max(1, Number(localStorage.getItem("jinke-ddl-reminder-multiple")) || value);
-      } catch (_unused7) {}
+      } catch (_unused8) {}
       window.JINKE_DDL_REMINDER_MULTIPLE = value;
       return value;
     }),
@@ -3501,7 +3730,7 @@ function MobileDesignApp() {
       try {
         var stored = localStorage.getItem("jinke-ddl-reminder-final-days");
         if (stored !== null) value = Math.max(0, Number(stored) || 0);
-      } catch (_unused8) {}
+      } catch (_unused9) {}
       window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
       return value;
     }),
@@ -3585,7 +3814,10 @@ function MobileDesignApp() {
   var recognitionRef = useRef(null);
   var toastTimerRef = useRef(null);
   var scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
-  var parsedVoiceCommand = parseVoiceCommand(transcript || VOICE_EXAMPLE, dailyTasks, criticalTasks);
+  var parsedVoiceCommand = transcript.trim() ? parseVoiceCommand(transcript, dailyTasks, criticalTasks) : commandResult("invalid", "没有识别到内容", [["建议", "再说一次，或直接输入安排"]], {
+    valid: false,
+    error: "没有听清，请重试"
+  });
   var displayedDailyTasks = dailyTasks.filter(function (task) {
     return taskOccursOnDate(task, selectedDateKey, APP_DATA.today.dateKey);
   }).map(function (task) {
@@ -3616,7 +3848,7 @@ function MobileDesignApp() {
     applyTheme();
     try {
       localStorage.setItem("jinke-theme", themeMode);
-    } catch (_unused9) {}
+    } catch (_unused10) {}
     if (themeMode === "system") media.addEventListener("change", applyTheme);
     return function () {
       return media.removeEventListener("change", applyTheme);
@@ -3654,22 +3886,22 @@ function MobileDesignApp() {
   useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks));
-    } catch (_unused10) {}
+    } catch (_unused11) {}
   }, [dailyTasks]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-completions", JSON.stringify(dailyCompletionByDate));
-    } catch (_unused11) {}
+    } catch (_unused12) {}
   }, [dailyCompletionByDate]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-critical-tasks", JSON.stringify(criticalTasks));
-    } catch (_unused12) {}
+    } catch (_unused13) {}
   }, [criticalTasks]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-task-history", JSON.stringify(history));
-    } catch (_unused13) {}
+    } catch (_unused14) {}
   }, [history]);
   useEffect(function () {
     window.JINKE_DDL_REMINDER_TIME = ddlReminderTime;
@@ -3677,13 +3909,13 @@ function MobileDesignApp() {
     window.JINKE_DDL_REMINDER_FINAL_DAYS = ddlReminderFinalDays;
     try {
       localStorage.setItem("jinke-ddl-reminder-time", ddlReminderTime);
-    } catch (_unused14) {}
-    try {
-      localStorage.setItem("jinke-ddl-reminder-multiple", String(ddlReminderMultiple));
     } catch (_unused15) {}
     try {
-      localStorage.setItem("jinke-ddl-reminder-final-days", String(ddlReminderFinalDays));
+      localStorage.setItem("jinke-ddl-reminder-multiple", String(ddlReminderMultiple));
     } catch (_unused16) {}
+    try {
+      localStorage.setItem("jinke-ddl-reminder-final-days", String(ddlReminderFinalDays));
+    } catch (_unused17) {}
     setCriticalTasks(function (current) {
       return current.map(function (task) {
         return task.deadline ? _objectSpread(_objectSpread({}, task), {}, {
@@ -3706,7 +3938,7 @@ function MobileDesignApp() {
     });
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
-    } catch (_unused17) {}
+    } catch (_unused18) {}
   }, [criticalTasks, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
     return function () {
@@ -3924,7 +4156,7 @@ function MobileDesignApp() {
       try {
         window.JinkeAndroid.startSpeechRecognition();
         setSpeechAvailable(true);
-      } catch (_unused18) {
+      } catch (_unused19) {
         setSpeechAvailable(false);
       }
       return;
@@ -3951,7 +4183,7 @@ function MobileDesignApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setSpeechAvailable(true);
-    } catch (_unused19) {
+    } catch (_unused20) {
       setSpeechAvailable(false);
     }
   };
@@ -3961,7 +4193,7 @@ function MobileDesignApp() {
       setSpeechStatus("processing");
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused20) {
+      } catch (_unused21) {
         setSpeechAvailable(false);
       }
       return;
@@ -3969,10 +4201,9 @@ function MobileDesignApp() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_unused21) {}
+      } catch (_unused22) {}
       recognitionRef.current = null;
     }
-    if (!transcript.trim()) setTranscript(VOICE_EXAMPLE);
     window.setTimeout(function () {
       return setVoicePhase("review");
     }, 100);
@@ -3990,10 +4221,39 @@ function MobileDesignApp() {
       target = command.target;
     if (intent === "create") {
       var task = command.task;
-      if (task.type === "critical") {
+      if (task.span) {
+        var spanId = "voice-span-".concat(Date.now());
+        var created = [{
+          id: "".concat(spanId, "-start"),
+          spanId: spanId,
+          spanRole: "start",
+          title: "".concat(task.title, " \xB7 \u51FA\u53D1"),
+          note: task.note || "",
+          deadline: task.span.start.deadline,
+          daysLeft: task.span.start.daysLeft,
+          time: task.hasTime && task.time !== "待定" ? task.time : null,
+          reminder: getCriticalReminder(task.hasTime ? task.time : null),
+          progress: 0
+        }, {
+          id: "".concat(spanId, "-end"),
+          spanId: spanId,
+          spanRole: "end",
+          title: "".concat(task.title, " \xB7 \u8FD4\u7A0B"),
+          note: task.note || "",
+          deadline: task.span.end.deadline,
+          daysLeft: task.span.end.daysLeft,
+          time: task.endTime || null,
+          reminder: getCriticalReminder(task.endTime || null),
+          progress: 0
+        }];
+        setCriticalTasks(function (current) {
+          return [].concat(created, _toConsumableArray(current));
+        });
+        setActiveTab("critical");
+      } else if (task.type === "critical") {
         var _normalizedDeadline$d;
         var normalizedDeadline = task.deadline ? parseDeadline(task.deadline) : null;
-        var created = {
+        var _created = {
           id: "voice-critical-".concat(Date.now()),
           title: task.title,
           note: task.note,
@@ -4004,15 +4264,17 @@ function MobileDesignApp() {
           progress: 0
         };
         setCriticalTasks(function (current) {
-          return [created].concat(_toConsumableArray(current));
+          return [_created].concat(_toConsumableArray(current));
         });
         setActiveTab("critical");
       } else {
-        var _created = {
+        var _created2 = {
           id: "voice-".concat(Date.now()),
           time: task.time,
+          endTime: task.endTime || null,
+          spansMidnight: Boolean(task.spansMidnight),
           title: task.title,
-          note: task.note || "语音创建",
+          note: task.note || "",
           repeat: task.repeat,
           repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
           scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : selectedDateKey,
@@ -4020,7 +4282,7 @@ function MobileDesignApp() {
           done: false
         };
         setDailyTasks(function (current) {
-          return [].concat(_toConsumableArray(current), [_created]).sort(function (a, b) {
+          return [].concat(_toConsumableArray(current), [_created2]).sort(function (a, b) {
             return a.time.localeCompare(b.time);
           });
         });
@@ -4220,12 +4482,12 @@ function MobileDesignApp() {
     if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused22) {}
+      } catch (_unused23) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused23) {}
+      } catch (_unused24) {}
       recognitionRef.current = null;
     }
     setOverlay(null);
@@ -4287,7 +4549,7 @@ function MobileDesignApp() {
         try {
           var _window$JinkeAndroid8, _window$JinkeAndroid9;
           (_window$JinkeAndroid8 = window.JinkeAndroid) === null || _window$JinkeAndroid8 === void 0 || (_window$JinkeAndroid9 = _window$JinkeAndroid8.openCapabilitySettings) === null || _window$JinkeAndroid9 === void 0 || _window$JinkeAndroid9.call(_window$JinkeAndroid8, key);
-        } catch (_unused24) {}
+        } catch (_unused25) {}
       },
       onBack: function onBack() {
         return setSecondary(null);

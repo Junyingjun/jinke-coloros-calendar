@@ -127,14 +127,14 @@ function DailyTaskRow({ task, onToggle, onEdit, onDelete }) {
   return (
     <SwipeTaskActions label={`${task.title}，向左滑动可编辑或删除`} onEdit={() => onEdit(task)} onDelete={() => onDelete(task)}>
       <button className="daily-row task-toggle-row" type="button" aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
-        <span className="task-time">{task.time}</span>
+        <span className={`task-time ${task.endTime ? "task-time-range" : ""}`}><span>{task.time}</span>{task.endTime ? <span>→ {task.endTime}</span> : null}</span>
         <span className={`check-button ${task.done ? "done" : ""}`} aria-hidden="true">
           {task.done ? <Icon name="check" size={15} strokeWidth={2.3} /> : null}
         </span>
         <span className="task-copy">
           <span className="task-edit-body">
             <span className={`task-title ${task.done ? "done" : ""}`}>{task.title}</span>
-            <span className="task-note">{task.note}</span>
+            {task.note ? <span className="task-note">{task.note}</span> : null}
             <span className="task-tags"><span className="repeat-pill">{task.repeat}</span>{task.reminder && task.reminder !== "到点提醒" ? <span className="reminder-pill">{task.reminder}</span> : null}</span>
           </span>
         </span>
@@ -153,7 +153,7 @@ function CriticalTaskRow({ task, onToggle, onOpen, onDelete }) {
             <span className={`critical-check ${task.done ? "done" : ""}`}>{task.done ? <Icon name="check" size={13} strokeWidth={2.3} /> : null}</span>
             <div>
             <div className={`critical-title ${task.done ? "done" : ""}`}>{task.title}</div>
-            <div className="critical-note">{task.note}</div>
+            {task.note ? <div className="critical-note">{task.note}</div> : null}
             </div>
           </div>
           <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
