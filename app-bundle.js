@@ -2081,7 +2081,7 @@ function CriticalReminderScreen(_ref23) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.2";
+var JINKE_FALLBACK_VERSION = "1.0.3";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }

@@ -103,7 +103,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .icon-button:active, .pressable:active { transform: scale(0.96); }
 .icon-button:hover { background: var(--surface-pressed); }
 .view-trigger { min-width: 64px; height: 44px; padding: 0 14px; border-radius: 22px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--surface-muted); font-size: 13px; font-weight: 650; transition: transform 160ms var(--ease-out), background 160ms var(--ease-out); }
-.page-title-row { margin-top: 13px; display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.page-title-row { min-width: 0; margin-top: 13px; display: flex; align-items: end; justify-content: space-between; gap: 4%; }
+.page-title-row > * { min-width: 0; }
 .eyebrow { margin: 0 0 5px; color: var(--ink-3); font-size: 12px; font-weight: 560; letter-spacing: 0.02em; }
 .eyebrow-line { min-height: 24px; display: flex; align-items: center; gap: 2px; }
 .eyebrow-line .eyebrow { margin: 0; white-space: nowrap; }
@@ -111,10 +112,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .day-archive-trigger svg { transition: transform 170ms var(--ease-out), color 170ms var(--ease-out); }
 .day-archive-trigger:active svg { transform: scale(.82); color: var(--accent); }
 .page-title { margin: 0; font-size: 31px; line-height: 1.05; font-weight: 720; letter-spacing: -0.035em; }
-.page-meta { color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+.page-meta { flex: 0 1 auto; color: var(--ink-2); font-size: 13px; line-height: 1.45; text-align: right; white-space: nowrap; }
 
-.week-strip { margin-top: 22px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-.day-cell { min-width: 44px; min-height: 62px; padding: 8px 0 7px; border: 1px solid transparent; border-radius: 18px; display: grid; justify-items: center; align-content: space-between; color: var(--ink-3); background: transparent; transition: transform 170ms var(--ease-out), color 170ms var(--ease-out), background 170ms var(--ease-out), box-shadow 170ms var(--ease-out); }
+.week-strip { width: 100%; min-width: 0; margin-top: 22px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(2px, .55vw, 5px); }
+.day-cell { min-width: 0; width: 100%; max-width: 100%; min-height: 62px; padding: 8px 0 7px; overflow: hidden; border: 1px solid transparent; border-radius: clamp(13px, 4.2vw, 18px); display: grid; justify-items: center; align-content: space-between; color: var(--ink-3); background: transparent; transition: transform 170ms var(--ease-out), color 170ms var(--ease-out), background 170ms var(--ease-out), box-shadow 170ms var(--ease-out); }
 .day-cell:active { transform: scale(.94); }
 .day-cell.today { background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 24%, transparent); }
 .day-cell.selected:not(.today) { background: var(--selected-surface); color: var(--selected-ink); box-shadow: 0 8px 20px rgba(0, 0, 0, .2); }
@@ -128,10 +129,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .demo-guide, .empty-guide { min-height: 44px; margin: 0 0 8px; padding: 0 12px; display: flex; align-items: center; border-radius: 14px; color: var(--ink-2); background: var(--surface-muted); font-size: 11px; line-height: 1.4; }
 .empty-guide { justify-content: center; margin-top: 8px; color: var(--ink-3); text-align: center; }
 .report-empty { min-height: 120px; margin-top: 24px; }
-.progress-line { margin-top: 19px; display: flex; align-items: center; gap: 12px; }
-.progress-track { height: 6px; flex: 1; overflow: hidden; border-radius: 99px; background: var(--surface-muted); }
+.progress-line { min-width: 0; margin-top: 19px; display: flex; align-items: center; gap: 3%; }
+.progress-track { min-width: 0; height: 6px; flex: 1; overflow: hidden; border-radius: 99px; background: var(--surface-muted); }
 .progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 420ms var(--ease-out); }
-.progress-copy { min-width: 54px; text-align: right; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.progress-copy { min-width: 0; flex: 0 0 10%; text-align: right; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 .task-list { display: grid; }
 .swipe-task { min-width: 0; position: relative; overflow: hidden; border-radius: var(--radius-md); isolation: isolate; -webkit-user-select: none; user-select: none; }
@@ -445,6 +446,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .native-app .screen.secondary { padding-block-end: calc(var(--safe-bottom) + 4vh); }
 .native-app .bottom-nav { left: 4vw; right: 4vw; bottom: calc(var(--safe-bottom) + .3vh); width: auto; }
 .native-app .sheet { left: 2vw; right: 2vw; bottom: max(1vh, env(safe-area-inset-bottom)); width: auto; max-height: 92%; }
+.native-app .today-calendar-pane,
+.native-app .week-strip,
+.native-app .progress-line { max-width: 100%; }
+.native-app .day-name { font-size: clamp(9px, 2.7vw, 11px); }
+.native-app .day-number { font-size: clamp(13px, 4.1vw, 16px); }
 
 .native-app.native-expanded { --native-inline: 4vw; }
 .native-app.native-expanded .phone-shell-expanded .today-responsive-grid,

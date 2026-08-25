@@ -152,6 +152,9 @@ assert.match(stylesSource, /\.phone-shell-expanded \.today-responsive-grid[\s\S]
 assert.match(stylesSource, /\.phone-shell-expanded \.critical-responsive-grid[\s\S]*grid-template-columns/, "expanded critical screen must use two columns");
 assert.match(stylesSource, /\.phone-shell-expanded \.today-responsive-grid \{[^}]*repeat\(2, minmax\(0, 1fr\)\)[^}]*gap: 0/, "today panes must split exactly at the fold");
 assert.match(stylesSource, /\.phone-shell-expanded \.critical-responsive-grid \{[^}]*repeat\(2, minmax\(0, 1fr\)\)[^}]*gap: 0/, "critical panes must split exactly at the fold");
+assert.match(stylesSource, /\.week-strip \{[^}]*width: 100%[^}]*repeat\(7, minmax\(0, 1fr\)\)/, "week strip must divide the available interface width into seven bounded fractions");
+assert.doesNotMatch(stylesSource, /\.day-cell \{[^}]*min-width: 44px/, "week cells must never force the calendar wider than the current interface");
+assert.match(stylesSource, /\.day-cell \{[^}]*min-width: 0[^}]*width: 100%[^}]*max-width: 100%/, "every week cell must remain bounded by its fractional column");
 assert.match(appSource, /ratio >= 0\.68/, "fold state must be detected from the relative window aspect ratio");
 assert.match(appSource, /className={`native-app/, "native APK must render one full-window device rather than the dual desktop simulator");
 assert.match(stylesSource, /\.native-app \{[\s\S]*width: 100vw;[\s\S]*height: 100dvh;/, "native shell must follow the current window dimensions");
