@@ -12,6 +12,7 @@ vm.runInContext(fs.readFileSync(path.join(root, "data.jsx"), "utf8"), context);
 
 const {
   completeCriticalForDate,
+  moveCriticalCompletion,
   uncompleteCriticalTask,
   criticalTaskVisibleOnTodayDate,
   countScheduledTasksOnDate,
@@ -47,6 +48,14 @@ assert.equal(restoredNoDdl.done, false);
 assert.equal(restoredNoDdl.progress, 50);
 assert.equal(criticalTaskVisibleOnTodayDate(restoredNoDdl, "2026-08-26"), false, "restored no-DDL returns only to Critical");
 
+const movedCompletion = moveCriticalCompletion(completedNoDdl, "2026-08-24", "23:35");
+assert.equal(movedCompletion.completedDateKey, "2026-08-24", "completed critical tasks can be moved back to the intended date");
+assert.equal(movedCompletion.completionKey, "focus:2026-08-24");
+assert.equal(new Date(movedCompletion.completedAt).getHours(), 23, "manual completion hour must be stored as an exact instant");
+assert.equal(new Date(movedCompletion.completedAt).getMinutes(), 35, "manual completion minute must be stored as an exact instant");
+assert.equal(criticalTaskVisibleOnTodayDate(movedCompletion, "2026-08-24"), true);
+assert.equal(criticalTaskVisibleOnTodayDate(movedCompletion, "2026-08-26"), false);
+
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const screensSource = fs.readFileSync(path.join(root, "screens.jsx"), "utf8");
 const detailStart = screensSource.indexOf("function CriticalDetailSheet");
@@ -55,5 +64,6 @@ const detailSource = screensSource.slice(detailStart, detailEnd);
 assert.match(appSource, /activeCriticalTasks = currentCriticalTasks\.filter\(\(task\) => !task\.done\)/, "completed tasks must disappear from Critical");
 assert.match(appSource, /setCriticalTasks\(\(current\) => current\.map/, "completion must retain the task record instead of deleting it");
 assert.doesNotMatch(detailSource, /onComplete|已完成/, "critical editors must not expose a separate completion button");
+assert.match(detailSource, /task\.done[\s\S]*设置完成时间[\s\S]*CompletionDatePicker/, "only completed critical editors must expose the custom completion time control");
 
 console.log("critical completion logic: DDL/no-DDL completion date retention and undo passed");

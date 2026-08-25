@@ -9,6 +9,7 @@ const {
   countScheduledTasksOnDate,
   normalizeCriticalCompletion,
   completeCriticalForDate,
+  moveCriticalCompletion,
   uncompleteCriticalTask,
   criticalTaskVisibleOnTodayDate,
   shiftDateKeyByDays,
@@ -41,6 +42,19 @@ const SIMULATOR_WIDTH = PHONE_WIDTH + EXPANDED_WIDTH + SIMULATOR_GAP;
 const SIMULATOR_HEIGHT = DEVICE_HEIGHT + 34;
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function localTimeText(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function editableCompletionTime(value) {
+  const text = localTimeText(value) || localTimeText(new Date());
+  const [hour, minute] = text.split(":").map(Number);
+  return `${String(hour).padStart(2, "0")}:${String(Math.floor(minute / 5) * 5).padStart(2, "0")}`;
 }
 
 function readStoredJson(key, fallback, validator) {
@@ -135,13 +149,15 @@ function withCriticalReminderDefaults(task) {
 function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
   const completionKey = `${task.id}:${completionDateKey}`;
   const [, month, day] = completionDateKey.split("-").map(Number);
+  const completionTime = localTimeText(task.completedAt);
   return {
     id: `done-${task.id}-${completionDateKey}`,
     completionKey,
     sourceTaskId: task.id,
     title: task.title,
-    completed: `${month}月${day}日`,
+    completed: `${month}月${day}日${completionTime ? ` ${completionTime}` : ""}`,
     completedDateKey: completionDateKey,
+    completedAt: task.completedAt || null,
     leadDays: criticalDaysLeftOn(task, completionDateKey, fallbackAnchorKey) || 0,
   };
 }
@@ -1056,32 +1072,47 @@ function MobileDesignApp() {
 
   const openCritical = (task) => {
     setSelectedCritical(task);
-    setCriticalDraft(withCriticalReminderDefaults(task));
+    setCriticalDraft({
+      ...withCriticalReminderDefaults(task),
+      completionTime: task.done ? editableCompletionTime(task.completedAt) : "",
+    });
     setRenewDays(7);
     setOverlay("critical-detail");
   };
 
   const saveCritical = (taskId, changes) => {
+    const originalTask = criticalTasks.find((task) => task.id === taskId);
+    if (!originalTask) return;
+    const { completionTime, ...persistedChanges } = changes;
     const deadlineText = changes.deadline?.trim() || null;
     const parsed = deadlineText ? parseDeadline(deadlineText) : null;
     const deadlineTime = changes.deadlineTime || (changes.time && changes.time !== "待定" ? changes.time : null);
-    setCriticalTasks((current) => current.map((task) => {
-      if (task.id !== taskId) return task;
-      return withCriticalReminderDefaults({
-        ...task,
-        ...changes,
-        deadline: deadlineText,
-        daysLeft: deadlineText ? (parsed?.deadline
-          ? parsed.daysLeft
-          : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(task, todayDateKey, todayDateKey)) : null,
-        anchorDateKey: deadlineText ? todayDateKey : null,
-        deadlineTime,
-        time: deadlineTime,
-        reminderEnabled: deadlineText ? changes.reminderEnabled : false,
-      });
-    }));
+    let updatedTask = withCriticalReminderDefaults({
+      ...originalTask,
+      ...persistedChanges,
+      deadline: deadlineText,
+      daysLeft: deadlineText ? (parsed?.deadline
+        ? parsed.daysLeft
+        : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(originalTask, todayDateKey, todayDateKey)) : null,
+      anchorDateKey: deadlineText ? todayDateKey : null,
+      deadlineTime,
+      time: deadlineTime,
+      reminderEnabled: deadlineText ? changes.reminderEnabled : false,
+    });
+    if (updatedTask.done && updatedTask.completedDateKey) {
+      updatedTask = moveCriticalCompletion(updatedTask, updatedTask.completedDateKey, completionTime);
+    }
+    setCriticalTasks((current) => current.map((task) => task.id === taskId ? updatedTask : task));
+    if (updatedTask.done && updatedTask.completedDateKey) {
+      const historyEntry = criticalHistoryEntry(updatedTask, updatedTask.completedDateKey, updatedTask.anchorDateKey || todayDateKey);
+      setHistory((current) => [historyEntry, ...current.filter((item) => item.sourceTaskId !== taskId)]);
+      if (updatedTask.completedDateKey !== originalTask.completedDateKey) {
+        setSelectedDateKey(updatedTask.completedDateKey);
+        setActiveTab("today");
+      }
+    }
     closeOverlay();
-    showToast("关键事项已更新");
+    showToast(updatedTask.done && updatedTask.completedDateKey !== originalTask.completedDateKey ? "完成时间已更新" : "关键事项已更新");
   };
 
   const renewCritical = (taskId, requestedDays = 7) => {

@@ -2,12 +2,12 @@
 /* data.jsx */
 (() => {
 var _excluded = ["completedDateKey", "completedAt", "completionKey", "progressBeforeCompletion"];
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
-function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -238,6 +238,25 @@ window.completeCriticalForDate = function completeCriticalForDate(task, dateKey)
     progress: 100
   }), dateKey);
 };
+window.moveCriticalCompletion = function moveCriticalCompletion(task, dateKey, requestedTime) {
+  if (!(task !== null && task !== void 0 && task.done) || !/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || ""))) return _objectSpread({}, task);
+  var previous = task.completedAt ? new Date(task.completedAt) : new Date();
+  var fallbackHour = Number.isNaN(previous.getTime()) ? new Date().getHours() : previous.getHours();
+  var fallbackMinute = Number.isNaN(previous.getTime()) ? new Date().getMinutes() : previous.getMinutes();
+  var timeMatch = String(requestedTime || "").match(/^(\d{1,2}):(\d{2})$/);
+  var hour = timeMatch ? Math.min(23, Math.max(0, Number(timeMatch[1]))) : fallbackHour;
+  var minute = timeMatch ? Math.min(59, Math.max(0, Number(timeMatch[2]))) : fallbackMinute;
+  var _dateKey$split$map = dateKey.split("-").map(Number),
+    _dateKey$split$map2 = _slicedToArray(_dateKey$split$map, 3),
+    year = _dateKey$split$map2[0],
+    month = _dateKey$split$map2[1],
+    day = _dateKey$split$map2[2];
+  return _objectSpread(_objectSpread({}, task), {}, {
+    completedDateKey: dateKey,
+    completedAt: new Date(year, month - 1, day, hour, minute, 0, 0).toISOString(),
+    completionKey: "".concat(task.id, ":").concat(dateKey)
+  });
+};
 window.uncompleteCriticalTask = function uncompleteCriticalTask(task) {
   var _ref = task || {},
     completedDateKey = _ref.completedDateKey,
@@ -275,11 +294,11 @@ window.countScheduledTasksOnDate = function countScheduledTasksOnDate() {
   return dailyLoad + deadlineLoad;
 };
 function parseCalendarDateKey(dateKey) {
-  var _dateKey$split$map = dateKey.split("-").map(Number),
-    _dateKey$split$map2 = _slicedToArray(_dateKey$split$map, 3),
-    year = _dateKey$split$map2[0],
-    month = _dateKey$split$map2[1],
-    day = _dateKey$split$map2[2];
+  var _dateKey$split$map3 = dateKey.split("-").map(Number),
+    _dateKey$split$map4 = _slicedToArray(_dateKey$split$map3, 3),
+    year = _dateKey$split$map4[0],
+    month = _dateKey$split$map4[1],
+    day = _dateKey$split$map4[2];
   return new Date(year, month - 1, day, 12);
 }
 function calendarDateKey(date) {
@@ -1528,7 +1547,9 @@ function TimePicker(_ref6) {
     value = _ref6.value,
     onChange = _ref6.onChange,
     _ref6$allowUnset = _ref6.allowUnset,
-    allowUnset = _ref6$allowUnset === void 0 ? true : _ref6$allowUnset;
+    allowUnset = _ref6$allowUnset === void 0 ? true : _ref6$allowUnset,
+    _ref6$maxHour = _ref6.maxHour,
+    maxHour = _ref6$maxHour === void 0 ? 24 : _ref6$maxHour;
   var enabled = Boolean(value && value !== "待定");
   var clock = parseClock(value);
   var update = function update(hour, minute) {
@@ -1549,9 +1570,9 @@ function TimePicker(_ref6) {
     className: "time-stepper-row"
   }, React.createElement(Stepper, {
     label: "".concat(label, "\u5C0F\u65F6"),
-    value: clock.hour,
+    value: Math.min(maxHour, clock.hour),
     min: 0,
-    max: 24,
+    max: maxHour,
     wrap: true,
     onChange: function onChange(hour) {
       return update(hour, clock.minute);
@@ -1727,22 +1748,78 @@ function DatePicker(_ref8) {
     className: "picker-empty"
   }, "\u672A\u8BBE\u7F6E"));
 }
-function deadlineDaysFromToday(deadline) {
-  var iso = deadlineToDateInput(deadline);
-  if (!iso) return 1;
+function CompletionDatePicker(_ref9) {
+  var value = _ref9.value,
+    onChange = _ref9.onChange;
+  var today = new Date();
+  var todayKey = "".concat(today.getFullYear(), "-").concat(String(today.getMonth() + 1).padStart(2, "0"), "-").concat(String(today.getDate()).padStart(2, "0"));
+  var iso = /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : todayKey;
   var _iso$split$map3 = iso.split("-").map(Number),
     _iso$split$map4 = _slicedToArray(_iso$split$map3, 3),
     year = _iso$split$map4[0],
     month = _iso$split$map4[1],
     day = _iso$split$map4[2];
+  var maxDay = new Date(year, month, 0).getDate();
+  var minYear = Math.max(2000, today.getFullYear() - 20);
+  var update = function update(nextYear, nextMonth, nextDay) {
+    var safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
+    var candidate = new Date(nextYear, nextMonth - 1, safeDay, 12);
+    var ceiling = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    var next = candidate > ceiling ? ceiling : candidate;
+    onChange("".concat(next.getFullYear(), "-").concat(String(next.getMonth() + 1).padStart(2, "0"), "-").concat(String(next.getDate()).padStart(2, "0")));
+  };
+  return React.createElement("div", {
+    className: "jinke-date-picker completion-date-picker",
+    "aria-label": "\u5B8C\u6210\u65E5\u671F"
+  }, React.createElement("div", {
+    className: "picker-head"
+  }, React.createElement("span", null, "\u5B8C\u6210\u65E5\u671F"), React.createElement("strong", null, year, "\u5E74", month, "\u6708", day, "\u65E5")), React.createElement("div", {
+    className: "date-stepper-row"
+  }, React.createElement("div", null, React.createElement("small", null, "\u5E74"), React.createElement(Stepper, {
+    label: "\u5B8C\u6210\u5E74\u4EFD",
+    value: year,
+    min: minYear,
+    max: today.getFullYear(),
+    wrap: true,
+    onChange: function onChange(next) {
+      return update(next, month, day);
+    }
+  })), React.createElement("div", null, React.createElement("small", null, "\u6708"), React.createElement(Stepper, {
+    label: "\u5B8C\u6210\u6708\u4EFD",
+    value: month,
+    min: 1,
+    max: 12,
+    wrap: true,
+    onChange: function onChange(next) {
+      return update(year, next, day);
+    }
+  })), React.createElement("div", null, React.createElement("small", null, "\u65E5"), React.createElement(Stepper, {
+    label: "\u5B8C\u6210\u65E5\u671F",
+    value: day,
+    min: 1,
+    max: maxDay,
+    wrap: true,
+    onChange: function onChange(next) {
+      return update(year, month, next);
+    }
+  }))));
+}
+function deadlineDaysFromToday(deadline) {
+  var iso = deadlineToDateInput(deadline);
+  if (!iso) return 1;
+  var _iso$split$map5 = iso.split("-").map(Number),
+    _iso$split$map6 = _slicedToArray(_iso$split$map5, 3),
+    year = _iso$split$map6[0],
+    month = _iso$split$map6[1],
+    day = _iso$split$map6[2];
   var today = new Date();
   var start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
   var end = new Date(year, month - 1, day, 12);
   return Math.max(1, Math.round((end - start) / 86400000));
 }
-function DeadlineLeadPicker(_ref9) {
-  var value = _ref9.value,
-    onChange = _ref9.onChange;
+function DeadlineLeadPicker(_ref10) {
+  var value = _ref10.value,
+    onChange = _ref10.onChange;
   var safe = Math.min(1435, Math.max(0, Math.round((Number(value) || 0) / 5) * 5));
   var hours = Math.floor(safe / 60);
   var minutes = safe % 60;
@@ -1777,9 +1854,9 @@ function DeadlineLeadPicker(_ref9) {
     }
   }))));
 }
-function CriticalReminderPlanPicker(_ref10) {
-  var task = _ref10.task,
-    onChange = _ref10.onChange;
+function CriticalReminderPlanPicker(_ref11) {
+  var task = _ref11.task,
+    onChange = _ref11.onChange;
   var plan = normalizeCriticalReminderPlan(task);
   var enabled = Boolean(task.deadline && plan.reminderEnabled);
   var finalDaysMax = deadlineDaysFromToday(task.deadline);
@@ -1879,11 +1956,11 @@ function CriticalReminderPlanPicker(_ref10) {
     reminderFinalDays: plan.reminderMode === "final-days" ? boundedFinalDays : plan.reminderFinalDays
   })))) : null);
 }
-function WeekStrip(_ref11) {
-  var selectedDateKey = _ref11.selectedDateKey,
-    todayDateKey = _ref11.todayDateKey,
-    onSelectDate = _ref11.onSelectDate,
-    getDateLoad = _ref11.getDateLoad;
+function WeekStrip(_ref12) {
+  var selectedDateKey = _ref12.selectedDateKey,
+    todayDateKey = _ref12.todayDateKey,
+    onSelectDate = _ref12.onSelectDate,
+    getDateLoad = _ref12.getDateLoad;
   return React.createElement("div", {
     className: "week-strip",
     "aria-label": "\u672C\u5468"
@@ -1914,11 +1991,11 @@ function WeekStrip(_ref11) {
     })));
   }));
 }
-function MonthPeekPanel(_ref12) {
-  var selectedDateKey = _ref12.selectedDateKey,
-    todayDateKey = _ref12.todayDateKey,
-    onSelectDate = _ref12.onSelectDate,
-    getDateLoad = _ref12.getDateLoad;
+function MonthPeekPanel(_ref13) {
+  var selectedDateKey = _ref13.selectedDateKey,
+    todayDateKey = _ref13.todayDateKey,
+    onSelectDate = _ref13.onSelectDate,
+    getDateLoad = _ref13.getDateLoad;
   var selected = getDateMeta(selectedDateKey);
   var monthDays = getMonthDates(selectedDateKey);
   return React.createElement("div", {
@@ -1979,9 +2056,9 @@ function MonthPeekPanel(_ref12) {
     }
   }, "\u4ECA\u5929"));
 }
-function ViewMenu(_ref13) {
-  var onSelect = _ref13.onSelect,
-    onClose = _ref13.onClose;
+function ViewMenu(_ref14) {
+  var onSelect = _ref14.onSelect,
+    onClose = _ref14.onClose;
   return React.createElement(Sheet, {
     onClose: onClose,
     label: "\u68C0\u89C6\u65B9\u5F0F"
@@ -2015,23 +2092,23 @@ function ViewMenu(_ref13) {
     }));
   })));
 }
-function TodayScreen(_ref14) {
-  var tasks = _ref14.tasks,
-    deadlineTasks = _ref14.deadlineTasks,
-    onToggle = _ref14.onToggle,
-    onEdit = _ref14.onEdit,
-    onDeleteDaily = _ref14.onDeleteDaily,
-    onToggleCritical = _ref14.onToggleCritical,
-    onOpenCritical = _ref14.onOpenCritical,
-    onDeleteCritical = _ref14.onDeleteCritical,
-    onMenu = _ref14.onMenu,
-    viewMode = _ref14.viewMode,
-    onOpenView = _ref14.onOpenView,
-    selectedDateKey = _ref14.selectedDateKey,
-    todayDateKey = _ref14.todayDateKey,
-    onSelectDate = _ref14.onSelectDate,
-    getDateLoad = _ref14.getDateLoad,
-    onOpenDayArchive = _ref14.onOpenDayArchive;
+function TodayScreen(_ref15) {
+  var tasks = _ref15.tasks,
+    deadlineTasks = _ref15.deadlineTasks,
+    onToggle = _ref15.onToggle,
+    onEdit = _ref15.onEdit,
+    onDeleteDaily = _ref15.onDeleteDaily,
+    onToggleCritical = _ref15.onToggleCritical,
+    onOpenCritical = _ref15.onOpenCritical,
+    onDeleteCritical = _ref15.onDeleteCritical,
+    onMenu = _ref15.onMenu,
+    viewMode = _ref15.viewMode,
+    onOpenView = _ref15.onOpenView,
+    selectedDateKey = _ref15.selectedDateKey,
+    todayDateKey = _ref15.todayDateKey,
+    onSelectDate = _ref15.onSelectDate,
+    getDateLoad = _ref15.getDateLoad,
+    onOpenDayArchive = _ref15.onOpenDayArchive;
   var done = tasks.filter(function (task) {
     return task.done;
   }).length;
@@ -2255,13 +2332,13 @@ function loadArchiveCategory(category, month, day) {
   ON_THIS_DAY_REQUESTS.set(key, request);
   return request;
 }
-function CalendarDaySheet(_ref15) {
-  var dateKey = _ref15.dateKey,
-    onClose = _ref15.onClose,
-    active = _ref15.active,
-    index = _ref15.index,
-    onActiveChange = _ref15.onActiveChange,
-    onIndexChange = _ref15.onIndexChange;
+function CalendarDaySheet(_ref16) {
+  var dateKey = _ref16.dateKey,
+    onClose = _ref16.onClose,
+    active = _ref16.active,
+    index = _ref16.index,
+    onActiveChange = _ref16.onActiveChange,
+    onIndexChange = _ref16.onIndexChange;
   var _React$useState = React.useState({
       holidays: [],
       events: [],
@@ -2387,13 +2464,13 @@ function CalendarDaySheet(_ref15) {
     size: 16
   }), "\u6362\u4E00\u6761")));
 }
-function CriticalScreen(_ref16) {
-  var tasks = _ref16.tasks,
-    onToggle = _ref16.onToggle,
-    onOpen = _ref16.onOpen,
-    onDelete = _ref16.onDelete,
-    onMenu = _ref16.onMenu,
-    onOpenReminders = _ref16.onOpenReminders;
+function CriticalScreen(_ref17) {
+  var tasks = _ref17.tasks,
+    onToggle = _ref17.onToggle,
+    onOpen = _ref17.onOpen,
+    onDelete = _ref17.onDelete,
+    onMenu = _ref17.onMenu,
+    onOpenReminders = _ref17.onOpenReminders;
   var withDDL = tasks.filter(function (task) {
     return task.deadline;
   });
@@ -2479,20 +2556,20 @@ function Waveform() {
     });
   }));
 }
-function VoiceComposer(_ref17) {
+function VoiceComposer(_ref18) {
   var _editableTask$title;
-  var phase = _ref17.phase,
-    transcript = _ref17.transcript,
-    parsedCommand = _ref17.parsedCommand,
-    draftTask = _ref17.draftTask,
-    onDraftTaskChange = _ref17.onDraftTaskChange,
-    onTranscript = _ref17.onTranscript,
-    onStop = _ref17.onStop,
-    onUseInputMethod = _ref17.onUseInputMethod,
-    onConfirm = _ref17.onConfirm,
-    onClose = _ref17.onClose,
-    speechAvailable = _ref17.speechAvailable,
-    speechStatus = _ref17.speechStatus;
+  var phase = _ref18.phase,
+    transcript = _ref18.transcript,
+    parsedCommand = _ref18.parsedCommand,
+    draftTask = _ref18.draftTask,
+    onDraftTaskChange = _ref18.onDraftTaskChange,
+    onTranscript = _ref18.onTranscript,
+    onStop = _ref18.onStop,
+    onUseInputMethod = _ref18.onUseInputMethod,
+    onConfirm = _ref18.onConfirm,
+    onClose = _ref18.onClose,
+    speechAvailable = _ref18.speechAvailable,
+    speechStatus = _ref18.speechStatus;
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
@@ -2705,10 +2782,10 @@ function VoiceComposer(_ref17) {
     className: "parsed-title"
   }, parsedCommand.heading), React.createElement("div", {
     className: "field-list"
-  }, parsedCommand.rows.map(function (_ref18, index) {
-    var _ref19 = _slicedToArray(_ref18, 2),
-      label = _ref19[0],
-      value = _ref19[1];
+  }, parsedCommand.rows.map(function (_ref19, index) {
+    var _ref20 = _slicedToArray(_ref19, 2),
+      label = _ref20[0],
+      value = _ref20[1];
     return React.createElement("div", {
       className: "field-row",
       key: "".concat(label, "-").concat(index)
@@ -2731,12 +2808,12 @@ function VoiceComposer(_ref17) {
     disabled: !canConfirm
   }, parsedCommand.confirmLabel))));
 }
-function DailyEditSheet(_ref20) {
-  var task = _ref20.task,
-    draft = _ref20.draft,
-    onDraftChange = _ref20.onDraftChange,
-    onSave = _ref20.onSave,
-    onClose = _ref20.onClose;
+function DailyEditSheet(_ref21) {
+  var task = _ref21.task,
+    draft = _ref21.draft,
+    onDraftChange = _ref21.onDraftChange,
+    onSave = _ref21.onSave,
+    onClose = _ref21.onClose;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -2817,11 +2894,11 @@ function DailyEditSheet(_ref20) {
     disabled: !draft.title.trim()
   }, "\u4FDD\u5B58\u4FEE\u6539")));
 }
-function MoreSheet(_ref21) {
-  var onClose = _ref21.onClose,
-    onOpen = _ref21.onOpen,
-    themeMode = _ref21.themeMode,
-    onThemeChange = _ref21.onThemeChange;
+function MoreSheet(_ref22) {
+  var onClose = _ref22.onClose,
+    onOpen = _ref22.onOpen,
+    themeMode = _ref22.themeMode,
+    onThemeChange = _ref22.onThemeChange;
   var rows = [["history", "历史记录", "history"], ["month", "月度复盘", "chart"], ["year", "年度复盘", "year"], ["permissions", "通知与权限", "bell"], ["voice", "语音模型", "spark"], ["version", "版本更新", "update"], ["settings", "设置", "settings"]];
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -2830,10 +2907,10 @@ function MoreSheet(_ref21) {
     className: "theme-switch theme-switch-first",
     role: "group",
     "aria-label": "\u5916\u89C2"
-  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref22) {
-    var _ref23 = _slicedToArray(_ref22, 2),
-      mode = _ref23[0],
-      label = _ref23[1];
+  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref23) {
+    var _ref24 = _slicedToArray(_ref23, 2),
+      mode = _ref24[0],
+      label = _ref24[1];
     return React.createElement("button", {
       className: "theme-option ".concat(themeMode === mode ? "active" : ""),
       "aria-pressed": themeMode === mode,
@@ -2844,11 +2921,11 @@ function MoreSheet(_ref21) {
     }, label);
   })), React.createElement("div", {
     className: "menu-list"
-  }, rows.map(function (_ref24) {
-    var _ref25 = _slicedToArray(_ref24, 3),
-      id = _ref25[0],
-      title = _ref25[1],
-      icon = _ref25[2];
+  }, rows.map(function (_ref25) {
+    var _ref26 = _slicedToArray(_ref25, 3),
+      id = _ref26[0],
+      title = _ref26[1],
+      icon = _ref26[2];
     return React.createElement("button", {
       className: "menu-row",
       key: id,
@@ -2868,16 +2945,16 @@ function MoreSheet(_ref21) {
     }));
   })));
 }
-function CriticalDetailSheet(_ref26) {
+function CriticalDetailSheet(_ref27) {
   var _draft$progress;
-  var task = _ref26.task,
-    draft = _ref26.draft,
-    renewDays = _ref26.renewDays,
-    onRenewDaysChange = _ref26.onRenewDaysChange,
-    onDraftChange = _ref26.onDraftChange,
-    onClose = _ref26.onClose,
-    onRenew = _ref26.onRenew,
-    onSave = _ref26.onSave;
+  var task = _ref27.task,
+    draft = _ref27.draft,
+    renewDays = _ref27.renewDays,
+    onRenewDaysChange = _ref27.onRenewDaysChange,
+    onDraftChange = _ref27.onDraftChange,
+    onClose = _ref27.onClose,
+    onRenew = _ref27.onRenew,
+    onSave = _ref27.onSave;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -2912,7 +2989,23 @@ function CriticalDetailSheet(_ref26) {
     onChange: function onChange(event) {
       return update("title", event.target.value);
     }
-  })), React.createElement("div", {
+  })), task.done ? React.createElement("div", {
+    className: "edit-field stacked custom-control-field completion-time-field",
+    "aria-label": "\u8BBE\u7F6E\u5B8C\u6210\u65F6\u95F4"
+  }, React.createElement(CompletionDatePicker, {
+    value: draft.completedDateKey,
+    onChange: function onChange(completedDateKey) {
+      return update("completedDateKey", completedDateKey);
+    }
+  }), React.createElement(TimePicker, {
+    label: "\u5B8C\u6210\u65F6\u523B",
+    value: draft.completionTime,
+    onChange: function onChange(completionTime) {
+      return update("completionTime", completionTime || "00:00");
+    },
+    allowUnset: false,
+    maxHour: 23
+  })) : null, React.createElement("div", {
     className: "edit-field stacked custom-control-field"
   }, React.createElement(DatePicker, {
     value: draft.deadline,
@@ -2987,9 +3080,9 @@ function CriticalDetailSheet(_ref26) {
     }
   }, "\u786E\u8BA4\u7EED\u671F"))) : null);
 }
-function HistoryScreen(_ref27) {
-  var items = _ref27.items,
-    onBack = _ref27.onBack;
+function HistoryScreen(_ref28) {
+  var items = _ref28.items,
+    onBack = _ref28.onBack;
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -3084,16 +3177,16 @@ function buildReport(type, dailyTasks, dailyCompletionByDate, history, todayDate
     ddlRanking: ddlRanking
   };
 }
-function ReportScreen(_ref28) {
-  var type = _ref28.type,
-    _ref28$dailyTasks = _ref28.dailyTasks,
-    dailyTasks = _ref28$dailyTasks === void 0 ? [] : _ref28$dailyTasks,
-    _ref28$dailyCompletio = _ref28.dailyCompletionByDate,
-    dailyCompletionByDate = _ref28$dailyCompletio === void 0 ? {} : _ref28$dailyCompletio,
-    _ref28$history = _ref28.history,
-    history = _ref28$history === void 0 ? [] : _ref28$history,
-    todayDateKey = _ref28.todayDateKey,
-    onBack = _ref28.onBack;
+function ReportScreen(_ref29) {
+  var type = _ref29.type,
+    _ref29$dailyTasks = _ref29.dailyTasks,
+    dailyTasks = _ref29$dailyTasks === void 0 ? [] : _ref29$dailyTasks,
+    _ref29$dailyCompletio = _ref29.dailyCompletionByDate,
+    dailyCompletionByDate = _ref29$dailyCompletio === void 0 ? {} : _ref29$dailyCompletio,
+    _ref29$history = _ref29.history,
+    history = _ref29$history === void 0 ? [] : _ref29$history,
+    todayDateKey = _ref29.todayDateKey,
+    onBack = _ref29.onBack;
   var monthly = type === "month";
   var report = buildReport(type, dailyTasks, dailyCompletionByDate, history, todayDateKey || APP_DATA.today.dateKey);
   var hasData = report.ranking.length > 0 || report.ddlRanking.length > 0;
@@ -3130,11 +3223,11 @@ function ReportScreen(_ref28) {
     className: "empty-guide report-empty"
   }, "\u5B8C\u6210\u4EFB\u52A1\u540E\uFF0C\u8FD9\u91CC\u4F1A\u751F\u6210\u771F\u5B9E\u590D\u76D8"));
 }
-function DeleteConfirmSheet(_ref29) {
-  var target = _ref29.target,
-    selectedDateKey = _ref29.selectedDateKey,
-    onClose = _ref29.onClose,
-    onConfirm = _ref29.onConfirm;
+function DeleteConfirmSheet(_ref30) {
+  var target = _ref30.target,
+    selectedDateKey = _ref30.selectedDateKey,
+    onClose = _ref30.onClose,
+    onConfirm = _ref30.onConfirm;
   if (!(target !== null && target !== void 0 && target.task)) return null;
   var isDaily = target.kind === "daily";
   var selectedMeta = selectedDateKey ? getDateMeta(selectedDateKey) : null;
@@ -3175,10 +3268,10 @@ function DeleteConfirmSheet(_ref29) {
     }
   }, "\u5220\u9664")));
 }
-function PermissionsScreen(_ref30) {
-  var capabilities = _ref30.capabilities,
-    onOpenCapability = _ref30.onOpenCapability,
-    onBack = _ref30.onBack;
+function PermissionsScreen(_ref31) {
+  var capabilities = _ref31.capabilities,
+    onOpenCapability = _ref31.onOpenCapability,
+    onBack = _ref31.onBack;
   var known = Boolean(capabilities);
   var state = function state(value) {
     var yes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "已开启";
@@ -3289,16 +3382,16 @@ function PermissionsScreen(_ref30) {
     }, content);
   })));
 }
-function CriticalReminderScreen(_ref31) {
-  var tasks = _ref31.tasks,
-    reminderTime = _ref31.reminderTime,
-    onReminderTimeChange = _ref31.onReminderTimeChange,
-    reminderMultiple = _ref31.reminderMultiple,
-    onReminderMultipleChange = _ref31.onReminderMultipleChange,
-    reminderFinalDays = _ref31.reminderFinalDays,
-    onReminderFinalDaysChange = _ref31.onReminderFinalDaysChange,
-    onOpenPermissions = _ref31.onOpenPermissions,
-    onBack = _ref31.onBack;
+function CriticalReminderScreen(_ref32) {
+  var tasks = _ref32.tasks,
+    reminderTime = _ref32.reminderTime,
+    onReminderTimeChange = _ref32.onReminderTimeChange,
+    reminderMultiple = _ref32.reminderMultiple,
+    onReminderMultipleChange = _ref32.onReminderMultipleChange,
+    reminderFinalDays = _ref32.reminderFinalDays,
+    onReminderFinalDaysChange = _ref32.onReminderFinalDaysChange,
+    onOpenPermissions = _ref32.onOpenPermissions,
+    onBack = _ref32.onBack;
   var reminderTasks = tasks.filter(function (task) {
     return task.deadline && shouldRemindCritical(task.daysLeft, task);
   });
@@ -3396,7 +3489,7 @@ function CriticalReminderScreen(_ref31) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.19";
+var JINKE_FALLBACK_VERSION = "1.0.20";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3412,8 +3505,8 @@ function compareVersions(left, right) {
   }
   return 0;
 }
-function VersionScreen(_ref32) {
-  var onBack = _ref32.onBack;
+function VersionScreen(_ref33) {
+  var onBack = _ref33.onBack;
   var currentVersion = function () {
     try {
       var _window$JinkeAndroid, _window$JinkeAndroid$;
@@ -3511,9 +3604,9 @@ function VersionScreen(_ref32) {
     size: 15
   })));
 }
-function VoiceSettingsScreen(_ref33) {
-  var capabilities = _ref33.capabilities,
-    onBack = _ref33.onBack;
+function VoiceSettingsScreen(_ref34) {
+  var capabilities = _ref34.capabilities,
+    onBack = _ref34.onBack;
   var modelStatus = capabilities ? capabilities.offlineSpeechReady ? "已加载" : capabilities.offlineSpeechBundled ? "已内置" : "组件缺失" : "APK 内置";
   return React.createElement("main", {
     className: "screen secondary"
@@ -3617,7 +3710,8 @@ Object.assign(window, {
 
 /* app.jsx */
 (() => {
-var _excluded = ["type"];
+var _excluded = ["completionTime"],
+  _excluded2 = ["type"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
@@ -3630,13 +3724,13 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _React = React,
   useEffect = _React.useEffect,
   useRef = _React.useRef,
@@ -3651,6 +3745,7 @@ var _window = window,
   countScheduledTasksOnDate = _window.countScheduledTasksOnDate,
   normalizeCriticalCompletion = _window.normalizeCriticalCompletion,
   completeCriticalForDate = _window.completeCriticalForDate,
+  moveCriticalCompletion = _window.moveCriticalCompletion,
   uncompleteCriticalTask = _window.uncompleteCriticalTask,
   criticalTaskVisibleOnTodayDate = _window.criticalTaskVisibleOnTodayDate,
   shiftDateKeyByDays = _window.shiftDateKeyByDays,
@@ -3682,6 +3777,20 @@ var SIMULATOR_HEIGHT = DEVICE_HEIGHT + 34;
 function localDateKey() {
   var date = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : new Date();
   return "".concat(date.getFullYear(), "-").concat(String(date.getMonth() + 1).padStart(2, "0"), "-").concat(String(date.getDate()).padStart(2, "0"));
+}
+function localTimeText(value) {
+  if (!value) return "";
+  var date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return "".concat(String(date.getHours()).padStart(2, "0"), ":").concat(String(date.getMinutes()).padStart(2, "0"));
+}
+function editableCompletionTime(value) {
+  var text = localTimeText(value) || localTimeText(new Date());
+  var _text$split$map = text.split(":").map(Number),
+    _text$split$map2 = _slicedToArray(_text$split$map, 2),
+    hour = _text$split$map2[0],
+    minute = _text$split$map2[1];
+  return "".concat(String(hour).padStart(2, "0"), ":").concat(String(Math.floor(minute / 5) * 5).padStart(2, "0"));
 }
 function readStoredJson(key, fallback, validator) {
   try {
@@ -3790,13 +3899,15 @@ function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
     _completionDateKey$sp2 = _slicedToArray(_completionDateKey$sp, 3),
     month = _completionDateKey$sp2[1],
     day = _completionDateKey$sp2[2];
+  var completionTime = localTimeText(task.completedAt);
   return {
     id: "done-".concat(task.id, "-").concat(completionDateKey),
     completionKey: completionKey,
     sourceTaskId: task.id,
     title: task.title,
-    completed: "".concat(month, "\u6708").concat(day, "\u65E5"),
+    completed: "".concat(month, "\u6708").concat(day, "\u65E5").concat(completionTime ? " ".concat(completionTime) : ""),
     completedDateKey: completionDateKey,
+    completedAt: task.completedAt || null,
     leadDays: criticalDaysLeftOn(task, completionDateKey, fallbackAnchorKey) || 0
   };
 }
@@ -5140,30 +5251,53 @@ function MobileDesignApp() {
   };
   var openCritical = function openCritical(task) {
     setSelectedCritical(task);
-    setCriticalDraft(withCriticalReminderDefaults(task));
+    setCriticalDraft(_objectSpread(_objectSpread({}, withCriticalReminderDefaults(task)), {}, {
+      completionTime: task.done ? editableCompletionTime(task.completedAt) : ""
+    }));
     setRenewDays(7);
     setOverlay("critical-detail");
   };
   var saveCritical = function saveCritical(taskId, changes) {
     var _changes$deadline;
+    var originalTask = criticalTasks.find(function (task) {
+      return task.id === taskId;
+    });
+    if (!originalTask) return;
+    var completionTime = changes.completionTime,
+      persistedChanges = _objectWithoutProperties(changes, _excluded);
     var deadlineText = ((_changes$deadline = changes.deadline) === null || _changes$deadline === void 0 ? void 0 : _changes$deadline.trim()) || null;
     var parsed = deadlineText ? parseDeadline(deadlineText) : null;
     var deadlineTime = changes.deadlineTime || (changes.time && changes.time !== "待定" ? changes.time : null);
+    var updatedTask = withCriticalReminderDefaults(_objectSpread(_objectSpread(_objectSpread({}, originalTask), persistedChanges), {}, {
+      deadline: deadlineText,
+      daysLeft: deadlineText ? parsed !== null && parsed !== void 0 && parsed.deadline ? parsed.daysLeft : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(originalTask, todayDateKey, todayDateKey) : null,
+      anchorDateKey: deadlineText ? todayDateKey : null,
+      deadlineTime: deadlineTime,
+      time: deadlineTime,
+      reminderEnabled: deadlineText ? changes.reminderEnabled : false
+    }));
+    if (updatedTask.done && updatedTask.completedDateKey) {
+      updatedTask = moveCriticalCompletion(updatedTask, updatedTask.completedDateKey, completionTime);
+    }
     setCriticalTasks(function (current) {
       return current.map(function (task) {
-        if (task.id !== taskId) return task;
-        return withCriticalReminderDefaults(_objectSpread(_objectSpread(_objectSpread({}, task), changes), {}, {
-          deadline: deadlineText,
-          daysLeft: deadlineText ? parsed !== null && parsed !== void 0 && parsed.deadline ? parsed.daysLeft : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(task, todayDateKey, todayDateKey) : null,
-          anchorDateKey: deadlineText ? todayDateKey : null,
-          deadlineTime: deadlineTime,
-          time: deadlineTime,
-          reminderEnabled: deadlineText ? changes.reminderEnabled : false
-        }));
+        return task.id === taskId ? updatedTask : task;
       });
     });
+    if (updatedTask.done && updatedTask.completedDateKey) {
+      var historyEntry = criticalHistoryEntry(updatedTask, updatedTask.completedDateKey, updatedTask.anchorDateKey || todayDateKey);
+      setHistory(function (current) {
+        return [historyEntry].concat(_toConsumableArray(current.filter(function (item) {
+          return item.sourceTaskId !== taskId;
+        })));
+      });
+      if (updatedTask.completedDateKey !== originalTask.completedDateKey) {
+        setSelectedDateKey(updatedTask.completedDateKey);
+        setActiveTab("today");
+      }
+    }
     closeOverlay();
-    showToast("关键事项已更新");
+    showToast(updatedTask.done && updatedTask.completedDateKey !== originalTask.completedDateKey ? "完成时间已更新" : "关键事项已更新");
   };
   var renewCritical = function renewCritical(taskId) {
     var requestedDays = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 7;
@@ -5489,7 +5623,7 @@ function MobileDesignApp() {
     } else if (intent === "edit") {
       var _command$changes = command.changes,
         nextType = _command$changes.type,
-        changes = _objectWithoutProperties(_command$changes, _excluded);
+        changes = _objectWithoutProperties(_command$changes, _excluded2);
       if (target.kind === "daily" && nextType === "critical") {
         setDailyTasks(function (current) {
           return current.filter(function (task) {

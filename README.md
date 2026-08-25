@@ -30,6 +30,7 @@
 - 所有未完成且有 DDL 的关键事项同时显示在每日页面，剩余／逾期天数按当前所选日期计算
 - 关键事项单击只勾选或取消完成，向左滑动后才显示“编辑 / 删除”；完成按钮不再藏在编辑页中
 - 有 DDL 与无 DDL 事项勾选后都会从关键列表移除，并作为已完成事项保留在完成当天；从当天取消勾选会恢复到关键列表
+- 已完成关键事项向左滑动进入编辑后，可用自定义年月日与五分钟步进时刻修正完成时间；保存后每日列表、日期标记和历史记录同步移动到对应日期
 - 编辑面板直接呈现字段，不显示“编辑日常事务”等标题或辅助介绍文案
 - 语音确认页不显示“已经听懂”标题，直接呈现可编辑字段或待确认操作
 - 默认暗色外观；“更多”中可切换暗色、跟随系统或亮色，选择会在本机持久保存
@@ -67,7 +68,7 @@
 - 包名：`com.junyingjun.jinke`
 - 最低 Android 9（API 28），目标 Android 16（API 36）
 - 构建：`scripts/build-android.ps1`
-- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.19.apk`
+- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.20.apk`
 - 更新源：`https://api.github.com/repos/Junyingjun/jinke-coloros-calendar/releases/latest`
 
 首次从 GitHub 更新时，Android 会要求授予“安装未知应用”权限；下载完成后仍由系统安装器显示最终确认，这是 Android 对侧载更新的安全要求。发布签名保存在本机工作区之外，不进入 Git 仓库；后续版本必须沿用同一签名才能覆盖安装。

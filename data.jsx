@@ -211,6 +211,23 @@ window.completeCriticalForDate = function completeCriticalForDate(task, dateKey)
   }, dateKey);
 };
 
+window.moveCriticalCompletion = function moveCriticalCompletion(task, dateKey, requestedTime) {
+  if (!task?.done || !/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || ""))) return { ...task };
+  const previous = task.completedAt ? new Date(task.completedAt) : new Date();
+  const fallbackHour = Number.isNaN(previous.getTime()) ? new Date().getHours() : previous.getHours();
+  const fallbackMinute = Number.isNaN(previous.getTime()) ? new Date().getMinutes() : previous.getMinutes();
+  const timeMatch = String(requestedTime || "").match(/^(\d{1,2}):(\d{2})$/);
+  const hour = timeMatch ? Math.min(23, Math.max(0, Number(timeMatch[1]))) : fallbackHour;
+  const minute = timeMatch ? Math.min(59, Math.max(0, Number(timeMatch[2]))) : fallbackMinute;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return {
+    ...task,
+    completedDateKey: dateKey,
+    completedAt: new Date(year, month - 1, day, hour, minute, 0, 0).toISOString(),
+    completionKey: `${task.id}:${dateKey}`,
+  };
+};
+
 window.uncompleteCriticalTask = function uncompleteCriticalTask(task) {
   const { completedDateKey, completedAt, completionKey, progressBeforeCompletion, ...rest } = task || {};
   return {

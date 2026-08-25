@@ -8,9 +8,9 @@ if (-not $signingProperties) {
     $signingProperties = Join-Path $projectRoot "..\..\..\..\Codex Working Help\secrets\jinke-release.properties"
 }
 
-if (-not $jdkRoot) { throw "未找到项目本地 JDK 17。" }
-if (-not (Test-Path (Join-Path $sdkRoot "platforms\android-36\android.jar"))) { throw "未找到 Android 36 SDK。" }
-if (-not (Test-Path $signingProperties)) { throw "未找到今刻发布签名配置。" }
+if (-not $jdkRoot) { throw "Project-local JDK 17 was not found." }
+if (-not (Test-Path (Join-Path $sdkRoot "platforms\android-36\android.jar"))) { throw "Android 36 SDK was not found." }
+if (-not (Test-Path $signingProperties)) { throw "Jinke release signing properties were not found." }
 
 $env:JAVA_HOME = $jdkRoot.FullName
 $env:ANDROID_HOME = $sdkRoot
@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $sourceApk = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $releaseDir = Join-Path $projectRoot "release"
-$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.19.apk"
+$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.0.20.apk"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 
@@ -46,7 +46,7 @@ $requiredPermissions = @(
     "android.permission.REQUEST_INSTALL_PACKAGES"
 )
 foreach ($permission in $requiredPermissions) {
-    if ($permissions -notmatch [regex]::Escape($permission)) { throw "APK 缺少权限：$permission" }
+    if ($permissions -notmatch [regex]::Escape($permission)) { throw "APK is missing permission: $permission" }
 }
 $apkEntries = (& tar -tf $releaseApk) -join "`n"
 $requiredEntries = @(
@@ -60,8 +60,8 @@ $requiredEntries = @(
     "assets/www/THIRD_PARTY_NOTICES.md"
 )
 foreach ($entry in $requiredEntries) {
-    if ($apkEntries -notmatch [regex]::Escape($entry)) { throw "APK 缺少运行组件：$entry" }
+    if ($apkEntries -notmatch [regex]::Escape($entry)) { throw "APK is missing runtime component: $entry" }
 }
-if ((Get-Item -LiteralPath $releaseApk).Length -lt 80000000) { throw "APK 体积异常，离线中文模型可能未打包。" }
+if ((Get-Item -LiteralPath $releaseApk).Length -lt 80000000) { throw "APK size is unexpectedly small; the offline Chinese model may be missing." }
 Write-Host "RUNTIME_AUDIT_OK=permissions+arm64-vosk+chinese-model"
 Write-Host "APK_READY=$releaseApk"

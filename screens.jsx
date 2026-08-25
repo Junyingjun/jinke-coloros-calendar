@@ -50,7 +50,7 @@ function parseClock(value, fallback = "09:00") {
   return { hour: Math.min(24, Math.max(0, Number(source?.[1] || 9))), minute };
 }
 
-function TimePicker({ label, value, onChange, allowUnset = true }) {
+function TimePicker({ label, value, onChange, allowUnset = true, maxHour = 24 }) {
   const enabled = Boolean(value && value !== "待定");
   const clock = parseClock(value);
   const update = (hour, minute) => onChange(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
@@ -58,7 +58,7 @@ function TimePicker({ label, value, onChange, allowUnset = true }) {
     <div className="jinke-time-picker" aria-label={label}>
       <div className="picker-head"><span>{label}</span>{allowUnset ? <button type="button" aria-pressed={enabled} onClick={() => onChange(enabled ? null : "09:00")}>{enabled ? "清除" : "设置"}</button> : null}</div>
       {enabled || !allowUnset ? <div className="time-stepper-row">
-        <Stepper label={`${label}小时`} value={clock.hour} min={0} max={24} wrap onChange={(hour) => update(hour, clock.minute)} format={(item) => String(item).padStart(2, "0")} />
+        <Stepper label={`${label}小时`} value={Math.min(maxHour, clock.hour)} min={0} max={maxHour} wrap onChange={(hour) => update(hour, clock.minute)} format={(item) => String(item).padStart(2, "0")} />
         <span className="time-colon">:</span>
         <Stepper label={`${label}分钟`} value={clock.minute} min={0} max={55} step={5} wrap onChange={(minute) => update(clock.hour, minute)} format={(item) => String(item).padStart(2, "0")} />
       </div> : <span className="picker-empty">未设置</span>}
@@ -145,6 +145,32 @@ function DatePicker({ value, onChange, label = "截止日期" }) {
         <div><small>月</small><Stepper label="截止月份" value={month} min={1} max={12} wrap onChange={(next) => update(year, next, day)} /></div>
         <div><small>日</small><Stepper label="截止日期" value={day} min={1} max={maxDay} wrap onChange={(next) => update(year, month, next)} /></div>
       </div> : <span className="picker-empty">未设置</span>}
+    </div>
+  );
+}
+
+function CompletionDatePicker({ value, onChange }) {
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : todayKey;
+  const [year, month, day] = iso.split("-").map(Number);
+  const maxDay = new Date(year, month, 0).getDate();
+  const minYear = Math.max(2000, today.getFullYear() - 20);
+  const update = (nextYear, nextMonth, nextDay) => {
+    const safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
+    const candidate = new Date(nextYear, nextMonth - 1, safeDay, 12);
+    const ceiling = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    const next = candidate > ceiling ? ceiling : candidate;
+    onChange(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`);
+  };
+  return (
+    <div className="jinke-date-picker completion-date-picker" aria-label="完成日期">
+      <div className="picker-head"><span>完成日期</span><strong>{year}年{month}月{day}日</strong></div>
+      <div className="date-stepper-row">
+        <div><small>年</small><Stepper label="完成年份" value={year} min={minYear} max={today.getFullYear()} wrap onChange={(next) => update(next, month, day)} /></div>
+        <div><small>月</small><Stepper label="完成月份" value={month} min={1} max={12} wrap onChange={(next) => update(year, next, day)} /></div>
+        <div><small>日</small><Stepper label="完成日期" value={day} min={1} max={maxDay} wrap onChange={(next) => update(year, month, next)} /></div>
+      </div>
     </div>
   );
 }
@@ -694,6 +720,12 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
       </div>
       <div className="edit-form critical-edit-form">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
+        {task.done ? (
+          <div className="edit-field stacked custom-control-field completion-time-field" aria-label="设置完成时间">
+            <CompletionDatePicker value={draft.completedDateKey} onChange={(completedDateKey) => update("completedDateKey", completedDateKey)} />
+            <TimePicker label="完成时刻" value={draft.completionTime} onChange={(completionTime) => update("completionTime", completionTime || "00:00")} allowUnset={false} maxHour={23} />
+          </div>
+        ) : null}
         <div className="edit-field stacked custom-control-field"><DatePicker value={draft.deadline} onChange={(deadline) => update("deadline", deadline)} /></div>
         <div className="edit-field stacked custom-control-field"><TimePicker label="截止时刻" value={draft.deadlineTime || draft.time} onChange={updateDeadlineTime} /></div>
         <div className="edit-field stacked custom-control-field"><CriticalReminderPlanPicker task={draft} onChange={onDraftChange} /></div>
@@ -902,7 +934,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.19";
+const JINKE_FALLBACK_VERSION = "1.0.20";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

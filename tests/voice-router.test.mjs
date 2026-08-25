@@ -347,7 +347,7 @@ assert.match(screensSource, /function ReminderPicker[\s\S]*Math\.min\(1435/, "da
 assert.match(screensSource, /label=\{`\$\{label\}分钟`\}[\s\S]*max=\{55\} step=\{5\}/, "clock minutes must advance in five-minute steps");
 assert.match(screensSource, /label="提前分钟"[\s\S]*max=\{55\} step=\{5\}/, "reminder minutes must advance in five-minute steps");
 assert.match(screensSource, /function Stepper\([^)]*wrap = false[\s\S]*wrap && safeValue <= min \? max[\s\S]*wrap && safeValue >= max \? min/, "time steppers must support cyclic boundaries");
-assert.match(screensSource, /label=\{`\$\{label\}小时`\}[\s\S]*max=\{24\} wrap/, "clock hours must expose both 0 and 24 and loop between them");
+assert.match(screensSource, /function TimePicker\([^)]*maxHour = 24[\s\S]*label=\{`\$\{label\}小时`\}[\s\S]*max=\{maxHour\} wrap/, "clock hours must expose both 0 and 24 by default and loop between them");
 assert.match(screensSource, /label=\{`\$\{label\}分钟`\}[\s\S]*step=\{5\} wrap/, "clock minutes must loop between 0 and 55");
 assert.match(stylesSource, /-webkit-tap-highlight-color:\s*transparent/, "WebView must suppress the Android system tap rectangle");
 assert.match(stylesSource, /\.reminder-time-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/, "phone DDL reminder time must use a non-overflowing single column");
