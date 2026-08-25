@@ -33,13 +33,13 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
             for (int index = 0; index < tasks.length(); index++) {
                 JSONObject task = tasks.getJSONObject(index);
                 if (!task.optBoolean("reminderEnabled", true)) continue;
-                String taskTime = DdlScheduler.normalizeTime(task.optString("reminderTime", prefs.getString(DdlScheduler.KEY_TIME, "10:00")));
+                String taskTime = DdlScheduler.reminderTimeFor(task, prefs.getString(DdlScheduler.KEY_TIME, "10:00"));
                 if (!triggerTime.equals(taskTime)) continue;
                 int daysLeft = task.optInt("daysLeft", -1) - (int) elapsedDays;
                 int multiple = Math.max(1, task.optInt("reminderMultiple", defaultMultiple));
                 int finalDays = Math.max(0, task.optInt("reminderFinalDays", defaultFinalDays));
                 String mode = task.optString("reminderMode", "smart");
-                if (!isEligible(daysLeft, mode, multiple, finalDays)) continue;
+                if (!isEligible(daysLeft, mode, multiple, finalDays, DdlScheduler.reminderDayOffsetFor(task))) continue;
                 String suffix = daysLeft == 0 ? "今天截止" : "剩 " + daysLeft + " 天";
                 eligible.add(task.optString("title", "关键事项") + " · " + suffix);
             }
@@ -65,10 +65,10 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
         DdlScheduler.schedule(context);
     }
 
-    private boolean isEligible(int daysLeft, String mode, int multiple, int finalDays) {
+    private boolean isEligible(int daysLeft, String mode, int multiple, int finalDays, int deadlineDayOffset) {
         if (daysLeft < 0) return false;
-        if ("daily".equals(mode)) return true;
-        if ("deadline-only".equals(mode)) return daysLeft == 0;
+        if ("daily".equals(mode) || "final-days".equals(mode)) return daysLeft <= finalDays;
+        if ("deadline-only".equals(mode)) return daysLeft == deadlineDayOffset;
         return daysLeft <= finalDays || daysLeft % multiple == 0;
     }
 

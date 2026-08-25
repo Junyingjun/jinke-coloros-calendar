@@ -51,7 +51,9 @@ assert.match(activity, /deliverSystemTimeChanged[\s\S]*JINKE_REFRESH_SYSTEM_TIME
 assert.match(manifest, /android\.intent\.action\.DATE_CHANGED/, "date rollover must reschedule Android reminders");
 assert.match(scheduler, /TreeSet[\s\S]*reminderTime[\s\S]*scheduleTime/, "Android must schedule every task-specific reminder time");
 assert.match(scheduler, /cancelPreviouslyScheduled/, "changing reminder plans must cancel obsolete alarm times");
-assert.match(ddlReceiver, /reminderMode[\s\S]*daily[\s\S]*deadline-only/, "Android reminder delivery must honor each task's cadence mode");
+assert.match(ddlReceiver, /final-days[\s\S]*deadline-only/, "Android reminder delivery must honor final-days and deadline-only cadence modes");
+assert.match(scheduler, /reminderTimeFor[\s\S]*deadlineLeadMinutes[\s\S]*triggerMinutes/, "deadline-only reminders must derive their alarm time from the deadline lead offset");
+assert.match(scheduler, /reminderDayOffsetFor[\s\S]*deadlineMinutes - leadMinutes < 0/, "deadline lead offsets that cross midnight must target the previous day");
 assert.match(activity, /cleanupInstalledUpdateApk[\s\S]*DownloadManager[\s\S]*remove\(downloadId\)/, "a successfully installed update must clean up its downloaded APK");
 assert.match(activity, /KEY_SOURCE_VERSION_CODE[\s\S]*BuildConfig\.VERSION_CODE/, "APK cleanup must only happen after the app version has advanced");
 

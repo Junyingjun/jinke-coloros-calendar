@@ -142,9 +142,35 @@ function DatePicker({ value, onChange, label = "截止日期" }) {
       <div className="picker-head"><span>{label}</span><button type="button" aria-pressed={Boolean(value)} onClick={() => onChange(value ? null : dateInputToDeadline(iso))}>{value ? "清除" : "设置"}</button></div>
       {value ? <div className="date-stepper-row">
         <div><small>年</small><Stepper label="截止年份" value={year} min={today.getFullYear()} max={today.getFullYear() + 10} onChange={(next) => update(next, month, day)} /></div>
-        <div><small>月</small><Stepper label="截止月份" value={month} min={1} max={12} onChange={(next) => update(year, next, day)} /></div>
-        <div><small>日</small><Stepper label="截止日期" value={day} min={1} max={maxDay} onChange={(next) => update(year, month, next)} /></div>
+        <div><small>月</small><Stepper label="截止月份" value={month} min={1} max={12} wrap onChange={(next) => update(year, next, day)} /></div>
+        <div><small>日</small><Stepper label="截止日期" value={day} min={1} max={maxDay} wrap onChange={(next) => update(year, month, next)} /></div>
       </div> : <span className="picker-empty">未设置</span>}
+    </div>
+  );
+}
+
+function deadlineDaysFromToday(deadline) {
+  const iso = deadlineToDateInput(deadline);
+  if (!iso) return 1;
+  const [year, month, day] = iso.split("-").map(Number);
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+  const end = new Date(year, month - 1, day, 12);
+  return Math.max(1, Math.round((end - start) / 86400000));
+}
+
+function DeadlineLeadPicker({ value, onChange }) {
+  const safe = Math.min(1435, Math.max(0, Math.round((Number(value) || 0) / 5) * 5));
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  const update = (nextHours, nextMinutes) => onChange(Math.min(1435, nextHours * 60 + nextMinutes));
+  return (
+    <div className="deadline-lead-picker" aria-label="截止时刻前提醒">
+      <span className="control-caption">截止时刻前</span>
+      <div className="reminder-stepper-row">
+        <div><small>小时</small><Stepper label="截止前小时" value={hours} min={0} max={23} wrap onChange={(next) => update(next, minutes)} /></div>
+        <div><small>分钟</small><Stepper label="截止前分钟" value={minutes} min={0} max={55} step={5} wrap onChange={(next) => update(hours, next)} /></div>
+      </div>
     </div>
   );
 }
@@ -152,6 +178,8 @@ function DatePicker({ value, onChange, label = "截止日期" }) {
 function CriticalReminderPlanPicker({ task, onChange }) {
   const plan = normalizeCriticalReminderPlan(task);
   const enabled = Boolean(task.deadline && plan.reminderEnabled);
+  const finalDaysMax = deadlineDaysFromToday(task.deadline);
+  const boundedFinalDays = Math.min(Math.max(1, plan.reminderFinalDays || 1), finalDaysMax);
   const commit = (changes) => {
     const next = { ...task, ...plan, ...changes };
     next.reminder = getCriticalReminder(next);
@@ -164,16 +192,23 @@ function CriticalReminderPlanPicker({ task, onChange }) {
         <button type="button" aria-pressed={enabled} disabled={!task.deadline} onClick={() => commit({ reminderEnabled: !enabled })}>{enabled ? "已开启" : "不提醒"}</button>
       </div>
       {!task.deadline ? <span className="picker-empty">设置截止日期后可开启</span> : enabled ? <>
-        <TimePicker label="提醒时刻" value={plan.reminderTime} allowUnset={false} onChange={(reminderTime) => commit({ reminderTime: reminderTime || "10:00" })} />
+        {plan.reminderMode !== "deadline-only" || !task.deadlineTime
+          ? <TimePicker label="提醒时刻" value={plan.reminderTime} allowUnset={false} onChange={(reminderTime) => commit({ reminderTime: reminderTime || "10:00" })} />
+          : <DeadlineLeadPicker value={plan.deadlineLeadMinutes} onChange={(deadlineLeadMinutes) => commit({ deadlineLeadMinutes })} />}
         <div className="critical-plan-frequency">
           <span className="control-caption">提醒频率</span>
-          <SegmentedChoice label="提醒频率" value={plan.reminderMode} options={[["smart", "智能节点"], ["daily", "每天"], ["deadline-only", "仅截止日"]]} onChange={(reminderMode) => commit({ reminderMode })} compact />
+          <SegmentedChoice label="提醒频率" value={plan.reminderMode} options={[["smart", "智能节点"], ["final-days", "仅最后 X 天"], ["deadline-only", "仅截止日"]]} onChange={(reminderMode) => commit(reminderMode === "final-days" ? { reminderMode, reminderFinalDays: boundedFinalDays } : { reminderMode })} compact />
         </div>
         {plan.reminderMode === "smart" ? <div className="critical-plan-rule-grid">
           <div><small>间隔天数</small><Stepper label="间隔天数" value={plan.reminderMultiple} min={1} max={30} onChange={(reminderMultiple) => commit({ reminderMultiple })} /></div>
           <div><small>最后每天提醒</small><Stepper label="最后每天提醒天数" value={plan.reminderFinalDays} min={0} max={30} onChange={(reminderFinalDays) => commit({ reminderFinalDays })} /></div>
         </div> : null}
-        <output className="critical-plan-summary">{getCriticalReminder(plan)}</output>
+        {plan.reminderMode === "final-days" ? <div className="critical-plan-rule-single">
+          <small>最后每天提醒</small>
+          <Stepper label="最后每天提醒天数" value={boundedFinalDays} min={1} max={finalDaysMax} wrap onChange={(reminderFinalDays) => commit({ reminderFinalDays })} />
+          <span>天</span>
+        </div> : null}
+        <output className="critical-plan-summary">{getCriticalReminder({ ...task, ...plan, reminderFinalDays: plan.reminderMode === "final-days" ? boundedFinalDays : plan.reminderFinalDays })}</output>
       </> : null}
     </div>
   );
@@ -662,14 +697,13 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
       </div>
       <button className="primary-button accent pressable save-wide" onClick={() => onSave(task.id, { ...draft, title: draft.title.trim() })} disabled={!draft.title.trim()}>保存修改</button>
       {task.deadline ? (
-        <div className="renew-row">
-          <div className="renew-days-field">
-            <Icon name="refresh" size={17} />
-            <span className="renew-days-label">续期</span>
+        <div className="renew-panel">
+          <div className="renew-heading"><Icon name="refresh" size={17} /><span>续期</span><small>在当前截止日期后延长</small></div>
+          <div className="renew-controls">
             <Stepper label="续期天数" value={renewDays} min={1} max={365} onChange={onRenewDaysChange} />
             <span className="renew-days-unit">天</span>
+            <button className="secondary-button pressable renew-confirm" onClick={() => onRenew(task.id, renewDays)}>确认续期</button>
           </div>
-          <button className="secondary-button pressable renew-confirm" onClick={() => onRenew(task.id, renewDays)}>确认续期</button>
         </div>
       ) : null}
       <button className="primary-button accent pressable save-wide complete-wide" onClick={() => onComplete(task.id)}><Icon name="check" size={17} /> 已完成</button>
@@ -808,7 +842,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.12";
+const JINKE_FALLBACK_VERSION = "1.0.13";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

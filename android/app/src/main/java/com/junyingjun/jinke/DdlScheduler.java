@@ -52,7 +52,7 @@ final class DdlScheduler {
             for (int index = 0; index < tasks.length(); index++) {
                 JSONObject task = tasks.optJSONObject(index);
                 if (task == null || !task.optBoolean("reminderEnabled", true)) continue;
-                times.add(normalizeTime(task.optString("reminderTime", fallbackTime)));
+                times.add(reminderTimeFor(task, fallbackTime));
             }
         } catch (Exception ignored) {}
 
@@ -101,5 +101,25 @@ final class DdlScheduler {
     static String normalizeTime(String value) {
         if (value != null && value.matches("(?:[01]\\d|2[0-3]):[0-5]\\d")) return value;
         return "10:00";
+    }
+
+    static String reminderTimeFor(JSONObject task, String fallbackTime) {
+        String reminderTime = normalizeTime(task.optString("reminderTime", fallbackTime));
+        if (!"deadline-only".equals(task.optString("reminderMode", "smart"))) return reminderTime;
+        String deadlineTime = task.optString("deadlineTime", "");
+        if (!deadlineTime.matches("(?:[01]\\d|2[0-3]):[0-5]\\d")) return reminderTime;
+        int deadlineMinutes = Integer.parseInt(deadlineTime.substring(0, 2)) * 60 + Integer.parseInt(deadlineTime.substring(3));
+        int leadMinutes = Math.min(1435, Math.max(0, task.optInt("deadlineLeadMinutes", 0)));
+        int triggerMinutes = (deadlineMinutes - leadMinutes + 1440) % 1440;
+        return String.format(java.util.Locale.ROOT, "%02d:%02d", triggerMinutes / 60, triggerMinutes % 60);
+    }
+
+    static int reminderDayOffsetFor(JSONObject task) {
+        if (!"deadline-only".equals(task.optString("reminderMode", "smart"))) return 0;
+        String deadlineTime = task.optString("deadlineTime", "");
+        if (!deadlineTime.matches("(?:[01]\\d|2[0-3]):[0-5]\\d")) return 0;
+        int deadlineMinutes = Integer.parseInt(deadlineTime.substring(0, 2)) * 60 + Integer.parseInt(deadlineTime.substring(3));
+        int leadMinutes = Math.min(1435, Math.max(0, task.optInt("deadlineLeadMinutes", 0)));
+        return deadlineMinutes - leadMinutes < 0 ? 1 : 0;
     }
 }

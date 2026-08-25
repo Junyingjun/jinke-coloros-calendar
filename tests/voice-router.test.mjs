@@ -178,9 +178,15 @@ assert.equal(context.window.shouldRemindCritical(14, 7, 3), true, "custom remind
 assert.equal(context.window.shouldRemindCritical(4, 7, 3), false, "days outside a custom final window must stay quiet");
 assert.equal(context.window.shouldRemindCritical(3, 7, 3), true, "custom final reminder days must be honored");
 assert.match(context.window.getCriticalReminder({ deadline: "9月30日", reminderEnabled: true }, "09:30"), /09:30/);
-assert.equal(context.window.getCriticalReminder({ deadline: "9月30日", reminderEnabled: true, reminderMode: "daily", reminderTime: "08:15" }), "每天 08:15");
+assert.equal(context.window.getCriticalReminder({ deadline: "9月30日", reminderEnabled: true, reminderMode: "final-days", reminderFinalDays: 5, reminderTime: "08:15" }), "仅最后 5 天 · 08:15");
+assert.equal(context.window.shouldRemindCritical(6, { deadline: "9月30日", reminderEnabled: true, reminderMode: "final-days", reminderFinalDays: 5 }), false);
+assert.equal(context.window.shouldRemindCritical(5, { deadline: "9月30日", reminderEnabled: true, reminderMode: "final-days", reminderFinalDays: 5 }), true);
 assert.equal(context.window.shouldRemindCritical(4, { deadline: "9月30日", reminderEnabled: true, reminderMode: "deadline-only" }), false);
 assert.equal(context.window.shouldRemindCritical(0, { deadline: "9月30日", reminderEnabled: true, reminderMode: "deadline-only" }), true);
+assert.equal(context.window.getCriticalReminderTriggerTime({ deadline: "9月30日", deadlineTime: "14:00", reminderEnabled: true, reminderMode: "deadline-only", deadlineLeadMinutes: 90 }), "12:30");
+assert.equal(context.window.getCriticalReminderTriggerTime({ deadline: "9月30日", deadlineTime: "00:30", reminderEnabled: true, reminderMode: "deadline-only", deadlineLeadMinutes: 60 }), "23:30");
+assert.equal(context.window.getCriticalReminderDayOffset({ deadline: "9月30日", deadlineTime: "00:30", reminderEnabled: true, reminderMode: "deadline-only", deadlineLeadMinutes: 60 }), 1);
+assert.equal(context.window.shouldRemindCritical(1, { deadline: "9月30日", deadlineTime: "00:30", reminderEnabled: true, reminderMode: "deadline-only", deadlineLeadMinutes: 60 }), true);
 assert.match(screensSource, /TimePicker label="截止时刻"/, "critical task editing must expose a dedicated deadline time");
 assert.match(screensSource, /CriticalReminderPlanPicker task=/, "critical task editing must expose an independent reminder plan");
 assert.match(screensSource, /reminderTime[\s\S]*reminderMode[\s\S]*reminderMultiple/, "critical reminder time and cadence must be independently editable");
@@ -258,7 +264,8 @@ assert.doesNotMatch(screensSource, /已加入 ColorOS 白名单|\["通知权限"
 assert.doesNotMatch(screensSource, /sherpa-onnx|Zipformer/, "voice settings must not claim unbundled recognizers or models");
 assert.match(screensSource, /Vosk Offline[\s\S]*vosk-model-small-cn-0\.22[\s\S]*Vosk Android 0\.3\.75/, "voice settings must describe the engine and model actually packaged in the APK");
 assert.match(primitivesSource, /function SwipeTaskActions[\s\S]*swipe-edit[\s\S]*编辑[\s\S]*swipe-delete[\s\S]*删除/, "every task row must expose edit and delete after a left swipe");
-assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*width: 36%/, "swipe actions must be sized relative to the task row");
+assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*inset: 0[^}]*padding-left: 60%/, "swipe actions must fully cover the task row behind the revealed controls");
+assert.match(primitivesSource, /closeFromOutside[\s\S]*document\.addEventListener\("pointerdown"/, "tapping outside an open swipe row must close it");
 assert.match(appSource, /jinke-seed-migration-v2[\s\S]*legacyDailyIds[\s\S]*legacyCriticalIds/, "upgrades must remove legacy built-in task seeds while preserving custom entries");
 assert.match(appSource, /jinke-voice-note-migration-v3[\s\S]*replace\(\/\^语音创建/, "upgrades must remove the old synthetic voice-created note label");
 assert.match(screensSource, /左滑删除演示，点下方语音键创建第一项日程/, "daily demo must guide the first real task");
@@ -305,6 +312,10 @@ assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.r
 assert.doesNotMatch(screensSource, /<input[^>]*value=\{(?:editableTask|draft)\.reminder/, "reminder must never summon a text keyboard");
 assert.doesNotMatch(screensSource, /<select|type="(?:number|date|time)"/, "all finite choices must use the app's own controls instead of native Android pickers");
 assert.match(screensSource, /function DatePicker[\s\S]*截止年份[\s\S]*截止月份[\s\S]*截止日期/, "deadline editing must use a custom date control");
+assert.match(screensSource, /label="截止月份"[\s\S]{0,140}wrap[\s\S]*label="截止日期"[\s\S]{0,140}wrap/, "deadline month and day controls must loop");
+assert.match(screensSource, /finalDaysMax = deadlineDaysFromToday[\s\S]*max=\{finalDaysMax\} wrap/, "the final-days reminder limit must follow the actual remaining date span and loop");
+assert.match(screensSource, /function DeadlineLeadPicker[\s\S]*截止时刻前[\s\S]*截止前小时[\s\S]*截止前分钟/, "deadline-only reminders with a deadline time must edit a lead-time offset");
+assert.match(screensSource, /renew-panel[\s\S]*renew-controls[\s\S]*确认续期/, "renewal controls must use a dedicated non-overflowing panel");
 assert.match(primitivesSource, /function DailyTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a daily task must only toggle completion");
 assert.match(primitivesSource, /function CriticalTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a critical task must only toggle completion");
 assert.doesNotMatch(primitivesSource, /task-time-edit|task-edit-button/, "task bodies must not retain hidden click-to-edit affordances");

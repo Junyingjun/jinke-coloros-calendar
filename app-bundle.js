@@ -108,22 +108,42 @@ window.normalizeCriticalReminderPlan = function normalizeCriticalReminderPlan() 
   var defaultFinalDays = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : window.JINKE_DDL_REMINDER_FINAL_DAYS || 5;
   var source = task && _typeof(task) === "object" ? task : {};
   var reminderTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(source.reminderTime || "") ? source.reminderTime : defaultTime;
-  var reminderMode = ["smart", "daily", "deadline-only"].includes(source.reminderMode) ? source.reminderMode : "smart";
+  var reminderMode = source.reminderMode === "daily" ? "final-days" : ["smart", "final-days", "deadline-only"].includes(source.reminderMode) ? source.reminderMode : "smart";
+  var deadlineMinutes = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(source.deadlineTime || "") ? Number(source.deadlineTime.slice(0, 2)) * 60 + Number(source.deadlineTime.slice(3)) : null;
+  var reminderMinutes = Number(reminderTime.slice(0, 2)) * 60 + Number(reminderTime.slice(3));
+  var inferredLeadMinutes = deadlineMinutes === null || reminderMinutes > deadlineMinutes ? 0 : deadlineMinutes - reminderMinutes;
+  var deadlineLeadMinutes = Math.min(1435, Math.max(0, source.deadlineLeadMinutes !== undefined && source.deadlineLeadMinutes !== null ? Math.round((Number(source.deadlineLeadMinutes) || 0) / 5) * 5 : inferredLeadMinutes));
   return {
     reminderEnabled: typeof source.reminderEnabled === "boolean" ? source.reminderEnabled : Boolean(source.deadline),
     reminderTime: reminderTime,
     reminderMode: reminderMode,
     reminderMultiple: Math.max(1, Number(source.reminderMultiple) || Number(defaultMultiple) || 5),
-    reminderFinalDays: Math.max(0, source.reminderFinalDays !== undefined && source.reminderFinalDays !== null ? Number(source.reminderFinalDays) || 0 : Number(defaultFinalDays) || 0)
+    reminderFinalDays: Math.max(0, source.reminderFinalDays !== undefined && source.reminderFinalDays !== null ? Number(source.reminderFinalDays) || 0 : Number(defaultFinalDays) || 0),
+    deadlineLeadMinutes: deadlineLeadMinutes
   };
+};
+window.getCriticalReminderTriggerTime = function getCriticalReminderTriggerTime() {
+  var taskOrPlan = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  var plan = window.normalizeCriticalReminderPlan(taskOrPlan);
+  if (plan.reminderMode !== "deadline-only" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskOrPlan.deadlineTime || "")) return plan.reminderTime;
+  var deadlineMinutes = Number(taskOrPlan.deadlineTime.slice(0, 2)) * 60 + Number(taskOrPlan.deadlineTime.slice(3));
+  var triggerMinutes = (deadlineMinutes - plan.deadlineLeadMinutes + 1440) % 1440;
+  return "".concat(String(Math.floor(triggerMinutes / 60)).padStart(2, "0"), ":").concat(String(triggerMinutes % 60).padStart(2, "0"));
+};
+window.getCriticalReminderDayOffset = function getCriticalReminderDayOffset() {
+  var taskOrPlan = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  var plan = window.normalizeCriticalReminderPlan(taskOrPlan);
+  if (plan.reminderMode !== "deadline-only" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskOrPlan.deadlineTime || "")) return 0;
+  var deadlineMinutes = Number(taskOrPlan.deadlineTime.slice(0, 2)) * 60 + Number(taskOrPlan.deadlineTime.slice(3));
+  return deadlineMinutes - plan.deadlineLeadMinutes < 0 ? 1 : 0;
 };
 window.shouldRemindCritical = function shouldRemindCritical(daysLeft, planOrMultiple, finalDays) {
   if (!Number.isFinite(daysLeft) || daysLeft < 0) return false;
   if (planOrMultiple && _typeof(planOrMultiple) === "object") {
     var plan = window.normalizeCriticalReminderPlan(planOrMultiple);
     if (!plan.reminderEnabled) return false;
-    if (plan.reminderMode === "daily") return true;
-    if (plan.reminderMode === "deadline-only") return daysLeft === 0;
+    if (plan.reminderMode === "final-days") return daysLeft <= plan.reminderFinalDays;
+    if (plan.reminderMode === "deadline-only") return daysLeft === window.getCriticalReminderDayOffset(planOrMultiple);
     return daysLeft <= plan.reminderFinalDays || daysLeft % plan.reminderMultiple === 0;
   }
   var safeMultiple = Math.max(1, Number(planOrMultiple) || window.JINKE_DDL_REMINDER_MULTIPLE || 5);
@@ -137,7 +157,13 @@ window.getCriticalReminder = function getCriticalReminder() {
   var defaultFinalDays = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : window.JINKE_DDL_REMINDER_FINAL_DAYS || 5;
   var plan = window.normalizeCriticalReminderPlan(taskOrPlan && _typeof(taskOrPlan) === "object" ? taskOrPlan : {}, defaultTime, defaultMultiple, defaultFinalDays);
   if (!plan.reminderEnabled) return "不提醒";
-  if (plan.reminderMode === "daily") return "\u6BCF\u5929 ".concat(plan.reminderTime);
+  if (plan.reminderMode === "final-days") return "\u4EC5\u6700\u540E ".concat(plan.reminderFinalDays, " \u5929 \xB7 ").concat(plan.reminderTime);
+  if (plan.reminderMode === "deadline-only" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskOrPlan.deadlineTime || "")) {
+    var hours = Math.floor(plan.deadlineLeadMinutes / 60);
+    var minutes = plan.deadlineLeadMinutes % 60;
+    var lead = "".concat(hours ? "".concat(hours, " \u5C0F\u65F6") : "").concat(hours && minutes ? " " : "").concat(minutes || !hours ? "".concat(minutes, " \u5206\u949F") : "");
+    return "\u622A\u6B62\u65F6\u523B\u524D ".concat(lead);
+  }
   if (plan.reminderMode === "deadline-only") return "\u4EC5\u622A\u6B62\u65E5 ".concat(plan.reminderTime);
   return "\u6BCF ".concat(plan.reminderMultiple, " \u5929 \xB7 \u6700\u540E ").concat(plan.reminderFinalDays, " \u5929\u6BCF\u5929 \xB7 ").concat(plan.reminderTime);
 };
@@ -501,7 +527,7 @@ function SwipeTaskActions(_ref5) {
     onEdit = _ref5.onEdit,
     onDelete = _ref5.onDelete,
     children = _ref5.children;
-  var revealRatio = 0.36;
+  var revealRatio = 0.4;
   var _React$useState = React.useState(0),
     _React$useState2 = _slicedToArray(_React$useState, 2),
     offsetRatio = _React$useState2[0],
@@ -509,10 +535,31 @@ function SwipeTaskActions(_ref5) {
   var gestureRef = React.useRef(null);
   var offsetRef = React.useRef(0);
   var suppressClickRef = React.useRef(false);
+  var rootRef = React.useRef(null);
+  var instanceIdRef = React.useRef("swipe-".concat(Math.random().toString(36).slice(2)));
   var settle = function settle(next) {
     offsetRef.current = next;
     setOffsetRatio(next);
   };
+  React.useEffect(function () {
+    var closeFromOutside = function closeFromOutside(event) {
+      if (offsetRef.current < 0 && rootRef.current && !rootRef.current.contains(event.target)) settle(0);
+    };
+    var closeAnother = function closeAnother(event) {
+      if (event.detail !== instanceIdRef.current && offsetRef.current < 0) settle(0);
+    };
+    var closeOnScroll = function closeOnScroll() {
+      if (offsetRef.current < 0) settle(0);
+    };
+    document.addEventListener("pointerdown", closeFromOutside, true);
+    document.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("jinke-swipe-open", closeAnother);
+    return function () {
+      document.removeEventListener("pointerdown", closeFromOutside, true);
+      document.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("jinke-swipe-open", closeAnother);
+    };
+  }, []);
   var onPointerDown = function onPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
     gestureRef.current = {
@@ -549,7 +596,11 @@ function SwipeTaskActions(_ref5) {
       window.setTimeout(function () {
         suppressClickRef.current = false;
       }, 0);
-      settle(offsetRef.current <= -0.13 ? -revealRatio : 0);
+      var next = offsetRef.current <= -0.13 ? -revealRatio : 0;
+      settle(next);
+      if (next < 0) window.dispatchEvent(new CustomEvent("jinke-swipe-open", {
+        detail: instanceIdRef.current
+      }));
     }
     gestureRef.current = null;
     if ((_event$currentTarget$2 = (_event$currentTarget2 = event.currentTarget).hasPointerCapture) !== null && _event$currentTarget$2 !== void 0 && _event$currentTarget$2.call(_event$currentTarget2, event.pointerId)) (_event$currentTarget$3 = (_event$currentTarget3 = event.currentTarget).releasePointerCapture) === null || _event$currentTarget$3 === void 0 || _event$currentTarget$3.call(_event$currentTarget3, event.pointerId);
@@ -564,6 +615,7 @@ function SwipeTaskActions(_ref5) {
     }
   };
   return React.createElement("div", {
+    ref: rootRef,
     className: "swipe-task ".concat(offsetRatio < 0 ? "is-open" : ""),
     "aria-label": label,
     onPointerDown: onPointerDown,
@@ -1125,6 +1177,7 @@ function DatePicker(_ref8) {
     value: month,
     min: 1,
     max: 12,
+    wrap: true,
     onChange: function onChange(next) {
       return update(year, next, day);
     }
@@ -1133,6 +1186,7 @@ function DatePicker(_ref8) {
     value: day,
     min: 1,
     max: maxDay,
+    wrap: true,
     onChange: function onChange(next) {
       return update(year, month, next);
     }
@@ -1140,11 +1194,63 @@ function DatePicker(_ref8) {
     className: "picker-empty"
   }, "\u672A\u8BBE\u7F6E"));
 }
-function CriticalReminderPlanPicker(_ref9) {
-  var task = _ref9.task,
+function deadlineDaysFromToday(deadline) {
+  var iso = deadlineToDateInput(deadline);
+  if (!iso) return 1;
+  var _iso$split$map3 = iso.split("-").map(Number),
+    _iso$split$map4 = _slicedToArray(_iso$split$map3, 3),
+    year = _iso$split$map4[0],
+    month = _iso$split$map4[1],
+    day = _iso$split$map4[2];
+  var today = new Date();
+  var start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+  var end = new Date(year, month - 1, day, 12);
+  return Math.max(1, Math.round((end - start) / 86400000));
+}
+function DeadlineLeadPicker(_ref9) {
+  var value = _ref9.value,
     onChange = _ref9.onChange;
+  var safe = Math.min(1435, Math.max(0, Math.round((Number(value) || 0) / 5) * 5));
+  var hours = Math.floor(safe / 60);
+  var minutes = safe % 60;
+  var update = function update(nextHours, nextMinutes) {
+    return onChange(Math.min(1435, nextHours * 60 + nextMinutes));
+  };
+  return React.createElement("div", {
+    className: "deadline-lead-picker",
+    "aria-label": "\u622A\u6B62\u65F6\u523B\u524D\u63D0\u9192"
+  }, React.createElement("span", {
+    className: "control-caption"
+  }, "\u622A\u6B62\u65F6\u523B\u524D"), React.createElement("div", {
+    className: "reminder-stepper-row"
+  }, React.createElement("div", null, React.createElement("small", null, "\u5C0F\u65F6"), React.createElement(Stepper, {
+    label: "\u622A\u6B62\u524D\u5C0F\u65F6",
+    value: hours,
+    min: 0,
+    max: 23,
+    wrap: true,
+    onChange: function onChange(next) {
+      return update(next, minutes);
+    }
+  })), React.createElement("div", null, React.createElement("small", null, "\u5206\u949F"), React.createElement(Stepper, {
+    label: "\u622A\u6B62\u524D\u5206\u949F",
+    value: minutes,
+    min: 0,
+    max: 55,
+    step: 5,
+    wrap: true,
+    onChange: function onChange(next) {
+      return update(hours, next);
+    }
+  }))));
+}
+function CriticalReminderPlanPicker(_ref10) {
+  var task = _ref10.task,
+    onChange = _ref10.onChange;
   var plan = normalizeCriticalReminderPlan(task);
   var enabled = Boolean(task.deadline && plan.reminderEnabled);
+  var finalDaysMax = deadlineDaysFromToday(task.deadline);
+  var boundedFinalDays = Math.min(Math.max(1, plan.reminderFinalDays || 1), finalDaysMax);
   var commit = function commit(changes) {
     var next = _objectSpread(_objectSpread(_objectSpread({}, task), plan), changes);
     next.reminder = getCriticalReminder(next);
@@ -1166,13 +1272,20 @@ function CriticalReminderPlanPicker(_ref9) {
     }
   }, enabled ? "已开启" : "不提醒")), !task.deadline ? React.createElement("span", {
     className: "picker-empty"
-  }, "\u8BBE\u7F6E\u622A\u6B62\u65E5\u671F\u540E\u53EF\u5F00\u542F") : enabled ? React.createElement(React.Fragment, null, React.createElement(TimePicker, {
+  }, "\u8BBE\u7F6E\u622A\u6B62\u65E5\u671F\u540E\u53EF\u5F00\u542F") : enabled ? React.createElement(React.Fragment, null, plan.reminderMode !== "deadline-only" || !task.deadlineTime ? React.createElement(TimePicker, {
     label: "\u63D0\u9192\u65F6\u523B",
     value: plan.reminderTime,
     allowUnset: false,
     onChange: function onChange(reminderTime) {
       return commit({
         reminderTime: reminderTime || "10:00"
+      });
+    }
+  }) : React.createElement(DeadlineLeadPicker, {
+    value: plan.deadlineLeadMinutes,
+    onChange: function onChange(deadlineLeadMinutes) {
+      return commit({
+        deadlineLeadMinutes: deadlineLeadMinutes
       });
     }
   }), React.createElement("div", {
@@ -1182,9 +1295,12 @@ function CriticalReminderPlanPicker(_ref9) {
   }, "\u63D0\u9192\u9891\u7387"), React.createElement(SegmentedChoice, {
     label: "\u63D0\u9192\u9891\u7387",
     value: plan.reminderMode,
-    options: [["smart", "智能节点"], ["daily", "每天"], ["deadline-only", "仅截止日"]],
+    options: [["smart", "智能节点"], ["final-days", "仅最后 X 天"], ["deadline-only", "仅截止日"]],
     onChange: function onChange(reminderMode) {
-      return commit({
+      return commit(reminderMode === "final-days" ? {
+        reminderMode: reminderMode,
+        reminderFinalDays: boundedFinalDays
+      } : {
         reminderMode: reminderMode
       });
     },
@@ -1211,14 +1327,29 @@ function CriticalReminderPlanPicker(_ref9) {
         reminderFinalDays: reminderFinalDays
       });
     }
-  }))) : null, React.createElement("output", {
+  }))) : null, plan.reminderMode === "final-days" ? React.createElement("div", {
+    className: "critical-plan-rule-single"
+  }, React.createElement("small", null, "\u6700\u540E\u6BCF\u5929\u63D0\u9192"), React.createElement(Stepper, {
+    label: "\u6700\u540E\u6BCF\u5929\u63D0\u9192\u5929\u6570",
+    value: boundedFinalDays,
+    min: 1,
+    max: finalDaysMax,
+    wrap: true,
+    onChange: function onChange(reminderFinalDays) {
+      return commit({
+        reminderFinalDays: reminderFinalDays
+      });
+    }
+  }), React.createElement("span", null, "\u5929")) : null, React.createElement("output", {
     className: "critical-plan-summary"
-  }, getCriticalReminder(plan))) : null);
+  }, getCriticalReminder(_objectSpread(_objectSpread(_objectSpread({}, task), plan), {}, {
+    reminderFinalDays: plan.reminderMode === "final-days" ? boundedFinalDays : plan.reminderFinalDays
+  })))) : null);
 }
-function WeekStrip(_ref10) {
-  var selectedDateKey = _ref10.selectedDateKey,
-    todayDateKey = _ref10.todayDateKey,
-    onSelectDate = _ref10.onSelectDate;
+function WeekStrip(_ref11) {
+  var selectedDateKey = _ref11.selectedDateKey,
+    todayDateKey = _ref11.todayDateKey,
+    onSelectDate = _ref11.onSelectDate;
   return React.createElement("div", {
     className: "week-strip",
     "aria-label": "\u672C\u5468"
@@ -1248,10 +1379,10 @@ function WeekStrip(_ref10) {
     })));
   }));
 }
-function MonthPeekPanel(_ref11) {
-  var selectedDateKey = _ref11.selectedDateKey,
-    todayDateKey = _ref11.todayDateKey,
-    onSelectDate = _ref11.onSelectDate;
+function MonthPeekPanel(_ref12) {
+  var selectedDateKey = _ref12.selectedDateKey,
+    todayDateKey = _ref12.todayDateKey,
+    onSelectDate = _ref12.onSelectDate;
   var selected = getDateMeta(selectedDateKey);
   var monthDays = getMonthDates(selectedDateKey);
   return React.createElement("div", {
@@ -1311,9 +1442,9 @@ function MonthPeekPanel(_ref11) {
     }
   }, "\u4ECA\u5929"));
 }
-function ViewMenu(_ref12) {
-  var onSelect = _ref12.onSelect,
-    onClose = _ref12.onClose;
+function ViewMenu(_ref13) {
+  var onSelect = _ref13.onSelect,
+    onClose = _ref13.onClose;
   return React.createElement(Sheet, {
     onClose: onClose,
     label: "\u68C0\u89C6\u65B9\u5F0F"
@@ -1347,22 +1478,22 @@ function ViewMenu(_ref12) {
     }));
   })));
 }
-function TodayScreen(_ref13) {
-  var tasks = _ref13.tasks,
-    deadlineTasks = _ref13.deadlineTasks,
-    onToggle = _ref13.onToggle,
-    onEdit = _ref13.onEdit,
-    onDeleteDaily = _ref13.onDeleteDaily,
-    onToggleCritical = _ref13.onToggleCritical,
-    onOpenCritical = _ref13.onOpenCritical,
-    onDeleteCritical = _ref13.onDeleteCritical,
-    onMenu = _ref13.onMenu,
-    viewMode = _ref13.viewMode,
-    onOpenView = _ref13.onOpenView,
-    selectedDateKey = _ref13.selectedDateKey,
-    todayDateKey = _ref13.todayDateKey,
-    onSelectDate = _ref13.onSelectDate,
-    onOpenDayArchive = _ref13.onOpenDayArchive;
+function TodayScreen(_ref14) {
+  var tasks = _ref14.tasks,
+    deadlineTasks = _ref14.deadlineTasks,
+    onToggle = _ref14.onToggle,
+    onEdit = _ref14.onEdit,
+    onDeleteDaily = _ref14.onDeleteDaily,
+    onToggleCritical = _ref14.onToggleCritical,
+    onOpenCritical = _ref14.onOpenCritical,
+    onDeleteCritical = _ref14.onDeleteCritical,
+    onMenu = _ref14.onMenu,
+    viewMode = _ref14.viewMode,
+    onOpenView = _ref14.onOpenView,
+    selectedDateKey = _ref14.selectedDateKey,
+    todayDateKey = _ref14.todayDateKey,
+    onSelectDate = _ref14.onSelectDate,
+    onOpenDayArchive = _ref14.onOpenDayArchive;
   var done = tasks.filter(function (task) {
     return task.done;
   }).length;
@@ -1577,13 +1708,13 @@ function loadArchiveCategory(category, month, day) {
   ON_THIS_DAY_REQUESTS.set(key, request);
   return request;
 }
-function CalendarDaySheet(_ref14) {
-  var dateKey = _ref14.dateKey,
-    onClose = _ref14.onClose,
-    active = _ref14.active,
-    index = _ref14.index,
-    onActiveChange = _ref14.onActiveChange,
-    onIndexChange = _ref14.onIndexChange;
+function CalendarDaySheet(_ref15) {
+  var dateKey = _ref15.dateKey,
+    onClose = _ref15.onClose,
+    active = _ref15.active,
+    index = _ref15.index,
+    onActiveChange = _ref15.onActiveChange,
+    onIndexChange = _ref15.onIndexChange;
   var _React$useState = React.useState({
       holidays: [],
       events: [],
@@ -1709,13 +1840,13 @@ function CalendarDaySheet(_ref14) {
     size: 16
   }), "\u6362\u4E00\u6761")));
 }
-function CriticalScreen(_ref15) {
-  var tasks = _ref15.tasks,
-    onToggle = _ref15.onToggle,
-    onOpen = _ref15.onOpen,
-    onDelete = _ref15.onDelete,
-    onMenu = _ref15.onMenu,
-    onOpenReminders = _ref15.onOpenReminders;
+function CriticalScreen(_ref16) {
+  var tasks = _ref16.tasks,
+    onToggle = _ref16.onToggle,
+    onOpen = _ref16.onOpen,
+    onDelete = _ref16.onDelete,
+    onMenu = _ref16.onMenu,
+    onOpenReminders = _ref16.onOpenReminders;
   var withDDL = tasks.filter(function (task) {
     return task.deadline;
   });
@@ -1798,20 +1929,20 @@ function Waveform() {
     });
   }));
 }
-function VoiceComposer(_ref16) {
+function VoiceComposer(_ref17) {
   var _editableTask$title;
-  var phase = _ref16.phase,
-    transcript = _ref16.transcript,
-    parsedCommand = _ref16.parsedCommand,
-    draftTask = _ref16.draftTask,
-    onDraftTaskChange = _ref16.onDraftTaskChange,
-    onTranscript = _ref16.onTranscript,
-    onStop = _ref16.onStop,
-    onUseInputMethod = _ref16.onUseInputMethod,
-    onConfirm = _ref16.onConfirm,
-    onClose = _ref16.onClose,
-    speechAvailable = _ref16.speechAvailable,
-    speechStatus = _ref16.speechStatus;
+  var phase = _ref17.phase,
+    transcript = _ref17.transcript,
+    parsedCommand = _ref17.parsedCommand,
+    draftTask = _ref17.draftTask,
+    onDraftTaskChange = _ref17.onDraftTaskChange,
+    onTranscript = _ref17.onTranscript,
+    onStop = _ref17.onStop,
+    onUseInputMethod = _ref17.onUseInputMethod,
+    onConfirm = _ref17.onConfirm,
+    onClose = _ref17.onClose,
+    speechAvailable = _ref17.speechAvailable,
+    speechStatus = _ref17.speechStatus;
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
@@ -2024,10 +2155,10 @@ function VoiceComposer(_ref16) {
     className: "parsed-title"
   }, parsedCommand.heading), React.createElement("div", {
     className: "field-list"
-  }, parsedCommand.rows.map(function (_ref17, index) {
-    var _ref18 = _slicedToArray(_ref17, 2),
-      label = _ref18[0],
-      value = _ref18[1];
+  }, parsedCommand.rows.map(function (_ref18, index) {
+    var _ref19 = _slicedToArray(_ref18, 2),
+      label = _ref19[0],
+      value = _ref19[1];
     return React.createElement("div", {
       className: "field-row",
       key: "".concat(label, "-").concat(index)
@@ -2050,12 +2181,12 @@ function VoiceComposer(_ref16) {
     disabled: !canConfirm
   }, parsedCommand.confirmLabel))));
 }
-function DailyEditSheet(_ref19) {
-  var task = _ref19.task,
-    draft = _ref19.draft,
-    onDraftChange = _ref19.onDraftChange,
-    onSave = _ref19.onSave,
-    onClose = _ref19.onClose;
+function DailyEditSheet(_ref20) {
+  var task = _ref20.task,
+    draft = _ref20.draft,
+    onDraftChange = _ref20.onDraftChange,
+    onSave = _ref20.onSave,
+    onClose = _ref20.onClose;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -2136,11 +2267,11 @@ function DailyEditSheet(_ref19) {
     disabled: !draft.title.trim()
   }, "\u4FDD\u5B58\u4FEE\u6539")));
 }
-function MoreSheet(_ref20) {
-  var onClose = _ref20.onClose,
-    onOpen = _ref20.onOpen,
-    themeMode = _ref20.themeMode,
-    onThemeChange = _ref20.onThemeChange;
+function MoreSheet(_ref21) {
+  var onClose = _ref21.onClose,
+    onOpen = _ref21.onOpen,
+    themeMode = _ref21.themeMode,
+    onThemeChange = _ref21.onThemeChange;
   var rows = [["history", "历史记录", "history"], ["month", "月度复盘", "chart"], ["year", "年度复盘", "year"], ["permissions", "通知与权限", "bell"], ["voice", "语音模型", "spark"], ["version", "版本更新", "update"], ["settings", "设置", "settings"]];
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -2149,10 +2280,10 @@ function MoreSheet(_ref20) {
     className: "theme-switch theme-switch-first",
     role: "group",
     "aria-label": "\u5916\u89C2"
-  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref21) {
-    var _ref22 = _slicedToArray(_ref21, 2),
-      mode = _ref22[0],
-      label = _ref22[1];
+  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref22) {
+    var _ref23 = _slicedToArray(_ref22, 2),
+      mode = _ref23[0],
+      label = _ref23[1];
     return React.createElement("button", {
       className: "theme-option ".concat(themeMode === mode ? "active" : ""),
       "aria-pressed": themeMode === mode,
@@ -2163,11 +2294,11 @@ function MoreSheet(_ref20) {
     }, label);
   })), React.createElement("div", {
     className: "menu-list"
-  }, rows.map(function (_ref23) {
-    var _ref24 = _slicedToArray(_ref23, 3),
-      id = _ref24[0],
-      title = _ref24[1],
-      icon = _ref24[2];
+  }, rows.map(function (_ref24) {
+    var _ref25 = _slicedToArray(_ref24, 3),
+      id = _ref25[0],
+      title = _ref25[1],
+      icon = _ref25[2];
     return React.createElement("button", {
       className: "menu-row",
       key: id,
@@ -2187,17 +2318,17 @@ function MoreSheet(_ref20) {
     }));
   })));
 }
-function CriticalDetailSheet(_ref25) {
+function CriticalDetailSheet(_ref26) {
   var _draft$progress;
-  var task = _ref25.task,
-    draft = _ref25.draft,
-    renewDays = _ref25.renewDays,
-    onRenewDaysChange = _ref25.onRenewDaysChange,
-    onDraftChange = _ref25.onDraftChange,
-    onClose = _ref25.onClose,
-    onComplete = _ref25.onComplete,
-    onRenew = _ref25.onRenew,
-    onSave = _ref25.onSave;
+  var task = _ref26.task,
+    draft = _ref26.draft,
+    renewDays = _ref26.renewDays,
+    onRenewDaysChange = _ref26.onRenewDaysChange,
+    onDraftChange = _ref26.onDraftChange,
+    onClose = _ref26.onClose,
+    onComplete = _ref26.onComplete,
+    onRenew = _ref26.onRenew,
+    onSave = _ref26.onSave;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -2284,15 +2415,15 @@ function CriticalDetailSheet(_ref25) {
     },
     disabled: !draft.title.trim()
   }, "\u4FDD\u5B58\u4FEE\u6539"), task.deadline ? React.createElement("div", {
-    className: "renew-row"
+    className: "renew-panel"
   }, React.createElement("div", {
-    className: "renew-days-field"
+    className: "renew-heading"
   }, React.createElement(Icon, {
     name: "refresh",
     size: 17
-  }), React.createElement("span", {
-    className: "renew-days-label"
-  }, "\u7EED\u671F"), React.createElement(Stepper, {
+  }), React.createElement("span", null, "\u7EED\u671F"), React.createElement("small", null, "\u5728\u5F53\u524D\u622A\u6B62\u65E5\u671F\u540E\u5EF6\u957F")), React.createElement("div", {
+    className: "renew-controls"
+  }, React.createElement(Stepper, {
     label: "\u7EED\u671F\u5929\u6570",
     value: renewDays,
     min: 1,
@@ -2300,12 +2431,12 @@ function CriticalDetailSheet(_ref25) {
     onChange: onRenewDaysChange
   }), React.createElement("span", {
     className: "renew-days-unit"
-  }, "\u5929")), React.createElement("button", {
+  }, "\u5929"), React.createElement("button", {
     className: "secondary-button pressable renew-confirm",
     onClick: function onClick() {
       return onRenew(task.id, renewDays);
     }
-  }, "\u786E\u8BA4\u7EED\u671F")) : null, React.createElement("button", {
+  }, "\u786E\u8BA4\u7EED\u671F"))) : null, React.createElement("button", {
     className: "primary-button accent pressable save-wide complete-wide",
     onClick: function onClick() {
       return onComplete(task.id);
@@ -2315,9 +2446,9 @@ function CriticalDetailSheet(_ref25) {
     size: 17
   }), " \u5DF2\u5B8C\u6210"));
 }
-function HistoryScreen(_ref26) {
-  var items = _ref26.items,
-    onBack = _ref26.onBack;
+function HistoryScreen(_ref27) {
+  var items = _ref27.items,
+    onBack = _ref27.onBack;
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -2346,9 +2477,9 @@ function HistoryScreen(_ref26) {
     className: "empty-guide"
   }, "\u8FD8\u6CA1\u6709\u5DF2\u5B8C\u6210\u7684\u5173\u952E\u4E8B\u9879") : null));
 }
-function ReportScreen(_ref27) {
-  var type = _ref27.type,
-    onBack = _ref27.onBack;
+function ReportScreen(_ref28) {
+  var type = _ref28.type,
+    onBack = _ref28.onBack;
   var monthly = type === "month";
   var ranking = monthly ? APP_DATA.monthRanking : APP_DATA.yearRanking;
   var hasData = ranking.length > 0 || APP_DATA.ddlRanking.length > 0;
@@ -2385,10 +2516,10 @@ function ReportScreen(_ref27) {
     className: "empty-guide report-empty"
   }, "\u5B8C\u6210\u4EFB\u52A1\u540E\uFF0C\u8FD9\u91CC\u4F1A\u751F\u6210\u771F\u5B9E\u590D\u76D8"));
 }
-function DeleteConfirmSheet(_ref28) {
-  var target = _ref28.target,
-    onClose = _ref28.onClose,
-    onConfirm = _ref28.onConfirm;
+function DeleteConfirmSheet(_ref29) {
+  var target = _ref29.target,
+    onClose = _ref29.onClose,
+    onConfirm = _ref29.onConfirm;
   if (!(target !== null && target !== void 0 && target.task)) return null;
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -2407,10 +2538,10 @@ function DeleteConfirmSheet(_ref28) {
     onClick: onConfirm
   }, "\u5220\u9664")));
 }
-function PermissionsScreen(_ref29) {
-  var capabilities = _ref29.capabilities,
-    onOpenCapability = _ref29.onOpenCapability,
-    onBack = _ref29.onBack;
+function PermissionsScreen(_ref30) {
+  var capabilities = _ref30.capabilities,
+    onOpenCapability = _ref30.onOpenCapability,
+    onBack = _ref30.onBack;
   var known = Boolean(capabilities);
   var state = function state(value) {
     var yes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "已开启";
@@ -2515,16 +2646,16 @@ function PermissionsScreen(_ref29) {
     }, content);
   })));
 }
-function CriticalReminderScreen(_ref30) {
-  var tasks = _ref30.tasks,
-    reminderTime = _ref30.reminderTime,
-    onReminderTimeChange = _ref30.onReminderTimeChange,
-    reminderMultiple = _ref30.reminderMultiple,
-    onReminderMultipleChange = _ref30.onReminderMultipleChange,
-    reminderFinalDays = _ref30.reminderFinalDays,
-    onReminderFinalDaysChange = _ref30.onReminderFinalDaysChange,
-    onOpenPermissions = _ref30.onOpenPermissions,
-    onBack = _ref30.onBack;
+function CriticalReminderScreen(_ref31) {
+  var tasks = _ref31.tasks,
+    reminderTime = _ref31.reminderTime,
+    onReminderTimeChange = _ref31.onReminderTimeChange,
+    reminderMultiple = _ref31.reminderMultiple,
+    onReminderMultipleChange = _ref31.onReminderMultipleChange,
+    reminderFinalDays = _ref31.reminderFinalDays,
+    onReminderFinalDaysChange = _ref31.onReminderFinalDaysChange,
+    onOpenPermissions = _ref31.onOpenPermissions,
+    onBack = _ref31.onBack;
   var reminderTasks = tasks.filter(function (task) {
     return task.deadline && shouldRemindCritical(task.daysLeft, task);
   });
@@ -2622,7 +2753,7 @@ function CriticalReminderScreen(_ref30) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.12";
+var JINKE_FALLBACK_VERSION = "1.0.13";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2638,8 +2769,8 @@ function compareVersions(left, right) {
   }
   return 0;
 }
-function VersionScreen(_ref31) {
-  var onBack = _ref31.onBack;
+function VersionScreen(_ref32) {
+  var onBack = _ref32.onBack;
   var currentVersion = function () {
     try {
       var _window$JinkeAndroid, _window$JinkeAndroid$;
@@ -2737,9 +2868,9 @@ function VersionScreen(_ref31) {
     size: 15
   })));
 }
-function VoiceSettingsScreen(_ref32) {
-  var capabilities = _ref32.capabilities,
-    onBack = _ref32.onBack;
+function VoiceSettingsScreen(_ref33) {
+  var capabilities = _ref33.capabilities,
+    onBack = _ref33.onBack;
   var modelStatus = capabilities ? capabilities.offlineSpeechReady ? "已加载" : capabilities.offlineSpeechBundled ? "已内置" : "组件缺失" : "APK 内置";
   return React.createElement("main", {
     className: "screen secondary"
@@ -2990,7 +3121,10 @@ function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
 function withCriticalReminderDefaults(task) {
   var _task$deadlineTime;
   var deadlineTime = (_task$deadlineTime = task.deadlineTime) !== null && _task$deadlineTime !== void 0 ? _task$deadlineTime : task.time && task.time !== "待定" ? task.time : null;
-  var plan = normalizeCriticalReminderPlan(task);
+  var normalizedPlan = normalizeCriticalReminderPlan(task);
+  var plan = normalizedPlan.reminderMode === "final-days" && Number.isFinite(task.daysLeft) ? _objectSpread(_objectSpread({}, normalizedPlan), {}, {
+    reminderFinalDays: Math.min(Math.max(1, task.daysLeft), Math.max(1, normalizedPlan.reminderFinalDays))
+  }) : normalizedPlan;
   var next = _objectSpread(_objectSpread({}, task), {}, {
     deadlineTime: deadlineTime,
     time: deadlineTime
@@ -4095,7 +4229,8 @@ function MobileDesignApp() {
       return _objectSpread({
         id: task.id,
         title: task.title,
-        daysLeft: task.daysLeft
+        daysLeft: task.daysLeft,
+        deadlineTime: task.deadlineTime || null
       }, plan);
     });
     try {

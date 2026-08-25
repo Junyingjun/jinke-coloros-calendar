@@ -44,16 +44,36 @@ function SectionHeader({ title, note }) {
 }
 
 function SwipeTaskActions({ label, onEdit, onDelete, children }) {
-  const revealRatio = 0.36;
+  const revealRatio = 0.4;
   const [offsetRatio, setOffsetRatio] = React.useState(0);
   const gestureRef = React.useRef(null);
   const offsetRef = React.useRef(0);
   const suppressClickRef = React.useRef(false);
+  const rootRef = React.useRef(null);
+  const instanceIdRef = React.useRef(`swipe-${Math.random().toString(36).slice(2)}`);
 
   const settle = (next) => {
     offsetRef.current = next;
     setOffsetRatio(next);
   };
+
+  React.useEffect(() => {
+    const closeFromOutside = (event) => {
+      if (offsetRef.current < 0 && rootRef.current && !rootRef.current.contains(event.target)) settle(0);
+    };
+    const closeAnother = (event) => {
+      if (event.detail !== instanceIdRef.current && offsetRef.current < 0) settle(0);
+    };
+    const closeOnScroll = () => { if (offsetRef.current < 0) settle(0); };
+    document.addEventListener("pointerdown", closeFromOutside, true);
+    document.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("jinke-swipe-open", closeAnother);
+    return () => {
+      document.removeEventListener("pointerdown", closeFromOutside, true);
+      document.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("jinke-swipe-open", closeAnother);
+    };
+  }, []);
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
@@ -89,7 +109,9 @@ function SwipeTaskActions({ label, onEdit, onDelete, children }) {
     if (gesture.moved) {
       suppressClickRef.current = true;
       window.setTimeout(() => { suppressClickRef.current = false; }, 0);
-      settle(offsetRef.current <= -0.13 ? -revealRatio : 0);
+      const next = offsetRef.current <= -0.13 ? -revealRatio : 0;
+      settle(next);
+      if (next < 0) window.dispatchEvent(new CustomEvent("jinke-swipe-open", { detail: instanceIdRef.current }));
     }
     gestureRef.current = null;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -106,6 +128,7 @@ function SwipeTaskActions({ label, onEdit, onDelete, children }) {
 
   return (
     <div
+      ref={rootRef}
       className={`swipe-task ${offsetRatio < 0 ? "is-open" : ""}`}
       aria-label={label}
       onPointerDown={onPointerDown}

@@ -116,7 +116,10 @@ function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
 
 function withCriticalReminderDefaults(task) {
   const deadlineTime = task.deadlineTime ?? (task.time && task.time !== "待定" ? task.time : null);
-  const plan = normalizeCriticalReminderPlan(task);
+  const normalizedPlan = normalizeCriticalReminderPlan(task);
+  const plan = normalizedPlan.reminderMode === "final-days" && Number.isFinite(task.daysLeft)
+    ? { ...normalizedPlan, reminderFinalDays: Math.min(Math.max(1, task.daysLeft), Math.max(1, normalizedPlan.reminderFinalDays)) }
+    : normalizedPlan;
   const next = { ...task, deadlineTime, time: deadlineTime, ...plan };
   return { ...next, reminder: getCriticalReminder(next) };
 }
@@ -861,7 +864,7 @@ function MobileDesignApp() {
       .filter((task) => task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0)
       .map((task) => {
         const plan = normalizeCriticalReminderPlan(task, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
-        return { id: task.id, title: task.title, daysLeft: task.daysLeft, ...plan };
+        return { id: task.id, title: task.title, daysLeft: task.daysLeft, deadlineTime: task.deadlineTime || null, ...plan };
       });
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);

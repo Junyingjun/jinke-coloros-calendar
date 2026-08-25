@@ -72,14 +72,42 @@ window.normalizeCriticalReminderPlan = function normalizeCriticalReminderPlan(
 ) {
   const source = task && typeof task === "object" ? task : {};
   const reminderTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(source.reminderTime || "") ? source.reminderTime : defaultTime;
-  const reminderMode = ["smart", "daily", "deadline-only"].includes(source.reminderMode) ? source.reminderMode : "smart";
+  const reminderMode = source.reminderMode === "daily"
+    ? "final-days"
+    : ["smart", "final-days", "deadline-only"].includes(source.reminderMode) ? source.reminderMode : "smart";
+  const deadlineMinutes = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(source.deadlineTime || "")
+    ? Number(source.deadlineTime.slice(0, 2)) * 60 + Number(source.deadlineTime.slice(3))
+    : null;
+  const reminderMinutes = Number(reminderTime.slice(0, 2)) * 60 + Number(reminderTime.slice(3));
+  const inferredLeadMinutes = deadlineMinutes === null || reminderMinutes > deadlineMinutes ? 0 : deadlineMinutes - reminderMinutes;
+  const deadlineLeadMinutes = Math.min(1435, Math.max(0,
+    source.deadlineLeadMinutes !== undefined && source.deadlineLeadMinutes !== null
+      ? Math.round((Number(source.deadlineLeadMinutes) || 0) / 5) * 5
+      : inferredLeadMinutes,
+  ));
   return {
     reminderEnabled: typeof source.reminderEnabled === "boolean" ? source.reminderEnabled : Boolean(source.deadline),
     reminderTime,
     reminderMode,
     reminderMultiple: Math.max(1, Number(source.reminderMultiple) || Number(defaultMultiple) || 5),
     reminderFinalDays: Math.max(0, source.reminderFinalDays !== undefined && source.reminderFinalDays !== null ? Number(source.reminderFinalDays) || 0 : Number(defaultFinalDays) || 0),
+    deadlineLeadMinutes,
   };
+};
+
+window.getCriticalReminderTriggerTime = function getCriticalReminderTriggerTime(taskOrPlan = {}) {
+  const plan = window.normalizeCriticalReminderPlan(taskOrPlan);
+  if (plan.reminderMode !== "deadline-only" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskOrPlan.deadlineTime || "")) return plan.reminderTime;
+  const deadlineMinutes = Number(taskOrPlan.deadlineTime.slice(0, 2)) * 60 + Number(taskOrPlan.deadlineTime.slice(3));
+  const triggerMinutes = (deadlineMinutes - plan.deadlineLeadMinutes + 1440) % 1440;
+  return `${String(Math.floor(triggerMinutes / 60)).padStart(2, "0")}:${String(triggerMinutes % 60).padStart(2, "0")}`;
+};
+
+window.getCriticalReminderDayOffset = function getCriticalReminderDayOffset(taskOrPlan = {}) {
+  const plan = window.normalizeCriticalReminderPlan(taskOrPlan);
+  if (plan.reminderMode !== "deadline-only" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskOrPlan.deadlineTime || "")) return 0;
+  const deadlineMinutes = Number(taskOrPlan.deadlineTime.slice(0, 2)) * 60 + Number(taskOrPlan.deadlineTime.slice(3));
+  return deadlineMinutes - plan.deadlineLeadMinutes < 0 ? 1 : 0;
 };
 
 window.shouldRemindCritical = function shouldRemindCritical(daysLeft, planOrMultiple, finalDays) {
@@ -87,8 +115,8 @@ window.shouldRemindCritical = function shouldRemindCritical(daysLeft, planOrMult
   if (planOrMultiple && typeof planOrMultiple === "object") {
     const plan = window.normalizeCriticalReminderPlan(planOrMultiple);
     if (!plan.reminderEnabled) return false;
-    if (plan.reminderMode === "daily") return true;
-    if (plan.reminderMode === "deadline-only") return daysLeft === 0;
+    if (plan.reminderMode === "final-days") return daysLeft <= plan.reminderFinalDays;
+    if (plan.reminderMode === "deadline-only") return daysLeft === window.getCriticalReminderDayOffset(planOrMultiple);
     return daysLeft <= plan.reminderFinalDays || daysLeft % plan.reminderMultiple === 0;
   }
   const safeMultiple = Math.max(1, Number(planOrMultiple) || window.JINKE_DDL_REMINDER_MULTIPLE || 5);
@@ -109,7 +137,13 @@ window.getCriticalReminder = function getCriticalReminder(
     defaultFinalDays,
   );
   if (!plan.reminderEnabled) return "不提醒";
-  if (plan.reminderMode === "daily") return `每天 ${plan.reminderTime}`;
+  if (plan.reminderMode === "final-days") return `仅最后 ${plan.reminderFinalDays} 天 · ${plan.reminderTime}`;
+  if (plan.reminderMode === "deadline-only" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskOrPlan.deadlineTime || "")) {
+    const hours = Math.floor(plan.deadlineLeadMinutes / 60);
+    const minutes = plan.deadlineLeadMinutes % 60;
+    const lead = `${hours ? `${hours} 小时` : ""}${hours && minutes ? " " : ""}${minutes || !hours ? `${minutes} 分钟` : ""}`;
+    return `截止时刻前 ${lead}`;
+  }
   if (plan.reminderMode === "deadline-only") return `仅截止日 ${plan.reminderTime}`;
   return `每 ${plan.reminderMultiple} 天 · 最后 ${plan.reminderFinalDays} 天每天 · ${plan.reminderTime}`;
 };

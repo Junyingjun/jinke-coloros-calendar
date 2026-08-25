@@ -140,7 +140,7 @@ button:disabled { cursor: default; }
 .task-list { display: grid; }
 .swipe-task { min-width: 0; position: relative; overflow: hidden; border-radius: var(--radius-md); isolation: isolate; -webkit-user-select: none; user-select: none; }
 .task-list .swipe-task { border-radius: 0; }
-.swipe-actions { position: absolute; inset-block: 0; right: 0; width: 36%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); opacity: 0; pointer-events: none; background: var(--surface-muted); transition: opacity 90ms linear; }
+.swipe-actions { position: absolute; inset: 0; padding-left: 60%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--line); border-radius: inherit; opacity: 0; pointer-events: none; background: var(--surface-muted); transition: opacity 90ms linear; }
 .swipe-task.is-open .swipe-actions { opacity: 1; pointer-events: auto; }
 .swipe-action { min-width: 0; min-height: 44px; padding: 0 6px; display: grid; place-items: center; color: var(--ink); background: var(--surface-pressed); font-size: 12px; font-weight: 720; }
 .swipe-action.swipe-delete { color: var(--accent-ink); background: var(--accent); }
@@ -148,6 +148,7 @@ button:disabled { cursor: default; }
 .swipe-task-content { min-width: 0; position: relative; z-index: 1; background: var(--phone); touch-action: pan-y; will-change: transform; transition: transform 230ms var(--ease-standard); }
 .swipe-task.is-open .swipe-task-content { transition-duration: 190ms; }
 .critical-stack .swipe-task-content { border-radius: var(--radius-md); background: var(--surface); }
+.critical-stack .swipe-task { border-radius: var(--radius-md); }
 .swipe-task:focus-within .swipe-action { outline-offset: -3px; }
 .daily-row { width: 100%; display: grid; grid-template-columns: 48px 44px minmax(0, 1fr); gap: 6px; min-height: 82px; padding: 13px 0; position: relative; color: inherit; background: transparent; text-align: left; }
 .task-toggle-row { border-radius: 0; touch-action: pan-y; transition: opacity 170ms var(--ease-out), transform 170ms var(--ease-out); }
@@ -358,15 +359,20 @@ button:disabled { cursor: default; }
 .critical-plan-rule-grid > div { min-width: 0; }
 .critical-plan-rule-grid small { min-height: 28px; margin: 0 0 5px 4px; display: flex; align-items: flex-end; color: var(--ink-3); font-size: 10px; font-weight: 650; }
 .critical-plan-rule-grid .jinke-stepper { width: 100%; min-width: 0; }
+.critical-plan-rule-single { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 7px; }
+.critical-plan-rule-single small { color: var(--ink-3); font-size: 10px; font-weight: 650; }
+.critical-plan-rule-single .jinke-stepper { min-width: 132px; }
+.deadline-lead-picker { padding-top: 8px; display: grid; gap: 6px; border-top: 1px solid var(--line); }
 .critical-plan-summary { min-height: 34px; display: grid; place-items: center; color: var(--accent); font-size: 11px; font-weight: 700; text-align: center; }
 .edit-textarea { min-height: 58px; resize: none; text-align: left; line-height: 1.45; font-weight: 560; }
 .save-wide { width: 100%; margin-top: 12px; }
-.renew-row { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 10px; }
-.renew-days-field { min-width: 0; min-height: 52px; padding: 5px 8px; display: grid; grid-template-columns: 20px auto minmax(116px, 1fr) auto; align-items: center; gap: 7px; border-radius: 17px; background: var(--surface-muted); color: var(--ink-2); }
-.renew-days-label { font-size: 12px; font-weight: 650; }
-.renew-days-input { min-width: 0; width: 100%; height: 40px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); text-align: right; font-size: 15px; font-weight: 720; font-variant-numeric: tabular-nums; }
+.renew-panel { margin-top: 10px; padding: 12px; display: grid; gap: 10px; border-radius: 18px; background: var(--surface-muted); }
+.renew-heading { min-width: 0; display: grid; grid-template-columns: 20px auto minmax(0, 1fr); align-items: center; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 700; }
+.renew-heading small { min-width: 0; color: var(--ink-3); font-size: 10px; font-weight: 560; text-align: right; }
+.renew-controls { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto 116px; align-items: center; gap: 7px; }
+.renew-controls .jinke-stepper { width: 100%; min-width: 0; }
 .renew-days-unit { font-size: 12px; font-weight: 650; }
-.renew-confirm { width: 112px; padding-inline: 10px; }
+.renew-confirm { width: 116px; padding-inline: 10px; }
 .complete-wide { display: flex; align-items: center; justify-content: center; gap: 7px; }
 
 .menu-list { margin-top: 18px; display: grid; }
