@@ -125,12 +125,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 27px 0 10px; }
 .section-title { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
 .section-note { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.demo-guide, .empty-guide { min-height: 44px; margin: 0 0 8px; padding: 0 12px; display: flex; align-items: center; border-radius: 14px; color: var(--ink-2); background: var(--surface-muted); font-size: 11px; line-height: 1.4; }
+.empty-guide { justify-content: center; margin-top: 8px; color: var(--ink-3); text-align: center; }
+.report-empty { min-height: 120px; margin-top: 24px; }
 .progress-line { margin-top: 19px; display: flex; align-items: center; gap: 12px; }
 .progress-track { height: 6px; flex: 1; overflow: hidden; border-radius: 99px; background: var(--surface-muted); }
 .progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 420ms var(--ease-out); }
 .progress-copy { min-width: 54px; text-align: right; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 .task-list { display: grid; }
+.swipe-task { min-width: 0; position: relative; overflow: hidden; border-radius: var(--radius-md); isolation: isolate; -webkit-user-select: none; user-select: none; }
+.task-list .swipe-task { border-radius: 0; }
+.swipe-actions { position: absolute; inset-block: 0; right: 0; width: 36%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); opacity: 0; pointer-events: none; background: var(--surface-muted); transition: opacity 90ms linear; }
+.swipe-task.is-open .swipe-actions { opacity: 1; pointer-events: auto; }
+.swipe-action { min-width: 0; min-height: 44px; padding: 0 6px; display: grid; place-items: center; color: var(--ink); background: var(--surface-pressed); font-size: 12px; font-weight: 720; }
+.swipe-action.swipe-delete { color: var(--accent-ink); background: var(--accent); }
+.swipe-task-content { min-width: 0; position: relative; z-index: 1; background: var(--phone); touch-action: pan-y; will-change: transform; transition: transform 230ms var(--ease-standard); }
+.swipe-task.is-open .swipe-task-content { transition-duration: 190ms; }
+.critical-stack .swipe-task-content { border-radius: var(--radius-md); background: var(--surface); }
+.swipe-task:focus-within .swipe-action { outline-offset: -3px; }
 .daily-row { display: grid; grid-template-columns: 48px 44px 1fr; gap: 6px; min-height: 82px; padding: 13px 0; position: relative; }
 .daily-row::after { content: ""; position: absolute; right: 0; bottom: 0; left: 98px; height: 1px; background: var(--line); transform: scaleY(0.5); transform-origin: bottom; }
 .daily-row:last-child::after { display: none; }
@@ -264,6 +277,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
 .primary-button:disabled { opacity: .38; cursor: not-allowed; transform: none; }
 .voice-command-error { margin: 12px 2px 0; color: var(--accent); font-size: 12px; line-height: 1.45; }
 .secondary-button { background: var(--surface-muted); color: var(--ink); }
+.delete-confirm-title { min-height: 76px; padding: 12px 2px; display: flex; align-items: center; color: var(--ink); font-size: 20px; line-height: 1.35; font-weight: 720; }
 
 .edit-form { margin-top: 20px; padding: 8px; display: grid; gap: 8px; border-radius: 22px; background: var(--surface-muted); }
 .edit-form-first { margin-top: 0; }
@@ -400,4 +414,56 @@ button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb
   .device-preview-label, .device-preview-phone { display: none; }
   .viewer-device-wrap { width: 100%; height: 100%; transform: none !important; }
   .phone-shell-expanded { width: 100vw; height: 100dvh; border-radius: 0; box-shadow: none; }
+}
+
+/* 原生应用只依赖当前窗口比例：外屏为单列，展开内屏为折痕两侧等分双列。 */
+.native-app {
+  --native-inline: 5vw;
+  --native-safe-top: max(env(safe-area-inset-top), 2.4vh);
+  --native-safe-bottom: max(env(safe-area-inset-bottom), 1.4vh);
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--phone);
+}
+.native-app .phone-shell,
+.native-app .phone-content {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+.native-app .screen {
+  --safe-top: var(--native-safe-top);
+  --safe-bottom: var(--native-safe-bottom);
+  padding-block-start: calc(var(--safe-top) + 2.1vh);
+  padding-inline: var(--native-inline);
+  padding-block-end: calc(var(--safe-bottom) + 13vh);
+}
+.native-app .screen.secondary { padding-block-end: calc(var(--safe-bottom) + 4vh); }
+.native-app .bottom-nav { left: 4vw; right: 4vw; bottom: calc(var(--safe-bottom) + .3vh); width: auto; }
+.native-app .sheet { left: 2vw; right: 2vw; bottom: max(1vh, env(safe-area-inset-bottom)); width: auto; max-height: 92%; }
+
+.native-app.native-expanded { --native-inline: 4vw; }
+.native-app.native-expanded .phone-shell-expanded .today-responsive-grid,
+.native-app.native-expanded .phone-shell-expanded .critical-responsive-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.native-app.native-expanded .phone-shell-expanded .today-left-pane,
+.native-app.native-expanded .phone-shell-expanded .critical-with-ddl { padding-right: 6%; }
+.native-app.native-expanded .phone-shell-expanded .today-daily-pane,
+.native-app.native-expanded .phone-shell-expanded .critical-without-ddl { padding-left: 6%; }
+.native-app.native-expanded .phone-shell-expanded .bottom-nav {
+  left: 50%;
+  right: auto;
+  width: 52vw;
+  transform: translateX(-50%);
+}
+.native-app.native-expanded .phone-shell-expanded .sheet {
+  left: 50%;
+  right: auto;
+  width: 60vw;
+  transform: translateX(-50%);
 }

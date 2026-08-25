@@ -14,6 +14,7 @@ const {
   CalendarDaySheet,
   HistoryScreen,
   ReportScreen,
+  DeleteConfirmSheet,
   PermissionsScreen,
   CriticalReminderScreen,
   VersionScreen,
@@ -39,6 +40,44 @@ function readStoredJson(key, fallback, validator) {
   } catch {}
   return fallback;
 }
+
+function migrateLegacySeedData() {
+  const markerKey = "jinke-seed-migration-v2";
+  const legacyDailyIds = new Set(["wake", "plan", "gym", "journal", "sleep"]);
+  const legacyCriticalIds = new Set(["passport", "voice-app", "tax", "autodrive", "health"]);
+  const legacyHistoryIds = new Set(["h1", "h2", "h3", "h4"]);
+  try {
+    if (localStorage.getItem(markerKey)) return;
+
+    const storedDaily = JSON.parse(localStorage.getItem("jinke-daily-tasks") || "null");
+    if (Array.isArray(storedDaily)) {
+      const retained = storedDaily.filter((task) => !legacyDailyIds.has(task.id));
+      localStorage.setItem("jinke-daily-tasks", JSON.stringify(retained.length ? retained : APP_DATA.dailyTasks));
+    }
+
+    const storedCritical = JSON.parse(localStorage.getItem("jinke-critical-tasks") || "null");
+    if (Array.isArray(storedCritical)) {
+      const retained = storedCritical.filter((task) => !legacyCriticalIds.has(task.id));
+      localStorage.setItem("jinke-critical-tasks", JSON.stringify(retained.length ? retained : APP_DATA.criticalTasks));
+    }
+
+    const storedHistory = JSON.parse(localStorage.getItem("jinke-task-history") || "null");
+    if (Array.isArray(storedHistory)) {
+      const retained = storedHistory.filter((item) => !legacyHistoryIds.has(item.id) && !legacyCriticalIds.has(item.sourceTaskId));
+      localStorage.setItem("jinke-task-history", JSON.stringify(retained));
+    }
+
+    const storedCompletions = JSON.parse(localStorage.getItem("jinke-daily-completions") || "null");
+    if (storedCompletions && typeof storedCompletions === "object" && !Array.isArray(storedCompletions)) {
+      const retained = Object.fromEntries(Object.entries(storedCompletions).filter(([key]) => !legacyDailyIds.has(key.split(":")[0])));
+      localStorage.setItem("jinke-daily-completions", JSON.stringify(retained));
+    }
+
+    localStorage.setItem(markerKey, "1");
+  } catch {}
+}
+
+migrateLegacySeedData();
 
 function dateKeyOffset(fromKey, toKey) {
   const [fromYear, fromMonth, fromDay] = fromKey.split("-").map(Number);
@@ -412,6 +451,27 @@ function useViewportScale(width, height) {
   return scale;
 }
 
+function getNativeWindowState(payload) {
+  try {
+    const previewMode = new URLSearchParams(window.location.search).get("native");
+    const hasNativeBridge = Boolean(window.JinkeAndroid?.isNativeApp?.());
+    if (!hasNativeBridge && !["phone", "expanded"].includes(previewMode)) return null;
+    if (!hasNativeBridge) {
+      const width = Math.max(1, window.innerWidth || 1);
+      const height = Math.max(1, window.innerHeight || 1);
+      return { width, height, ratio: Math.min(width, height) / Math.max(width, height), expanded: previewMode === "expanded" };
+    }
+    const supplied = typeof payload === "string" ? JSON.parse(payload) : payload;
+    const nativeInfo = supplied || JSON.parse(window.JinkeAndroid.getWindowLayout());
+    const width = Math.max(1, Number(nativeInfo.widthDp) || window.innerWidth || 1);
+    const height = Math.max(1, Number(nativeInfo.heightDp) || window.innerHeight || 1);
+    const ratio = Math.min(width, height) / Math.max(width, height);
+    return { width, height, ratio, expanded: nativeInfo.expanded === true || ratio >= 0.68 };
+  } catch {
+    return null;
+  }
+}
+
 function MobileDesignApp() {
   const [themeMode, setThemeMode] = useState(() => {
     try { return localStorage.getItem("jinke-theme") || "dark"; } catch { return "dark"; }
@@ -450,6 +510,7 @@ function MobileDesignApp() {
     return value;
   });
   const [history, setHistory] = useState(() => readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray));
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedDaily, setSelectedDaily] = useState(null);
   const [dailyDraft, setDailyDraft] = useState(null);
   const [selectedCritical, setSelectedCritical] = useState(null);
@@ -462,6 +523,7 @@ function MobileDesignApp() {
   const [archiveIndex, setArchiveIndex] = useState(0);
   const [speechAvailable, setSpeechAvailable] = useState(true);
   const [toast, setToast] = useState("");
+  const [nativeWindow, setNativeWindow] = useState(() => getNativeWindowState());
   const recognitionRef = useRef(null);
   const toastTimerRef = useRef(null);
   const scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
@@ -492,6 +554,22 @@ function MobileDesignApp() {
     if (themeMode === "system") media.addEventListener("change", applyTheme);
     return () => media.removeEventListener("change", applyTheme);
   }, [themeMode]);
+
+  useEffect(() => {
+    if (!nativeWindow) return undefined;
+    const updateNativeWindow = (payload) => {
+      const next = getNativeWindowState(payload);
+      if (next) setNativeWindow(next);
+    };
+    window.JINKE_NATIVE_WINDOW_CHANGED = updateNativeWindow;
+    const onResize = () => updateNativeWindow();
+    window.addEventListener("resize", onResize);
+    updateNativeWindow();
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (window.JINKE_NATIVE_WINDOW_CHANGED === updateNativeWindow) delete window.JINKE_NATIVE_WINDOW_CHANGED;
+    };
+  }, [Boolean(nativeWindow)]);
 
   useEffect(() => {
     try { localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks)); } catch {}
@@ -576,6 +654,25 @@ function MobileDesignApp() {
     setSelectedDaily(task);
     setDailyDraft({ ...task, reminder: task.reminder || "到点提醒" });
     setOverlay("daily-edit");
+  };
+
+  const requestDelete = (task, kind) => {
+    setDeleteTarget({ task, kind });
+    setOverlay("delete-confirm");
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget?.task) return;
+    const { task, kind } = deleteTarget;
+    if (kind === "daily") {
+      setDailyTasks((current) => current.filter((item) => item.id !== task.id));
+      setDailyCompletionByDate((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key.split(":")[0] !== task.id)));
+    } else {
+      setCriticalTasks((current) => current.filter((item) => item.id !== task.id));
+    }
+    setDeleteTarget(null);
+    setOverlay(null);
+    showToast(`已删除「${task.title}」`);
   };
 
   const saveDaily = (taskId, changes) => {
@@ -883,7 +980,34 @@ function MobileDesignApp() {
     setCriticalDraft(null);
     setRenewDays(7);
     setVoiceDraft(null);
+    setDeleteTarget(null);
   };
+
+  useEffect(() => {
+    const handleNativeBack = () => {
+      if (overlay) {
+        closeOverlay();
+        return true;
+      }
+      if (secondary) {
+        setSecondary(null);
+        return true;
+      }
+      if (viewMode === "month") {
+        setViewMode("day");
+        return true;
+      }
+      if (activeTab === "critical") {
+        setActiveTab("today");
+        return true;
+      }
+      return false;
+    };
+    window.JINKE_NATIVE_BACK = handleNativeBack;
+    return () => {
+      if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
+    };
+  }, [overlay, secondary, viewMode, activeTab]);
 
   const renderScreen = () => {
     if (secondary === "history") return <HistoryScreen items={history} onBack={() => setSecondary(null)} />;
@@ -893,8 +1017,8 @@ function MobileDesignApp() {
     if (secondary === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => setSecondary("permissions")} onBack={() => setSecondary(null)} />;
     if (secondary === "version") return <VersionScreen onBack={() => setSecondary(null)} />;
     if (secondary === "voice") return <VoiceSettingsScreen onBack={() => setSecondary(null)} />;
-    if (activeTab === "critical") return <CriticalScreen tasks={criticalTasks} onOpen={openCritical} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
-    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onOpenCritical={openCritical} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={APP_DATA.today.dateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
+    if (activeTab === "critical") return <CriticalScreen tasks={criticalTasks} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} onOpenReminders={() => setSecondary("critical-reminders")} />;
+    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => setOverlay("more")} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={APP_DATA.today.dateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
   };
 
   const renderDevice = (variant) => (
@@ -907,9 +1031,22 @@ function MobileDesignApp() {
       {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} /> : null}
       {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onComplete={completeCritical} onRenew={renewCritical} onSave={saveCritical} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}
+      {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
       {toast ? <div className="sr-only" role="status" aria-live="polite">{toast}</div> : null}
     </PhoneFrame>
   );
+
+  if (nativeWindow) {
+    const nativeVariant = nativeWindow.expanded ? "expanded" : "phone";
+    return (
+      <div
+        className={`native-app ${nativeWindow.expanded ? "native-expanded" : "native-phone"}`}
+        data-window-ratio={nativeWindow.ratio.toFixed(3)}
+      >
+        {renderDevice(nativeVariant)}
+      </div>
+    );
+  }
 
   return (
     <div className="viewer-root">

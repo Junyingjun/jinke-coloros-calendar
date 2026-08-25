@@ -8,6 +8,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -113,10 +114,59 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript(script, null);
     }
 
+    private String currentWindowLayout() {
+        Configuration configuration = getResources().getConfiguration();
+        int widthDp = Math.max(1, configuration.screenWidthDp);
+        int heightDp = Math.max(1, configuration.screenHeightDp);
+        double ratio = (double) Math.min(widthDp, heightDp) / (double) Math.max(widthDp, heightDp);
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("widthDp", widthDp);
+            payload.put("heightDp", heightDp);
+            payload.put("ratio", ratio);
+            payload.put("expanded", ratio >= 0.68d);
+            return payload.toString();
+        } catch (Exception ignored) {
+            return "{\"widthDp\":1,\"heightDp\":1,\"ratio\":0,\"expanded\":false}";
+        }
+    }
+
+    private void deliverWindowLayout() {
+        if (webView == null) return;
+        String script = "window.JINKE_NATIVE_WINDOW_CHANGED && window.JINKE_NATIVE_WINDOW_CHANGED("
+                + JSONObject.quote(currentWindowLayout()) + ");";
+        webView.evaluateJavascript(script, null);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (webView != null) webView.post(this::deliverWindowLayout);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) webView.post(this::deliverWindowLayout);
+    }
+
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
+        if (webView == null) {
+            performDefaultBack();
+            return;
+        }
+        webView.evaluateJavascript(
+                "Boolean(window.JINKE_NATIVE_BACK && window.JINKE_NATIVE_BACK());",
+                result -> runOnUiThread(() -> {
+                    if ("true".equals(result)) return;
+                    if (webView.canGoBack()) webView.goBack();
+                    else performDefaultBack();
+                }));
+    }
+
+    private void performDefaultBack() {
+        super.onBackPressed();
     }
 
     @Override
@@ -129,6 +179,16 @@ public class MainActivity extends Activity {
     }
 
     public final class AndroidBridge {
+        @JavascriptInterface
+        public boolean isNativeApp() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public String getWindowLayout() {
+            return currentWindowLayout();
+        }
+
         @JavascriptInterface
         public String getAppVersion() {
             return BuildConfig.VERSION_NAME;

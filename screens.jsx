@@ -67,7 +67,7 @@ function ViewMenu({ onSelect, onClose }) {
   );
 }
 
-function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onOpenCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, onOpenDayArchive }) {
+function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, onOpenCritical, onDeleteCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, onOpenDayArchive }) {
   const done = tasks.filter((task) => task.done).length;
   const percent = Math.round((done / Math.max(tasks.length, 1)) * 100);
   const selectedDay = getDateMeta(selectedDateKey);
@@ -102,13 +102,15 @@ function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onOpenCritical, o
           {deadlineTasks.length ? (
             <section className="today-ddl-pane" aria-label="当天 DDL 事项">
               <SectionHeader title="DDL" />
-              <div className="critical-stack daily-ddl-stack">{deadlineTasks.map((task) => <CriticalTaskRow task={task} onOpen={onOpenCritical} key={task.id} />)}</div>
+              <div className="critical-stack daily-ddl-stack">{deadlineTasks.map((task) => <CriticalTaskRow task={task} onOpen={onOpenCritical} onDelete={onDeleteCritical} key={task.id} />)}</div>
             </section>
           ) : null}
         </div>
         <section className="today-daily-pane" aria-label="日常事项">
           <SectionHeader title={isToday ? "今天" : `星期${selectedDay.day}`} note={`${tasks.length - done} 项待完成`} />
-          <div className="task-list">{tasks.map((task) => <DailyTaskRow task={task} onToggle={onToggle} onEdit={onEdit} key={task.id} />)}</div>
+          {tasks.some((task) => task.demo) ? <div className="demo-guide">左滑删除演示，点下方语音键创建第一项日程</div> : null}
+          <div className="task-list">{tasks.map((task) => <DailyTaskRow task={task} onToggle={onToggle} onEdit={onEdit} onDelete={onDeleteDaily} key={task.id} />)}</div>
+          {!tasks.length ? <div className="empty-guide">点下方语音键，创建第一项日程</div> : null}
         </section>
       </div>
     </main>
@@ -278,7 +280,7 @@ function CalendarDaySheet({ dateKey, onClose, active, index, onActiveChange, onI
   );
 }
 
-function CriticalScreen({ tasks, onOpen, onMenu, onOpenReminders }) {
+function CriticalScreen({ tasks, onOpen, onDelete, onMenu, onOpenReminders }) {
   const withDDL = tasks.filter((task) => task.deadline);
   const withoutDDL = tasks.filter((task) => !task.deadline);
   return (
@@ -291,11 +293,13 @@ function CriticalScreen({ tasks, onOpen, onMenu, onOpenReminders }) {
       <div className="critical-responsive-grid">
         <section className="critical-pane critical-with-ddl" aria-label="有 DDL 的关键事项">
           <SectionHeader title="有 DDL" />
-          <div className="critical-stack">{withDDL.map((task) => <CriticalTaskRow task={task} onOpen={onOpen} key={task.id} />)}</div>
+          {withDDL.some((task) => task.demo) ? <div className="demo-guide">左滑删除演示，点下方语音键创建第一个 DDL</div> : null}
+          <div className="critical-stack">{withDDL.map((task) => <CriticalTaskRow task={task} onOpen={onOpen} onDelete={onDelete} key={task.id} />)}</div>
+          {!withDDL.length ? <div className="empty-guide">点下方语音键，创建第一个 DDL</div> : null}
         </section>
         <section className="critical-pane critical-without-ddl" aria-label="无 DDL 的关键事项">
           <SectionHeader title="无 DDL" note="长期关注" />
-          <div className="critical-stack">{withoutDDL.map((task) => <CriticalTaskRow task={task} onOpen={onOpen} key={task.id} />)}</div>
+          <div className="critical-stack">{withoutDDL.map((task) => <CriticalTaskRow task={task} onOpen={onOpen} onDelete={onDelete} key={task.id} />)}</div>
         </section>
       </div>
     </main>
@@ -477,6 +481,7 @@ function HistoryScreen({ items, onBack }) {
             <span className="history-days">提前 {item.leadDays} 天</span>
           </div>
         ))}
+        {!items.length ? <div className="empty-guide">还没有已完成的关键事项</div> : null}
       </div>
     </main>
   );
@@ -485,19 +490,30 @@ function HistoryScreen({ items, onBack }) {
 function ReportScreen({ type, onBack }) {
   const monthly = type === "month";
   const ranking = monthly ? APP_DATA.monthRanking : APP_DATA.yearRanking;
+  const hasData = ranking.length > 0 || APP_DATA.ddlRanking.length > 0;
   return (
     <main className="screen secondary">
-      <BackHeader title={monthly ? "7 月复盘" : "2025 年复盘"} onBack={onBack} />
-      <div className="summary-hero">
-        <div className="summary-kicker">日常事务完成率</div>
-        <div className="summary-value">{monthly ? "84%" : "82%"}</div>
-        <div className="summary-caption">{monthly ? "比 6 月提高 6 个百分点" : "全年完成 1,270 次日常事项"}</div>
-      </div>
-      <SectionHeader title="完成比例排名" note={monthly ? "上月" : "全年"} />
-      <div className="ranking-list">{ranking.map((item) => <BarRow item={item} key={item.label} />)}</div>
-      <SectionHeader title="最长提前完成的 DDL" note={monthly ? "前 5" : "前 10"} />
-      <div>{APP_DATA.ddlRanking.slice(0, monthly ? 5 : 10).map((item) => <div className="ddl-rank" key={item.rank}><span className="rank-number">{String(item.rank).padStart(2, "0")}</span><span className="rank-title">{item.title}</span><span className="rank-days">提前 {item.days} 天</span></div>)}</div>
+      <BackHeader title={monthly ? "月度复盘" : "年度复盘"} onBack={onBack} />
+      {hasData ? <>
+        <SectionHeader title="完成比例排名" note={monthly ? "上月" : "全年"} />
+        <div className="ranking-list">{ranking.map((item) => <BarRow item={item} key={item.label} />)}</div>
+        <SectionHeader title="最长提前完成的 DDL" note={monthly ? "前 5" : "前 10"} />
+        <div>{APP_DATA.ddlRanking.slice(0, monthly ? 5 : 10).map((item) => <div className="ddl-rank" key={item.rank}><span className="rank-number">{String(item.rank).padStart(2, "0")}</span><span className="rank-title">{item.title}</span><span className="rank-days">提前 {item.days} 天</span></div>)}</div>
+      </> : <div className="empty-guide report-empty">完成任务后，这里会生成真实复盘</div>}
     </main>
+  );
+}
+
+function DeleteConfirmSheet({ target, onClose, onConfirm }) {
+  if (!target?.task) return null;
+  return (
+    <Sheet onClose={onClose} label="确认删除任务">
+      <div className="delete-confirm-title">{target.task.title}</div>
+      <div className="button-row">
+        <button className="secondary-button pressable" type="button" onClick={onClose}>取消</button>
+        <button className="primary-button accent pressable" type="button" onClick={onConfirm}>删除</button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -572,7 +588,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.1";
+const JINKE_FALLBACK_VERSION = "1.0.2";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
@@ -662,4 +678,4 @@ function VoiceSettingsScreen({ onBack }) {
   );
 }
 
-Object.assign(window, { TodayScreen, CriticalScreen, ViewMenu, VoiceComposer, DailyEditSheet, MoreSheet, CriticalDetailSheet, CalendarDaySheet, HistoryScreen, ReportScreen, PermissionsScreen, CriticalReminderScreen, VersionScreen, VoiceSettingsScreen, compareVersions });
+Object.assign(window, { TodayScreen, CriticalScreen, ViewMenu, VoiceComposer, DailyEditSheet, MoreSheet, CriticalDetailSheet, CalendarDaySheet, HistoryScreen, ReportScreen, DeleteConfirmSheet, PermissionsScreen, CriticalReminderScreen, VersionScreen, VoiceSettingsScreen, compareVersions });

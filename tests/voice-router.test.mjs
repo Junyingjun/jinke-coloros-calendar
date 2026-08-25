@@ -12,8 +12,11 @@ vm.runInContext(fs.readFileSync(path.join(root, "data.jsx"), "utf8"), context);
 
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const screensSource = fs.readFileSync(path.join(root, "screens.jsx"), "utf8");
+const primitivesSource = fs.readFileSync(path.join(root, "primitives.jsx"), "utf8");
 const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const activitySource = fs.readFileSync(path.join(root, "android/app/src/main/java/com/junyingjun/jinke/MainActivity.java"), "utf8");
+const manifestSource = fs.readFileSync(path.join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
 const start = appSource.indexOf("const CN_DIGITS");
 const end = appSource.indexOf("function useViewportScale");
 assert.ok(start >= 0 && end > start, "voice router source markers must exist");
@@ -22,11 +25,13 @@ context.APP_DATA = context.window.APP_DATA;
 context.getCriticalReminder = context.window.getCriticalReminder;
 vm.runInContext(`${appSource.slice(start, end)}\nthis.parseVoiceCommand = parseVoiceCommand;`, context);
 
-const route = (text) => context.parseVoiceCommand(
-  text,
-  context.APP_DATA.dailyTasks,
-  context.APP_DATA.criticalTasks,
-);
+const routerDailyTasks = [
+  { id: "gym", title: "健身", time: "19:00", note: "力量训练", repeat: "周一、三、五", reminder: "到点提醒" },
+];
+const routerCriticalTasks = [
+  { id: "passport", title: "旅行证件续期", deadline: "9月8日", daysLeft: 15, time: null, note: "准备材料" },
+];
+const route = (text) => context.parseVoiceCommand(text, routerDailyTasks, routerCriticalTasks);
 
 const cases = [
   ["清除所有的安排", "clear-all"],
@@ -106,6 +111,36 @@ assert.equal(context.window.shouldRemindCritical(14, 7, 3), true, "custom remind
 assert.equal(context.window.shouldRemindCritical(4, 7, 3), false, "days outside a custom final window must stay quiet");
 assert.equal(context.window.shouldRemindCritical(3, 7, 3), true, "custom final reminder days must be honored");
 assert.match(context.window.getCriticalReminder(null, "09:30"), /09:30/);
+assert.equal(context.APP_DATA.dailyTasks.length, 1, "formal seed must keep one daily demonstration only");
+assert.equal(context.APP_DATA.criticalTasks.length, 1, "formal seed must keep one DDL demonstration only");
+assert.equal(context.APP_DATA.dailyTasks[0].demo, true);
+assert.equal(context.APP_DATA.criticalTasks[0].demo, true);
+assert.equal(context.APP_DATA.criticalTasks[0].deadline !== null, true);
+assert.deepEqual(Array.from(context.APP_DATA.history), [], "formal seed must not invent history");
+assert.deepEqual(Array.from(context.APP_DATA.monthRanking), [], "formal seed must not invent monthly results");
+assert.deepEqual(Array.from(context.APP_DATA.yearRanking), [], "formal seed must not invent annual results");
+assert.deepEqual(Array.from(context.APP_DATA.ddlRanking), [], "formal seed must not invent DDL rankings");
+
+const migrationValues = new Map([
+  ["jinke-daily-tasks", JSON.stringify([{ id: "gym" }, { id: "daily-user", title: "用户日程" }])],
+  ["jinke-critical-tasks", JSON.stringify([{ id: "passport" }, { id: "critical-user", title: "用户 DDL" }])],
+  ["jinke-task-history", JSON.stringify([{ id: "h1" }, { id: "history-user", sourceTaskId: "critical-user" }])],
+  ["jinke-daily-completions", JSON.stringify({ "gym:2026-08-24": true, "daily-user:2026-08-24": true })],
+]);
+const migrationContext = {
+  APP_DATA: context.APP_DATA,
+  localStorage: {
+    getItem: (key) => migrationValues.get(key) ?? null,
+    setItem: (key, value) => migrationValues.set(key, String(value)),
+  },
+};
+const migrationStart = appSource.indexOf("function migrateLegacySeedData");
+const migrationEnd = appSource.indexOf("function dateKeyOffset");
+vm.runInNewContext(appSource.slice(migrationStart, migrationEnd), migrationContext);
+assert.deepEqual(JSON.parse(migrationValues.get("jinke-daily-tasks")).map((item) => item.id), ["daily-user"]);
+assert.deepEqual(JSON.parse(migrationValues.get("jinke-critical-tasks")).map((item) => item.id), ["critical-user"]);
+assert.deepEqual(JSON.parse(migrationValues.get("jinke-task-history")).map((item) => item.id), ["history-user"]);
+assert.deepEqual(Object.keys(JSON.parse(migrationValues.get("jinke-daily-completions"))), ["daily-user:2026-08-24"]);
 
 assert.match(appSource, /renderDevice\("phone"\)/, "simulator must render the normal phone");
 assert.match(appSource, /renderDevice\("expanded"\)/, "simulator must render the expanded screen from the same state tree");
@@ -117,6 +152,19 @@ assert.match(stylesSource, /\.phone-shell-expanded \.today-responsive-grid[\s\S]
 assert.match(stylesSource, /\.phone-shell-expanded \.critical-responsive-grid[\s\S]*grid-template-columns/, "expanded critical screen must use two columns");
 assert.match(stylesSource, /\.phone-shell-expanded \.today-responsive-grid \{[^}]*repeat\(2, minmax\(0, 1fr\)\)[^}]*gap: 0/, "today panes must split exactly at the fold");
 assert.match(stylesSource, /\.phone-shell-expanded \.critical-responsive-grid \{[^}]*repeat\(2, minmax\(0, 1fr\)\)[^}]*gap: 0/, "critical panes must split exactly at the fold");
+assert.match(appSource, /ratio >= 0\.68/, "fold state must be detected from the relative window aspect ratio");
+assert.match(appSource, /className={`native-app/, "native APK must render one full-window device rather than the dual desktop simulator");
+assert.match(stylesSource, /\.native-app \{[\s\S]*width: 100vw;[\s\S]*height: 100dvh;/, "native shell must follow the current window dimensions");
+assert.match(stylesSource, /\.native-app\.native-expanded[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, "unfolded layout must split panes by relative fractions");
+assert.match(activitySource, /onConfigurationChanged[\s\S]*deliverWindowLayout/, "fold configuration changes must be delivered without restarting the activity");
+assert.match(manifestSource, /android:resizeableActivity="true"/, "Android activity must be resizeable on foldables");
+assert.match(primitivesSource, /function SwipeTaskActions[\s\S]*swipe-edit[\s\S]*编辑[\s\S]*swipe-delete[\s\S]*删除/, "every task row must expose edit and delete after a left swipe");
+assert.match(stylesSource, /\.swipe-actions[^{]*\{[^}]*width: 36%/, "swipe actions must be sized relative to the task row");
+assert.match(appSource, /jinke-seed-migration-v2[\s\S]*legacyDailyIds[\s\S]*legacyCriticalIds/, "upgrades must remove legacy built-in task seeds while preserving custom entries");
+assert.match(screensSource, /左滑删除演示，点下方语音键创建第一项日程/, "daily demo must guide the first real task");
+assert.match(screensSource, /左滑删除演示，点下方语音键创建第一个 DDL/, "DDL demo must guide the first real deadline");
+assert.match(appSource, /const handleNativeBack[\s\S]*if \(overlay\)[\s\S]*if \(secondary\)[\s\S]*viewMode === "month"[\s\S]*activeTab === "critical"[\s\S]*window\.JINKE_NATIVE_BACK/, "native back must unwind the in-app navigation hierarchy");
+assert.match(activitySource, /JINKE_NATIVE_BACK[\s\S]*performDefaultBack/, "ColorOS edge-back must ask the app before exiting");
 assert.doesNotMatch(screensSource, />临时检视</, "view menu must not show an auxiliary title");
 assert.doesNotMatch(screensSource, />更多<\/h2>/, "more sheet must not show a brand title");
 assert.match(screensSource, /onOpenReminders[\s\S]*<button[^>]*aria-label="打开DDL提醒设置"/, "critical bell must open DDL reminder settings");

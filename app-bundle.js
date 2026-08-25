@@ -232,170 +232,41 @@ window.APP_DATA = {
     load: 1
   }],
   dailyTasks: [{
-    id: "wake",
-    time: "07:30",
-    title: "起床",
-    note: "喝水、拉开窗帘",
-    repeat: "每天",
-    reminder: "到点提醒",
-    done: true
-  }, {
-    id: "plan",
-    time: "08:10",
-    title: "整理今日重点",
-    note: "只保留 3 件最重要的事",
-    repeat: "工作日",
-    reminder: "到点提醒",
-    done: true
-  }, {
-    id: "gym",
-    time: "19:00",
-    title: "健身 45 分钟",
-    note: "力量训练",
-    repeat: "周一、三、五",
-    reminder: "提前 10 分钟",
-    done: false
-  }, {
-    id: "journal",
-    time: "22:45",
-    title: "写今日日志",
-    note: "记录完成与阻碍",
-    repeat: "每天",
-    reminder: "到点提醒",
-    done: false
-  }, {
-    id: "sleep",
-    time: "23:30",
-    title: "睡觉",
-    note: "开启专注睡眠",
+    id: "demo-daily",
+    demo: true,
+    time: "09:00",
+    title: "演示：每天喝水",
+    note: "向左滑动可编辑或删除",
     repeat: "每天",
     reminder: "到点提醒",
     done: false
   }],
   criticalTasks: [{
-    id: "passport",
-    title: "旅行证件续期",
-    note: "准备证件照和原件",
-    deadline: "今天截止",
-    daysLeft: 0,
+    id: "demo-ddl",
+    demo: true,
+    title: "演示：完成第一个 DDL",
+    note: "向左滑动可编辑或删除",
+    deadline: "7天后",
+    daysLeft: 7,
     time: null,
     reminder: "每5天/最后5天 10:00",
-    progress: 80
-  }, {
-    id: "voice-app",
-    title: "完成语音日历第一版",
-    note: "原型、通知策略、离线语音",
-    deadline: "9月8日",
-    daysLeft: 15,
-    time: null,
-    reminder: "每5天/最后5天 10:00",
-    progress: 35
-  }, {
-    id: "tax",
-    title: "整理年度税务资料",
-    note: "核对票据与电子记录",
-    deadline: "10月1日",
-    daysLeft: 38,
-    time: null,
-    reminder: "每5天/最后5天 10:00",
-    progress: 10
-  }, {
-    id: "autodrive",
-    title: "学习自动驾驶规划算法",
-    note: "每周完成一个主题",
-    deadline: null,
-    daysLeft: null,
-    time: null,
-    reminder: "不定期回顾",
-    progress: 42
-  }, {
-    id: "health",
-    title: "安排年度体检",
-    note: "先确认检查项目",
-    deadline: null,
-    daysLeft: null,
-    time: null,
-    reminder: "每周一提醒",
-    progress: 15
+    progress: 0
   }],
-  history: [{
-    id: "h1",
-    title: "完成家庭网络升级",
-    completed: "8月18日",
-    leadDays: 24
-  }, {
-    id: "h2",
-    title: "提交驾照换证材料",
-    completed: "8月9日",
-    leadDays: 17
-  }, {
-    id: "h3",
-    title: "整理上半年保险记录",
-    completed: "7月26日",
-    leadDays: 31
-  }, {
-    id: "h4",
-    title: "完成个人作品集更新",
-    completed: "7月12日",
-    leadDays: 46
-  }],
-  monthRanking: [{
-    label: "起床",
-    value: 94,
-    detail: "29 / 31"
-  }, {
-    label: "写今日日志",
-    value: 87,
-    detail: "27 / 31"
-  }, {
-    label: "睡觉",
-    value: 81,
-    detail: "25 / 31"
-  }, {
-    label: "健身",
-    value: 75,
-    detail: "12 / 16"
-  }, {
-    label: "整理今日重点",
-    value: 72,
-    detail: "16 / 22"
-  }],
-  yearRanking: [{
-    label: "起床",
-    value: 92,
-    detail: "336 / 365"
-  }, {
-    label: "写今日日志",
-    value: 86,
-    detail: "314 / 365"
-  }, {
-    label: "睡觉",
-    value: 83,
-    detail: "303 / 365"
-  }, {
-    label: "整理今日重点",
-    value: 78,
-    detail: "203 / 260"
-  }, {
-    label: "健身",
-    value: 73,
-    detail: "114 / 156"
-  }],
-  ddlRanking: [["毕业论文定稿", 86], ["公司年度报告", 72], ["个人作品集更新", 46], ["年度保险整理", 41], ["年度体检预约", 36], ["上半年财务归档", 31], ["家庭网络升级", 24], ["旅行路线确认", 21], ["驾照换证材料", 17], ["课程项目提交", 14]].map(function (_ref, index) {
-    var _ref2 = _slicedToArray(_ref, 2),
-      title = _ref2[0],
-      days = _ref2[1];
-    return {
-      rank: index + 1,
-      title: title,
-      days: days
-    };
-  })
+  history: [],
+  monthRanking: [],
+  yearRanking: [],
+  ddlRanking: []
 };
 })();
 
 /* primitives.jsx */
 (() => {
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function Icon(_ref) {
   var name = _ref.name,
     _ref$size = _ref.size,
@@ -577,17 +448,125 @@ function SectionHeader(_ref4) {
     className: "section-note"
   }, note) : null);
 }
-function DailyTaskRow(_ref5) {
-  var task = _ref5.task,
-    onToggle = _ref5.onToggle,
-    onEdit = _ref5.onEdit;
+function SwipeTaskActions(_ref5) {
+  var label = _ref5.label,
+    onEdit = _ref5.onEdit,
+    onDelete = _ref5.onDelete,
+    children = _ref5.children;
+  var revealRatio = 0.36;
+  var _React$useState = React.useState(0),
+    _React$useState2 = _slicedToArray(_React$useState, 2),
+    offsetRatio = _React$useState2[0],
+    setOffsetRatio = _React$useState2[1];
+  var gestureRef = React.useRef(null);
+  var offsetRef = React.useRef(0);
+  var suppressClickRef = React.useRef(false);
+  var settle = function settle(next) {
+    offsetRef.current = next;
+    setOffsetRatio(next);
+  };
+  var onPointerDown = function onPointerDown(event) {
+    var _event$currentTarget$, _event$currentTarget;
+    if (event.button !== undefined && event.button !== 0) return;
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffset: offsetRef.current,
+      horizontal: false,
+      moved: false
+    };
+    (_event$currentTarget$ = (_event$currentTarget = event.currentTarget).setPointerCapture) === null || _event$currentTarget$ === void 0 || _event$currentTarget$.call(_event$currentTarget, event.pointerId);
+  };
+  var onPointerMove = function onPointerMove(event) {
+    var gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    var dx = event.clientX - gesture.startX;
+    var dy = event.clientY - gesture.startY;
+    if (!gesture.horizontal && Math.max(Math.abs(dx), Math.abs(dy)) > 7) {
+      if (Math.abs(dy) > Math.abs(dx)) return;
+      gesture.horizontal = true;
+    }
+    if (!gesture.horizontal) return;
+    gesture.moved = true;
+    var width = Math.max(1, event.currentTarget.getBoundingClientRect().width);
+    settle(Math.max(-revealRatio, Math.min(0, gesture.startOffset + dx / width)));
+  };
+  var onPointerEnd = function onPointerEnd(event) {
+    var _event$currentTarget$2, _event$currentTarget2;
+    var gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (gesture.moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(function () {
+        suppressClickRef.current = false;
+      }, 0);
+      settle(offsetRef.current <= -0.13 ? -revealRatio : 0);
+    }
+    gestureRef.current = null;
+    (_event$currentTarget$2 = (_event$currentTarget2 = event.currentTarget).releasePointerCapture) === null || _event$currentTarget$2 === void 0 || _event$currentTarget$2.call(_event$currentTarget2, event.pointerId);
+  };
+  var onClickCapture = function onClickCapture(event) {
+    var _event$target$closest, _event$target;
+    if ((_event$target$closest = (_event$target = event.target).closest) !== null && _event$target$closest !== void 0 && _event$target$closest.call(_event$target, ".swipe-action")) return;
+    if (suppressClickRef.current || offsetRef.current < 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      settle(0);
+    }
+  };
   return React.createElement("div", {
+    className: "swipe-task ".concat(offsetRatio < 0 ? "is-open" : ""),
+    "aria-label": label,
+    onPointerDown: onPointerDown,
+    onPointerMove: onPointerMove,
+    onPointerUp: onPointerEnd,
+    onPointerCancel: onPointerEnd,
+    onClickCapture: onClickCapture
+  }, React.createElement("div", {
+    className: "swipe-actions",
+    "aria-hidden": offsetRatio === 0
+  }, React.createElement("button", {
+    className: "swipe-action swipe-edit",
+    type: "button",
+    onClick: function onClick() {
+      settle(0);
+      onEdit();
+    }
+  }, "\u7F16\u8F91"), React.createElement("button", {
+    className: "swipe-action swipe-delete",
+    type: "button",
+    onClick: function onClick() {
+      settle(0);
+      onDelete();
+    }
+  }, "\u5220\u9664")), React.createElement("div", {
+    className: "swipe-task-content",
+    style: {
+      transform: "translateX(".concat(offsetRatio * 100, "%)")
+    }
+  }, children));
+}
+function DailyTaskRow(_ref6) {
+  var task = _ref6.task,
+    onToggle = _ref6.onToggle,
+    _onEdit = _ref6.onEdit,
+    _onDelete = _ref6.onDelete;
+  return React.createElement(SwipeTaskActions, {
+    label: "".concat(task.title, "\uFF0C\u5411\u5DE6\u6ED1\u52A8\u53EF\u7F16\u8F91\u6216\u5220\u9664"),
+    onEdit: function onEdit() {
+      return _onEdit(task);
+    },
+    onDelete: function onDelete() {
+      return _onDelete(task);
+    }
+  }, React.createElement("div", {
     className: "daily-row"
   }, React.createElement("button", {
     className: "task-time task-time-edit",
     "aria-label": "\u7F16\u8F91 ".concat(task.title, " \u7684\u65F6\u95F4"),
     onClick: function onClick() {
-      return onEdit(task);
+      return _onEdit(task);
     }
   }, task.time), React.createElement("button", {
     className: "check-button ".concat(task.done ? "done" : ""),
@@ -603,7 +582,7 @@ function DailyTaskRow(_ref5) {
     className: "task-copy task-edit-button",
     "aria-label": "\u7F16\u8F91 ".concat(task.title),
     onClick: function onClick() {
-      return onEdit(task);
+      return _onEdit(task);
     }
   }, React.createElement("span", {
     className: "task-edit-body"
@@ -620,13 +599,22 @@ function DailyTaskRow(_ref5) {
   }, task.reminder) : null)), React.createElement(Icon, {
     name: "chevronRight",
     size: 17
-  })));
+  }))));
 }
-function CriticalTaskRow(_ref6) {
-  var task = _ref6.task,
-    onOpen = _ref6.onOpen;
+function CriticalTaskRow(_ref7) {
+  var task = _ref7.task,
+    onOpen = _ref7.onOpen,
+    _onDelete2 = _ref7.onDelete;
   var dueCopy = task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? "\u903E\u671F ".concat(Math.abs(task.daysLeft), " \u5929") : task.daysLeft === 0 ? "今天" : "\u5269 ".concat(task.daysLeft, " \u5929");
-  return React.createElement("button", {
+  return React.createElement(SwipeTaskActions, {
+    label: "".concat(task.title, "\uFF0C\u5411\u5DE6\u6ED1\u52A8\u53EF\u7F16\u8F91\u6216\u5220\u9664"),
+    onEdit: function onEdit() {
+      return onOpen(task);
+    },
+    onDelete: function onDelete() {
+      return _onDelete2(task);
+    }
+  }, React.createElement("button", {
     className: "critical-row pressable",
     onClick: function onClick() {
       return onOpen(task);
@@ -648,12 +636,12 @@ function CriticalTaskRow(_ref6) {
     style: {
       width: "".concat(task.progress, "%")
     }
-  }))));
+  })))));
 }
-function BottomNav(_ref7) {
-  var activeTab = _ref7.activeTab,
-    onTabChange = _ref7.onTabChange,
-    onVoice = _ref7.onVoice;
+function BottomNav(_ref8) {
+  var activeTab = _ref8.activeTab,
+    onTabChange = _ref8.onTabChange,
+    onVoice = _ref8.onVoice;
   return React.createElement("nav", {
     className: "bottom-nav",
     "aria-label": "\u4E3B\u5BFC\u822A"
@@ -689,11 +677,11 @@ function BottomNav(_ref7) {
     className: "nav-label"
   }, "\u5173\u952E")));
 }
-function Sheet(_ref8) {
-  var children = _ref8.children,
-    onClose = _ref8.onClose,
-    labelledBy = _ref8.labelledBy,
-    label = _ref8.label;
+function Sheet(_ref9) {
+  var children = _ref9.children,
+    onClose = _ref9.onClose,
+    labelledBy = _ref9.labelledBy,
+    label = _ref9.label;
   return React.createElement(React.Fragment, null, React.createElement("button", {
     className: "scrim",
     "aria-label": "\u5173\u95ED",
@@ -708,9 +696,9 @@ function Sheet(_ref8) {
     className: "sheet-handle"
   }), children));
 }
-function BackHeader(_ref9) {
-  var title = _ref9.title,
-    onBack = _ref9.onBack;
+function BackHeader(_ref10) {
+  var title = _ref10.title,
+    onBack = _ref10.onBack;
   return React.createElement("div", {
     className: "back-header"
   }, React.createElement(IconButton, {
@@ -719,8 +707,8 @@ function BackHeader(_ref9) {
     onClick: onBack
   }), React.createElement("h1", null, title));
 }
-function BarRow(_ref10) {
-  var item = _ref10.item;
+function BarRow(_ref11) {
+  var item = _ref11.item;
   return React.createElement("div", {
     className: "bar-row"
   }, React.createElement("span", {
@@ -741,6 +729,7 @@ Object.assign(window, {
   PhoneFrame: PhoneFrame,
   IconButton: IconButton,
   SectionHeader: SectionHeader,
+  SwipeTaskActions: SwipeTaskActions,
   DailyTaskRow: DailyTaskRow,
   CriticalTaskRow: CriticalTaskRow,
   BottomNav: BottomNav,
@@ -922,7 +911,9 @@ function TodayScreen(_ref4) {
     deadlineTasks = _ref4.deadlineTasks,
     onToggle = _ref4.onToggle,
     onEdit = _ref4.onEdit,
+    onDeleteDaily = _ref4.onDeleteDaily,
     onOpenCritical = _ref4.onOpenCritical,
+    onDeleteCritical = _ref4.onDeleteCritical,
     onMenu = _ref4.onMenu,
     viewMode = _ref4.viewMode,
     onOpenView = _ref4.onOpenView,
@@ -1007,6 +998,7 @@ function TodayScreen(_ref4) {
     return React.createElement(CriticalTaskRow, {
       task: task,
       onOpen: onOpenCritical,
+      onDelete: onDeleteCritical,
       key: task.id
     });
   }))) : null), React.createElement("section", {
@@ -1015,16 +1007,23 @@ function TodayScreen(_ref4) {
   }, React.createElement(SectionHeader, {
     title: isToday ? "今天" : "\u661F\u671F".concat(selectedDay.day),
     note: "".concat(tasks.length - done, " \u9879\u5F85\u5B8C\u6210")
-  }), React.createElement("div", {
+  }), tasks.some(function (task) {
+    return task.demo;
+  }) ? React.createElement("div", {
+    className: "demo-guide"
+  }, "\u5DE6\u6ED1\u5220\u9664\u6F14\u793A\uFF0C\u70B9\u4E0B\u65B9\u8BED\u97F3\u952E\u521B\u5EFA\u7B2C\u4E00\u9879\u65E5\u7A0B") : null, React.createElement("div", {
     className: "task-list"
   }, tasks.map(function (task) {
     return React.createElement(DailyTaskRow, {
       task: task,
       onToggle: onToggle,
       onEdit: onEdit,
+      onDelete: onDeleteDaily,
       key: task.id
     });
-  })))));
+  })), !tasks.length ? React.createElement("div", {
+    className: "empty-guide"
+  }, "\u70B9\u4E0B\u65B9\u8BED\u97F3\u952E\uFF0C\u521B\u5EFA\u7B2C\u4E00\u9879\u65E5\u7A0B") : null)));
 }
 var DAY_ARCHIVE_TABS = [{
   id: "china",
@@ -1270,6 +1269,7 @@ function CalendarDaySheet(_ref5) {
 function CriticalScreen(_ref6) {
   var tasks = _ref6.tasks,
     onOpen = _ref6.onOpen,
+    onDelete = _ref6.onDelete,
     onMenu = _ref6.onMenu,
     onOpenReminders = _ref6.onOpenReminders;
   var withDDL = tasks.filter(function (task) {
@@ -1307,15 +1307,22 @@ function CriticalScreen(_ref6) {
     "aria-label": "\u6709 DDL \u7684\u5173\u952E\u4E8B\u9879"
   }, React.createElement(SectionHeader, {
     title: "\u6709 DDL"
-  }), React.createElement("div", {
+  }), withDDL.some(function (task) {
+    return task.demo;
+  }) ? React.createElement("div", {
+    className: "demo-guide"
+  }, "\u5DE6\u6ED1\u5220\u9664\u6F14\u793A\uFF0C\u70B9\u4E0B\u65B9\u8BED\u97F3\u952E\u521B\u5EFA\u7B2C\u4E00\u4E2A DDL") : null, React.createElement("div", {
     className: "critical-stack"
   }, withDDL.map(function (task) {
     return React.createElement(CriticalTaskRow, {
       task: task,
       onOpen: onOpen,
+      onDelete: onDelete,
       key: task.id
     });
-  }))), React.createElement("section", {
+  })), !withDDL.length ? React.createElement("div", {
+    className: "empty-guide"
+  }, "\u70B9\u4E0B\u65B9\u8BED\u97F3\u952E\uFF0C\u521B\u5EFA\u7B2C\u4E00\u4E2A DDL") : null), React.createElement("section", {
     className: "critical-pane critical-without-ddl",
     "aria-label": "\u65E0 DDL \u7684\u5173\u952E\u4E8B\u9879"
   }, React.createElement(SectionHeader, {
@@ -1327,6 +1334,7 @@ function CriticalScreen(_ref6) {
     return React.createElement(CriticalTaskRow, {
       task: task,
       onOpen: onOpen,
+      onDelete: onDelete,
       key: task.id
     });
   })))));
@@ -1848,27 +1856,22 @@ function HistoryScreen(_ref17) {
     }, "\u5B8C\u6210\u4E8E ", item.completed)), React.createElement("span", {
       className: "history-days"
     }, "\u63D0\u524D ", item.leadDays, " \u5929"));
-  })));
+  }), !items.length ? React.createElement("div", {
+    className: "empty-guide"
+  }, "\u8FD8\u6CA1\u6709\u5DF2\u5B8C\u6210\u7684\u5173\u952E\u4E8B\u9879") : null));
 }
 function ReportScreen(_ref18) {
   var type = _ref18.type,
     onBack = _ref18.onBack;
   var monthly = type === "month";
   var ranking = monthly ? APP_DATA.monthRanking : APP_DATA.yearRanking;
+  var hasData = ranking.length > 0 || APP_DATA.ddlRanking.length > 0;
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
-    title: monthly ? "7 月复盘" : "2025 年复盘",
+    title: monthly ? "月度复盘" : "年度复盘",
     onBack: onBack
-  }), React.createElement("div", {
-    className: "summary-hero"
-  }, React.createElement("div", {
-    className: "summary-kicker"
-  }, "\u65E5\u5E38\u4E8B\u52A1\u5B8C\u6210\u7387"), React.createElement("div", {
-    className: "summary-value"
-  }, monthly ? "84%" : "82%"), React.createElement("div", {
-    className: "summary-caption"
-  }, monthly ? "比 6 月提高 6 个百分点" : "全年完成 1,270 次日常事项")), React.createElement(SectionHeader, {
+  }), hasData ? React.createElement(React.Fragment, null, React.createElement(SectionHeader, {
     title: "\u5B8C\u6210\u6BD4\u4F8B\u6392\u540D",
     note: monthly ? "上月" : "全年"
   }), React.createElement("div", {
@@ -1892,10 +1895,34 @@ function ReportScreen(_ref18) {
     }, item.title), React.createElement("span", {
       className: "rank-days"
     }, "\u63D0\u524D ", item.days, " \u5929"));
-  })));
+  }))) : React.createElement("div", {
+    className: "empty-guide report-empty"
+  }, "\u5B8C\u6210\u4EFB\u52A1\u540E\uFF0C\u8FD9\u91CC\u4F1A\u751F\u6210\u771F\u5B9E\u590D\u76D8"));
 }
-function PermissionsScreen(_ref19) {
-  var onBack = _ref19.onBack;
+function DeleteConfirmSheet(_ref19) {
+  var target = _ref19.target,
+    onClose = _ref19.onClose,
+    onConfirm = _ref19.onConfirm;
+  if (!(target !== null && target !== void 0 && target.task)) return null;
+  return React.createElement(Sheet, {
+    onClose: onClose,
+    label: "\u786E\u8BA4\u5220\u9664\u4EFB\u52A1"
+  }, React.createElement("div", {
+    className: "delete-confirm-title"
+  }, target.task.title), React.createElement("div", {
+    className: "button-row"
+  }, React.createElement("button", {
+    className: "secondary-button pressable",
+    type: "button",
+    onClick: onClose
+  }, "\u53D6\u6D88"), React.createElement("button", {
+    className: "primary-button accent pressable",
+    type: "button",
+    onClick: onConfirm
+  }, "\u5220\u9664")));
+}
+function PermissionsScreen(_ref20) {
+  var onBack = _ref20.onBack;
   var rows = [["通知权限", "锁屏和通知中心可见", "已开启"], ["精确闹钟", "保证事项按设定时间出现", "已开启"], ["后台运行", "已加入 ColorOS 白名单", "正常"], ["电池优化", "允许今刻在后台保持提醒", "不限制"]];
   return React.createElement("main", {
     className: "screen secondary"
@@ -1919,11 +1946,11 @@ function PermissionsScreen(_ref19) {
     style: {
       marginTop: 17
     }
-  }, rows.map(function (_ref20) {
-    var _ref21 = _slicedToArray(_ref20, 3),
-      title = _ref21[0],
-      note = _ref21[1],
-      status = _ref21[2];
+  }, rows.map(function (_ref21) {
+    var _ref22 = _slicedToArray(_ref21, 3),
+      title = _ref22[0],
+      note = _ref22[1],
+      status = _ref22[2];
     return React.createElement("div", {
       className: "permission-row",
       key: title
@@ -1936,16 +1963,16 @@ function PermissionsScreen(_ref19) {
     }, status));
   })));
 }
-function CriticalReminderScreen(_ref22) {
-  var tasks = _ref22.tasks,
-    reminderTime = _ref22.reminderTime,
-    onReminderTimeChange = _ref22.onReminderTimeChange,
-    reminderMultiple = _ref22.reminderMultiple,
-    onReminderMultipleChange = _ref22.onReminderMultipleChange,
-    reminderFinalDays = _ref22.reminderFinalDays,
-    onReminderFinalDaysChange = _ref22.onReminderFinalDaysChange,
-    onOpenPermissions = _ref22.onOpenPermissions,
-    onBack = _ref22.onBack;
+function CriticalReminderScreen(_ref23) {
+  var tasks = _ref23.tasks,
+    reminderTime = _ref23.reminderTime,
+    onReminderTimeChange = _ref23.onReminderTimeChange,
+    reminderMultiple = _ref23.reminderMultiple,
+    onReminderMultipleChange = _ref23.onReminderMultipleChange,
+    reminderFinalDays = _ref23.reminderFinalDays,
+    onReminderFinalDaysChange = _ref23.onReminderFinalDaysChange,
+    onOpenPermissions = _ref23.onOpenPermissions,
+    onBack = _ref23.onBack;
   var reminderTasks = tasks.filter(function (task) {
     return task.deadline && shouldRemindCritical(task.daysLeft, reminderMultiple, reminderFinalDays);
   });
@@ -2054,7 +2081,7 @@ function CriticalReminderScreen(_ref22) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.1";
+var JINKE_FALLBACK_VERSION = "1.0.2";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2070,8 +2097,8 @@ function compareVersions(left, right) {
   }
   return 0;
 }
-function VersionScreen(_ref23) {
-  var onBack = _ref23.onBack;
+function VersionScreen(_ref24) {
+  var onBack = _ref24.onBack;
   var currentVersion = function () {
     try {
       var _window$JinkeAndroid, _window$JinkeAndroid$;
@@ -2169,8 +2196,8 @@ function VersionScreen(_ref23) {
     size: 15
   })));
 }
-function VoiceSettingsScreen(_ref24) {
-  var onBack = _ref24.onBack;
+function VoiceSettingsScreen(_ref25) {
+  var onBack = _ref25.onBack;
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -2262,6 +2289,7 @@ Object.assign(window, {
   CalendarDaySheet: CalendarDaySheet,
   HistoryScreen: HistoryScreen,
   ReportScreen: ReportScreen,
+  DeleteConfirmSheet: DeleteConfirmSheet,
   PermissionsScreen: PermissionsScreen,
   CriticalReminderScreen: CriticalReminderScreen,
   VersionScreen: VersionScreen,
@@ -2275,7 +2303,6 @@ Object.assign(window, {
 var _excluded = ["type"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -2292,6 +2319,7 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _React = React,
   useEffect = _React.useEffect,
   useRef = _React.useRef,
@@ -2311,6 +2339,7 @@ var _window = window,
   CalendarDaySheet = _window.CalendarDaySheet,
   HistoryScreen = _window.HistoryScreen,
   ReportScreen = _window.ReportScreen,
+  DeleteConfirmSheet = _window.DeleteConfirmSheet,
   PermissionsScreen = _window.PermissionsScreen,
   CriticalReminderScreen = _window.CriticalReminderScreen,
   VersionScreen = _window.VersionScreen,
@@ -2333,6 +2362,47 @@ function readStoredJson(key, fallback, validator) {
   } catch (_unused) {}
   return fallback;
 }
+function migrateLegacySeedData() {
+  var markerKey = "jinke-seed-migration-v2";
+  var legacyDailyIds = new Set(["wake", "plan", "gym", "journal", "sleep"]);
+  var legacyCriticalIds = new Set(["passport", "voice-app", "tax", "autodrive", "health"]);
+  var legacyHistoryIds = new Set(["h1", "h2", "h3", "h4"]);
+  try {
+    if (localStorage.getItem(markerKey)) return;
+    var storedDaily = JSON.parse(localStorage.getItem("jinke-daily-tasks") || "null");
+    if (Array.isArray(storedDaily)) {
+      var retained = storedDaily.filter(function (task) {
+        return !legacyDailyIds.has(task.id);
+      });
+      localStorage.setItem("jinke-daily-tasks", JSON.stringify(retained.length ? retained : APP_DATA.dailyTasks));
+    }
+    var storedCritical = JSON.parse(localStorage.getItem("jinke-critical-tasks") || "null");
+    if (Array.isArray(storedCritical)) {
+      var _retained = storedCritical.filter(function (task) {
+        return !legacyCriticalIds.has(task.id);
+      });
+      localStorage.setItem("jinke-critical-tasks", JSON.stringify(_retained.length ? _retained : APP_DATA.criticalTasks));
+    }
+    var storedHistory = JSON.parse(localStorage.getItem("jinke-task-history") || "null");
+    if (Array.isArray(storedHistory)) {
+      var _retained2 = storedHistory.filter(function (item) {
+        return !legacyHistoryIds.has(item.id) && !legacyCriticalIds.has(item.sourceTaskId);
+      });
+      localStorage.setItem("jinke-task-history", JSON.stringify(_retained2));
+    }
+    var storedCompletions = JSON.parse(localStorage.getItem("jinke-daily-completions") || "null");
+    if (storedCompletions && _typeof(storedCompletions) === "object" && !Array.isArray(storedCompletions)) {
+      var _retained3 = Object.fromEntries(Object.entries(storedCompletions).filter(function (_ref) {
+        var _ref2 = _slicedToArray(_ref, 1),
+          key = _ref2[0];
+        return !legacyDailyIds.has(key.split(":")[0]);
+      }));
+      localStorage.setItem("jinke-daily-completions", JSON.stringify(_retained3));
+    }
+    localStorage.setItem(markerKey, "1");
+  } catch (_unused2) {}
+}
+migrateLegacySeedData();
 function dateKeyOffset(fromKey, toKey) {
   var _fromKey$split$map = fromKey.split("-").map(Number),
     _fromKey$split$map2 = _slicedToArray(_fromKey$split$map, 3),
@@ -2802,10 +2872,10 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     if (/(?:改成|改为|设为|调整为).*(关键|特殊)/.test(text)) changes.type = "critical";
     if (/(?:改成|改为|设为|调整为).*(日常|每日)/.test(text)) changes.type = "daily";
     if (!noteMatch && parsed.title !== "未命名事项") changes.title = parsed.title;
-    var _rows = Object.entries(changes).map(function (_ref) {
-      var _ref2 = _slicedToArray(_ref, 2),
-        key = _ref2[0],
-        value = _ref2[1];
+    var _rows = Object.entries(changes).map(function (_ref3) {
+      var _ref4 = _slicedToArray(_ref3, 2),
+        key = _ref4[0],
+        value = _ref4[1];
       return [{
         title: "名称",
         type: "类型",
@@ -2858,11 +2928,42 @@ function useViewportScale(width, height) {
   }, [width, height]);
   return scale;
 }
+function getNativeWindowState(payload) {
+  try {
+    var _window$JinkeAndroid, _window$JinkeAndroid$;
+    var previewMode = new URLSearchParams(window.location.search).get("native");
+    var hasNativeBridge = Boolean((_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.isNativeApp) === null || _window$JinkeAndroid$ === void 0 ? void 0 : _window$JinkeAndroid$.call(_window$JinkeAndroid));
+    if (!hasNativeBridge && !["phone", "expanded"].includes(previewMode)) return null;
+    if (!hasNativeBridge) {
+      var _width = Math.max(1, window.innerWidth || 1);
+      var _height = Math.max(1, window.innerHeight || 1);
+      return {
+        width: _width,
+        height: _height,
+        ratio: Math.min(_width, _height) / Math.max(_width, _height),
+        expanded: previewMode === "expanded"
+      };
+    }
+    var supplied = typeof payload === "string" ? JSON.parse(payload) : payload;
+    var nativeInfo = supplied || JSON.parse(window.JinkeAndroid.getWindowLayout());
+    var width = Math.max(1, Number(nativeInfo.widthDp) || window.innerWidth || 1);
+    var height = Math.max(1, Number(nativeInfo.heightDp) || window.innerHeight || 1);
+    var ratio = Math.min(width, height) / Math.max(width, height);
+    return {
+      width: width,
+      height: height,
+      ratio: ratio,
+      expanded: nativeInfo.expanded === true || ratio >= 0.68
+    };
+  } catch (_unused3) {
+    return null;
+  }
+}
 function MobileDesignApp() {
   var _useState3 = useState(function () {
       try {
         return localStorage.getItem("jinke-theme") || "dark";
-      } catch (_unused2) {
+      } catch (_unused4) {
         return "dark";
       }
     }),
@@ -2915,7 +3016,7 @@ function MobileDesignApp() {
       var value = "10:00";
       try {
         value = localStorage.getItem("jinke-ddl-reminder-time") || value;
-      } catch (_unused3) {}
+      } catch (_unused5) {}
       window.JINKE_DDL_REMINDER_TIME = value;
       return value;
     }),
@@ -2926,7 +3027,7 @@ function MobileDesignApp() {
       var value = 5;
       try {
         value = Math.max(1, Number(localStorage.getItem("jinke-ddl-reminder-multiple")) || value);
-      } catch (_unused4) {}
+      } catch (_unused6) {}
       window.JINKE_DDL_REMINDER_MULTIPLE = value;
       return value;
     }),
@@ -2938,7 +3039,7 @@ function MobileDesignApp() {
       try {
         var stored = localStorage.getItem("jinke-ddl-reminder-final-days");
         if (stored !== null) value = Math.max(0, Number(stored) || 0);
-      } catch (_unused5) {}
+      } catch (_unused7) {}
       window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
       return value;
     }),
@@ -2953,52 +3054,62 @@ function MobileDesignApp() {
     setHistory = _useState28[1];
   var _useState29 = useState(null),
     _useState30 = _slicedToArray(_useState29, 2),
-    selectedDaily = _useState30[0],
-    setSelectedDaily = _useState30[1];
+    deleteTarget = _useState30[0],
+    setDeleteTarget = _useState30[1];
   var _useState31 = useState(null),
     _useState32 = _slicedToArray(_useState31, 2),
-    dailyDraft = _useState32[0],
-    setDailyDraft = _useState32[1];
+    selectedDaily = _useState32[0],
+    setSelectedDaily = _useState32[1];
   var _useState33 = useState(null),
     _useState34 = _slicedToArray(_useState33, 2),
-    selectedCritical = _useState34[0],
-    setSelectedCritical = _useState34[1];
+    dailyDraft = _useState34[0],
+    setDailyDraft = _useState34[1];
   var _useState35 = useState(null),
     _useState36 = _slicedToArray(_useState35, 2),
-    criticalDraft = _useState36[0],
-    setCriticalDraft = _useState36[1];
-  var _useState37 = useState(7),
+    selectedCritical = _useState36[0],
+    setSelectedCritical = _useState36[1];
+  var _useState37 = useState(null),
     _useState38 = _slicedToArray(_useState37, 2),
-    renewDays = _useState38[0],
-    setRenewDays = _useState38[1];
-  var _useState39 = useState("listening"),
+    criticalDraft = _useState38[0],
+    setCriticalDraft = _useState38[1];
+  var _useState39 = useState(7),
     _useState40 = _slicedToArray(_useState39, 2),
-    voicePhase = _useState40[0],
-    setVoicePhase = _useState40[1];
-  var _useState41 = useState(""),
+    renewDays = _useState40[0],
+    setRenewDays = _useState40[1];
+  var _useState41 = useState("listening"),
     _useState42 = _slicedToArray(_useState41, 2),
-    transcript = _useState42[0],
-    setTranscript = _useState42[1];
-  var _useState43 = useState(null),
+    voicePhase = _useState42[0],
+    setVoicePhase = _useState42[1];
+  var _useState43 = useState(""),
     _useState44 = _slicedToArray(_useState43, 2),
-    voiceDraft = _useState44[0],
-    setVoiceDraft = _useState44[1];
-  var _useState45 = useState("china"),
+    transcript = _useState44[0],
+    setTranscript = _useState44[1];
+  var _useState45 = useState(null),
     _useState46 = _slicedToArray(_useState45, 2),
-    archiveActive = _useState46[0],
-    setArchiveActive = _useState46[1];
-  var _useState47 = useState(0),
+    voiceDraft = _useState46[0],
+    setVoiceDraft = _useState46[1];
+  var _useState47 = useState("china"),
     _useState48 = _slicedToArray(_useState47, 2),
-    archiveIndex = _useState48[0],
-    setArchiveIndex = _useState48[1];
-  var _useState49 = useState(true),
+    archiveActive = _useState48[0],
+    setArchiveActive = _useState48[1];
+  var _useState49 = useState(0),
     _useState50 = _slicedToArray(_useState49, 2),
-    speechAvailable = _useState50[0],
-    setSpeechAvailable = _useState50[1];
-  var _useState51 = useState(""),
+    archiveIndex = _useState50[0],
+    setArchiveIndex = _useState50[1];
+  var _useState51 = useState(true),
     _useState52 = _slicedToArray(_useState51, 2),
-    toast = _useState52[0],
-    setToast = _useState52[1];
+    speechAvailable = _useState52[0],
+    setSpeechAvailable = _useState52[1];
+  var _useState53 = useState(""),
+    _useState54 = _slicedToArray(_useState53, 2),
+    toast = _useState54[0],
+    setToast = _useState54[1];
+  var _useState55 = useState(function () {
+      return getNativeWindowState();
+    }),
+    _useState56 = _slicedToArray(_useState55, 2),
+    nativeWindow = _useState56[0],
+    setNativeWindow = _useState56[1];
   var recognitionRef = useRef(null);
   var toastTimerRef = useRef(null);
   var scale = useViewportScale(SIMULATOR_WIDTH, SIMULATOR_HEIGHT);
@@ -3031,31 +3142,48 @@ function MobileDesignApp() {
     applyTheme();
     try {
       localStorage.setItem("jinke-theme", themeMode);
-    } catch (_unused6) {}
+    } catch (_unused8) {}
     if (themeMode === "system") media.addEventListener("change", applyTheme);
     return function () {
       return media.removeEventListener("change", applyTheme);
     };
   }, [themeMode]);
   useEffect(function () {
+    if (!nativeWindow) return undefined;
+    var updateNativeWindow = function updateNativeWindow(payload) {
+      var next = getNativeWindowState(payload);
+      if (next) setNativeWindow(next);
+    };
+    window.JINKE_NATIVE_WINDOW_CHANGED = updateNativeWindow;
+    var onResize = function onResize() {
+      return updateNativeWindow();
+    };
+    window.addEventListener("resize", onResize);
+    updateNativeWindow();
+    return function () {
+      window.removeEventListener("resize", onResize);
+      if (window.JINKE_NATIVE_WINDOW_CHANGED === updateNativeWindow) delete window.JINKE_NATIVE_WINDOW_CHANGED;
+    };
+  }, [Boolean(nativeWindow)]);
+  useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks));
-    } catch (_unused7) {}
+    } catch (_unused9) {}
   }, [dailyTasks]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-completions", JSON.stringify(dailyCompletionByDate));
-    } catch (_unused8) {}
+    } catch (_unused10) {}
   }, [dailyCompletionByDate]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-critical-tasks", JSON.stringify(criticalTasks));
-    } catch (_unused9) {}
+    } catch (_unused11) {}
   }, [criticalTasks]);
   useEffect(function () {
     try {
       localStorage.setItem("jinke-task-history", JSON.stringify(history));
-    } catch (_unused10) {}
+    } catch (_unused12) {}
   }, [history]);
   useEffect(function () {
     window.JINKE_DDL_REMINDER_TIME = ddlReminderTime;
@@ -3063,13 +3191,13 @@ function MobileDesignApp() {
     window.JINKE_DDL_REMINDER_FINAL_DAYS = ddlReminderFinalDays;
     try {
       localStorage.setItem("jinke-ddl-reminder-time", ddlReminderTime);
-    } catch (_unused11) {}
+    } catch (_unused13) {}
     try {
       localStorage.setItem("jinke-ddl-reminder-multiple", String(ddlReminderMultiple));
-    } catch (_unused12) {}
+    } catch (_unused14) {}
     try {
       localStorage.setItem("jinke-ddl-reminder-final-days", String(ddlReminderFinalDays));
-    } catch (_unused13) {}
+    } catch (_unused15) {}
     setCriticalTasks(function (current) {
       return current.map(function (task) {
         return task.deadline ? _objectSpread(_objectSpread({}, task), {}, {
@@ -3079,8 +3207,8 @@ function MobileDesignApp() {
     });
   }, [ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
-    var _window$JinkeAndroid;
-    if (!((_window$JinkeAndroid = window.JinkeAndroid) !== null && _window$JinkeAndroid !== void 0 && _window$JinkeAndroid.syncDdlReminders)) return;
+    var _window$JinkeAndroid2;
+    if (!((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.syncDdlReminders)) return;
     var payload = criticalTasks.filter(function (task) {
       return task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0;
     }).map(function (task) {
@@ -3092,7 +3220,7 @@ function MobileDesignApp() {
     });
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
-    } catch (_unused14) {}
+    } catch (_unused16) {}
   }, [criticalTasks, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
     return function () {
@@ -3142,6 +3270,41 @@ function MobileDesignApp() {
       reminder: task.reminder || "到点提醒"
     }));
     setOverlay("daily-edit");
+  };
+  var requestDelete = function requestDelete(task, kind) {
+    setDeleteTarget({
+      task: task,
+      kind: kind
+    });
+    setOverlay("delete-confirm");
+  };
+  var confirmDelete = function confirmDelete() {
+    if (!(deleteTarget !== null && deleteTarget !== void 0 && deleteTarget.task)) return;
+    var task = deleteTarget.task,
+      kind = deleteTarget.kind;
+    if (kind === "daily") {
+      setDailyTasks(function (current) {
+        return current.filter(function (item) {
+          return item.id !== task.id;
+        });
+      });
+      setDailyCompletionByDate(function (current) {
+        return Object.fromEntries(Object.entries(current).filter(function (_ref5) {
+          var _ref6 = _slicedToArray(_ref5, 1),
+            key = _ref6[0];
+          return key.split(":")[0] !== task.id;
+        }));
+      });
+    } else {
+      setCriticalTasks(function (current) {
+        return current.filter(function (item) {
+          return item.id !== task.id;
+        });
+      });
+    }
+    setDeleteTarget(null);
+    setOverlay(null);
+    showToast("\u5DF2\u5220\u9664\u300C".concat(task.title, "\u300D"));
   };
   var saveDaily = function saveDaily(taskId, changes) {
     setDailyTasks(function (current) {
@@ -3242,8 +3405,8 @@ function MobileDesignApp() {
     setOverlay("voice");
     var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
-      var _window$JinkeAndroid2;
-      if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.startSpeechRecognition) {
+      var _window$JinkeAndroid3;
+      if ((_window$JinkeAndroid3 = window.JinkeAndroid) !== null && _window$JinkeAndroid3 !== void 0 && _window$JinkeAndroid3.startSpeechRecognition) {
         window.JINKE_NATIVE_SPEECH_RESULT = function (next) {
           setTranscript(String(next || ""));
           setSpeechAvailable(Boolean(next));
@@ -3254,7 +3417,7 @@ function MobileDesignApp() {
         try {
           window.JinkeAndroid.startSpeechRecognition();
           setSpeechAvailable(true);
-        } catch (_unused15) {
+        } catch (_unused17) {
           setSpeechAvailable(false);
         }
         return;
@@ -3279,7 +3442,7 @@ function MobileDesignApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setSpeechAvailable(true);
-    } catch (_unused16) {
+    } catch (_unused18) {
       setSpeechAvailable(false);
     }
   };
@@ -3287,7 +3450,7 @@ function MobileDesignApp() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_unused17) {}
+      } catch (_unused19) {}
       recognitionRef.current = null;
     }
     if (!transcript.trim()) setTranscript(VOICE_EXAMPLE);
@@ -3535,7 +3698,7 @@ function MobileDesignApp() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused18) {}
+      } catch (_unused20) {}
       recognitionRef.current = null;
     }
     setOverlay(null);
@@ -3545,7 +3708,33 @@ function MobileDesignApp() {
     setCriticalDraft(null);
     setRenewDays(7);
     setVoiceDraft(null);
+    setDeleteTarget(null);
   };
+  useEffect(function () {
+    var handleNativeBack = function handleNativeBack() {
+      if (overlay) {
+        closeOverlay();
+        return true;
+      }
+      if (secondary) {
+        setSecondary(null);
+        return true;
+      }
+      if (viewMode === "month") {
+        setViewMode("day");
+        return true;
+      }
+      if (activeTab === "critical") {
+        setActiveTab("today");
+        return true;
+      }
+      return false;
+    };
+    window.JINKE_NATIVE_BACK = handleNativeBack;
+    return function () {
+      if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
+    };
+  }, [overlay, secondary, viewMode, activeTab]);
   var renderScreen = function renderScreen() {
     if (secondary === "history") return React.createElement(HistoryScreen, {
       items: history,
@@ -3598,6 +3787,9 @@ function MobileDesignApp() {
     if (activeTab === "critical") return React.createElement(CriticalScreen, {
       tasks: criticalTasks,
       onOpen: openCritical,
+      onDelete: function onDelete(task) {
+        return requestDelete(task, "critical");
+      },
       onMenu: function onMenu() {
         return setOverlay("more");
       },
@@ -3610,7 +3802,13 @@ function MobileDesignApp() {
       deadlineTasks: displayedDeadlineTasks,
       onToggle: toggleDaily,
       onEdit: openDaily,
+      onDeleteDaily: function onDeleteDaily(task) {
+        return requestDelete(task, "daily");
+      },
       onOpenCritical: openCritical,
+      onDeleteCritical: function onDeleteCritical(task) {
+        return requestDelete(task, "critical");
+      },
       onMenu: function onMenu() {
         return setOverlay("more");
       },
@@ -3684,12 +3882,23 @@ function MobileDesignApp() {
       onActiveChange: setArchiveActive,
       onIndexChange: setArchiveIndex,
       onClose: closeOverlay
+    }) : null, overlay === "delete-confirm" ? React.createElement(DeleteConfirmSheet, {
+      target: deleteTarget,
+      onClose: closeOverlay,
+      onConfirm: confirmDelete
     }) : null, toast ? React.createElement("div", {
       className: "sr-only",
       role: "status",
       "aria-live": "polite"
     }, toast) : null);
   };
+  if (nativeWindow) {
+    var nativeVariant = nativeWindow.expanded ? "expanded" : "phone";
+    return React.createElement("div", {
+      className: "native-app ".concat(nativeWindow.expanded ? "native-expanded" : "native-phone"),
+      "data-window-ratio": nativeWindow.ratio.toFixed(3)
+    }, renderDevice(nativeVariant));
+  }
   return React.createElement("div", {
     className: "viewer-root"
   }, React.createElement("div", {

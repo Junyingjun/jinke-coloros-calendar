@@ -43,41 +43,125 @@ function SectionHeader({ title, note }) {
   return <div className="section-head"><h2 className="section-title">{title}</h2>{note ? <span className="section-note">{note}</span> : null}</div>;
 }
 
-function DailyTaskRow({ task, onToggle, onEdit }) {
+function SwipeTaskActions({ label, onEdit, onDelete, children }) {
+  const revealRatio = 0.36;
+  const [offsetRatio, setOffsetRatio] = React.useState(0);
+  const gestureRef = React.useRef(null);
+  const offsetRef = React.useRef(0);
+  const suppressClickRef = React.useRef(false);
+
+  const settle = (next) => {
+    offsetRef.current = next;
+    setOffsetRatio(next);
+  };
+
+  const onPointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffset: offsetRef.current,
+      horizontal: false,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const onPointerMove = (event) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    if (!gesture.horizontal && Math.max(Math.abs(dx), Math.abs(dy)) > 7) {
+      if (Math.abs(dy) > Math.abs(dx)) return;
+      gesture.horizontal = true;
+    }
+    if (!gesture.horizontal) return;
+    gesture.moved = true;
+    const width = Math.max(1, event.currentTarget.getBoundingClientRect().width);
+    settle(Math.max(-revealRatio, Math.min(0, gesture.startOffset + (dx / width))));
+  };
+
+  const onPointerEnd = (event) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (gesture.moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+      settle(offsetRef.current <= -0.13 ? -revealRatio : 0);
+    }
+    gestureRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const onClickCapture = (event) => {
+    if (event.target.closest?.(".swipe-action")) return;
+    if (suppressClickRef.current || offsetRef.current < 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      settle(0);
+    }
+  };
+
   return (
-    <div className="daily-row">
-      <button className="task-time task-time-edit" aria-label={`编辑 ${task.title} 的时间`} onClick={() => onEdit(task)}>{task.time}</button>
-      <button className={`check-button ${task.done ? "done" : ""}`} aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
-        {task.done ? <Icon name="check" size={15} strokeWidth={2.3} /> : null}
-      </button>
-      <button className="task-copy task-edit-button" aria-label={`编辑 ${task.title}`} onClick={() => onEdit(task)}>
-        <span className="task-edit-body">
-          <span className={`task-title ${task.done ? "done" : ""}`}>{task.title}</span>
-          <span className="task-note">{task.note}</span>
-          <span className="task-tags"><span className="repeat-pill">{task.repeat}</span>{task.reminder && task.reminder !== "到点提醒" ? <span className="reminder-pill">{task.reminder}</span> : null}</span>
-        </span>
-        <Icon name="chevronRight" size={17} />
-      </button>
+    <div
+      className={`swipe-task ${offsetRatio < 0 ? "is-open" : ""}`}
+      aria-label={label}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+      onClickCapture={onClickCapture}
+    >
+      <div className="swipe-actions" aria-hidden={offsetRatio === 0}>
+        <button className="swipe-action swipe-edit" type="button" onClick={() => { settle(0); onEdit(); }}>编辑</button>
+        <button className="swipe-action swipe-delete" type="button" onClick={() => { settle(0); onDelete(); }}>删除</button>
+      </div>
+      <div className="swipe-task-content" style={{ transform: `translateX(${offsetRatio * 100}%)` }}>{children}</div>
     </div>
   );
 }
 
-function CriticalTaskRow({ task, onOpen }) {
+function DailyTaskRow({ task, onToggle, onEdit, onDelete }) {
+  return (
+    <SwipeTaskActions label={`${task.title}，向左滑动可编辑或删除`} onEdit={() => onEdit(task)} onDelete={() => onDelete(task)}>
+      <div className="daily-row">
+        <button className="task-time task-time-edit" aria-label={`编辑 ${task.title} 的时间`} onClick={() => onEdit(task)}>{task.time}</button>
+        <button className={`check-button ${task.done ? "done" : ""}`} aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
+          {task.done ? <Icon name="check" size={15} strokeWidth={2.3} /> : null}
+        </button>
+        <button className="task-copy task-edit-button" aria-label={`编辑 ${task.title}`} onClick={() => onEdit(task)}>
+          <span className="task-edit-body">
+            <span className={`task-title ${task.done ? "done" : ""}`}>{task.title}</span>
+            <span className="task-note">{task.note}</span>
+            <span className="task-tags"><span className="repeat-pill">{task.repeat}</span>{task.reminder && task.reminder !== "到点提醒" ? <span className="reminder-pill">{task.reminder}</span> : null}</span>
+          </span>
+          <Icon name="chevronRight" size={17} />
+        </button>
+      </div>
+    </SwipeTaskActions>
+  );
+}
+
+function CriticalTaskRow({ task, onOpen, onDelete }) {
   const dueCopy = task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? `逾期 ${Math.abs(task.daysLeft)} 天` : task.daysLeft === 0 ? "今天" : `剩 ${task.daysLeft} 天`;
   return (
-    <button className="critical-row pressable" onClick={() => onOpen(task)}>
-      <div className="critical-top">
-        <div>
-          <div className="critical-title">{task.title}</div>
-          <div className="critical-note">{task.note}</div>
+    <SwipeTaskActions label={`${task.title}，向左滑动可编辑或删除`} onEdit={() => onOpen(task)} onDelete={() => onDelete(task)}>
+      <button className="critical-row pressable" onClick={() => onOpen(task)}>
+        <div className="critical-top">
+          <div>
+            <div className="critical-title">{task.title}</div>
+            <div className="critical-note">{task.note}</div>
+          </div>
+          <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
         </div>
-        <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
-      </div>
-      <div className="critical-meta">
-        <span>{task.deadline ? [task.deadline, task.time].filter(Boolean).join(" · ") : task.reminder}</span>
-        <div className="mini-progress" aria-label={`完成 ${task.progress}%`}><span style={{ width: `${task.progress}%` }} /></div>
-      </div>
-    </button>
+        <div className="critical-meta">
+          <span>{task.deadline ? [task.deadline, task.time].filter(Boolean).join(" · ") : task.reminder}</span>
+          <div className="mini-progress" aria-label={`完成 ${task.progress}%`}><span style={{ width: `${task.progress}%` }} /></div>
+        </div>
+      </button>
+    </SwipeTaskActions>
   );
 }
 
@@ -123,4 +207,4 @@ function BarRow({ item }) {
   );
 }
 
-Object.assign(window, { Icon, PhoneFrame, IconButton, SectionHeader, DailyTaskRow, CriticalTaskRow, BottomNav, Sheet, BackHeader, BarRow });
+Object.assign(window, { Icon, PhoneFrame, IconButton, SectionHeader, SwipeTaskActions, DailyTaskRow, CriticalTaskRow, BottomNav, Sheet, BackHeader, BarRow });
