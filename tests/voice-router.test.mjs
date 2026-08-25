@@ -23,6 +23,7 @@ assert.ok(start >= 0 && end > start, "voice router source markers must exist");
 
 context.APP_DATA = context.window.APP_DATA;
 context.getCriticalReminder = context.window.getCriticalReminder;
+context.normalizeCriticalReminderPlan = context.window.normalizeCriticalReminderPlan;
 context.repeatLabelFromDays = context.window.repeatLabelFromDays;
 vm.runInContext(`${appSource.slice(start, end)}\nthis.parseVoiceCommand = parseVoiceCommand;`, context);
 
@@ -61,6 +62,9 @@ const cases = [
   ["周一到周五每天十一点点外卖", "create"],
   ["周一三五健身房", "create"],
   ["九月一号去北京，九月五号回来", "create"],
+  ["创建一个有DDL的任务，九月三十号提交报告", "create"],
+  ["创建一个有deadline的任务，九月三十号提交报告", "create"],
+  ["创建一个有滴滴艾尔的任务，九月三十号提交报告", "create"],
 ];
 
 for (const [text, intent] of cases) {
@@ -72,7 +76,7 @@ for (const [text, intent] of cases) {
 assert.equal(route("清除所有的安排").scope, "all");
 assert.equal(route("清除健身").target.task.id, "gym");
 assert.equal(route("把健身改到晚上八点").changes.time, "20:00");
-assert.equal(route("给旅行证件续期设置下午三点").changes.time, "15:00");
+assert.equal(route("给旅行证件续期设置下午三点").changes.deadlineTime, "15:00");
 assert.equal(route("把旅行证件续期改到九月十五号下午三点").eventTime, "15:00");
 assert.equal(route("切换到亮色").themeMode, "light");
 assert.equal(route("把DDL默认提醒时间改为早上九点").reminderTime, "09:00");
@@ -125,6 +129,12 @@ assert.equal(route("九月一号去北京，待五天回来").task.span.end.days
 assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.type, "critical", "an explicit no-deadline request must create a critical task");
 assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.deadline, null);
 assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.title, "修桑顿皮卡德相机", "the explicit no-deadline phrase must not leak into the title");
+assert.equal(route("创建一个有DDL的任务，九月三十号上午九点提交报告").task.type, "critical", "spoken DDL must select the critical task model");
+assert.equal(route("创建一个有DDL的任务，九月三十号上午九点提交报告").task.title, "提交报告", "DDL intent words must not leak into the task title");
+assert.equal(route("创建一个有DDL的任务，九月三十号上午九点提交报告").task.deadlineTime, "09:00", "a spoken event time is the deadline time");
+assert.equal(route("创建一个有DDL的任务，九月三十号上午九点提交报告").task.reminderTime, "10:00", "deadline time must not overwrite the independent reminder time");
+assert.equal(route("创建一个有deadline的任务，九月三十号提交报告").task.type, "critical", "spoken deadline must remain supported");
+assert.equal(route("创建一个有滴滴艾尔的任务，九月三十号提交报告").task.type, "critical", "common Chinese-model DDL transcription must be normalized");
 
 const runtimeNow = new Date();
 const runtimeDateKey = `${runtimeNow.getFullYear()}-${String(runtimeNow.getMonth() + 1).padStart(2, "0")}-${String(runtimeNow.getDate()).padStart(2, "0")}`;
@@ -167,7 +177,14 @@ assert.equal(context.window.shouldRemindCritical(-1), false, "completed deadline
 assert.equal(context.window.shouldRemindCritical(14, 7, 3), true, "custom reminder multiples must be honored");
 assert.equal(context.window.shouldRemindCritical(4, 7, 3), false, "days outside a custom final window must stay quiet");
 assert.equal(context.window.shouldRemindCritical(3, 7, 3), true, "custom final reminder days must be honored");
-assert.match(context.window.getCriticalReminder(null, "09:30"), /09:30/);
+assert.match(context.window.getCriticalReminder({ deadline: "9月30日", reminderEnabled: true }, "09:30"), /09:30/);
+assert.equal(context.window.getCriticalReminder({ deadline: "9月30日", reminderEnabled: true, reminderMode: "daily", reminderTime: "08:15" }), "每天 08:15");
+assert.equal(context.window.shouldRemindCritical(4, { deadline: "9月30日", reminderEnabled: true, reminderMode: "deadline-only" }), false);
+assert.equal(context.window.shouldRemindCritical(0, { deadline: "9月30日", reminderEnabled: true, reminderMode: "deadline-only" }), true);
+assert.match(screensSource, /TimePicker label="截止时刻"/, "critical task editing must expose a dedicated deadline time");
+assert.match(screensSource, /CriticalReminderPlanPicker task=/, "critical task editing must expose an independent reminder plan");
+assert.match(screensSource, /reminderTime[\s\S]*reminderMode[\s\S]*reminderMultiple/, "critical reminder time and cadence must be independently editable");
+assert.doesNotMatch(screensSource, /label="时间"[\s\S]{0,180}getCriticalReminder\(time/, "changing the deadline time must not rewrite the reminder plan");
 assert.equal(context.APP_DATA.dailyTasks.length, 1, "formal seed must keep one daily demonstration only");
 assert.equal(context.APP_DATA.criticalTasks.length, 1, "formal seed must keep one DDL demonstration only");
 assert.equal(context.APP_DATA.dailyTasks[0].demo, true);
@@ -250,15 +267,15 @@ assert.match(appSource, /const handleNativeBack[\s\S]*if \(overlay\)[\s\S]*if \(
 assert.match(activitySource, /JINKE_NATIVE_BACK[\s\S]*performDefaultBack/, "ColorOS edge-back must ask the app before exiting");
 assert.doesNotMatch(screensSource, />临时检视</, "view menu must not show an auxiliary title");
 assert.doesNotMatch(screensSource, />更多<\/h2>/, "more sheet must not show a brand title");
-assert.match(screensSource, /onOpenReminders[\s\S]*<button[^>]*aria-label="打开DDL提醒设置"/, "critical bell must open DDL reminder settings");
+assert.match(screensSource, /onOpenReminders[\s\S]*<button[^>]*aria-label="打开关键提醒设置"/, "critical bell must open critical reminder settings");
 assert.match(appSource, /const \[ddlReminderTime, setDdlReminderTime\]/, "DDL reminder time must use shared application state");
-assert.match(screensSource, /function CriticalReminderScreen[\s\S]*<TimePicker label="DDL 默认提醒时间"/, "DDL reminder time must be editable");
-assert.match(screensSource, /<Stepper label="DDL提醒倍数天数"/, "DDL reminder multiple must be editable");
-assert.match(screensSource, /<Stepper label="DDL最后连续提醒天数"/, "DDL final daily reminder window must be editable");
+assert.match(screensSource, /function CriticalReminderScreen[\s\S]*<TimePicker label="默认提醒时刻"/, "the default critical reminder time must be editable");
+assert.match(screensSource, /<Stepper label="默认间隔天数"/, "the default critical reminder multiple must be editable");
+assert.match(screensSource, /<Stepper label="默认最后每天提醒天数"/, "the default final daily reminder window must be editable");
 assert.doesNotMatch(screensSource, /锁屏、精确闹钟与后台运行/, "notification permission helper copy must be removed");
 assert.match(appSource, /displayedDeadlineTasks = criticalTasks\s*\.filter\(\(task\) => task\.deadline\)/, "today must keep every unfinished DDL task regardless of reminder cadence");
 assert.match(screensSource, /const withDDL = tasks\.filter\(\(task\) => task\.deadline\)/, "critical list must keep every DDL task regardless of reminder cadence");
-assert.match(screensSource, /reminderTasks = tasks\.filter\(\(task\) => task\.deadline && shouldRemindCritical\(task\.daysLeft, reminderMultiple, reminderFinalDays\)\)/, "cadence filtering must be isolated to notifications and use editable policy values");
+assert.match(screensSource, /reminderTasks = tasks\.filter\(\(task\) => task\.deadline && shouldRemindCritical\(task\.daysLeft, task\)\)/, "cadence filtering must be isolated to notifications and use each task's independent plan");
 assert.match(screensSource, /今天不提醒[\s\S]*DDL 仍保留在今日与关键列表/, "zero reminder nodes must suppress the notification while preserving both lists");
 assert.match(screensSource, /ON_THIS_DAY_REQUESTS/, "dual simulators must coalesce archive requests");
 assert.doesNotMatch(screensSource, /onthisday\/all\//, "archive must not download every category at once");

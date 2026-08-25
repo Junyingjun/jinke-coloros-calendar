@@ -10,6 +10,8 @@ const manifest = read("android/app/src/main/AndroidManifest.xml");
 const build = read("android/app/build.gradle");
 const activity = read("android/app/src/main/java/com/junyingjun/jinke/MainActivity.java");
 const engine = read("android/app/src/main/java/com/junyingjun/jinke/OfflineSpeechEngine.java");
+const scheduler = read("android/app/src/main/java/com/junyingjun/jinke/DdlScheduler.java");
+const ddlReceiver = read("android/app/src/main/java/com/junyingjun/jinke/DdlAlarmReceiver.java");
 const modelRoot = path.join(root, "android/app/src/main/assets/vosk-model-small-cn-0.22");
 
 for (const permission of [
@@ -47,6 +49,11 @@ assert.match(activity, /openBackgroundSettings[\s\S]*com\.oplus\.safecenter[\s\S
 assert.match(activity, /BACKGROUND_SETTINGS_OPENED/, "returning from the OEM background settings must not keep showing a false failure");
 assert.match(activity, /deliverSystemTimeChanged[\s\S]*JINKE_REFRESH_SYSTEM_TIME/, "returning to the app must refresh the JavaScript system clock");
 assert.match(manifest, /android\.intent\.action\.DATE_CHANGED/, "date rollover must reschedule Android reminders");
+assert.match(scheduler, /TreeSet[\s\S]*reminderTime[\s\S]*scheduleTime/, "Android must schedule every task-specific reminder time");
+assert.match(scheduler, /cancelPreviouslyScheduled/, "changing reminder plans must cancel obsolete alarm times");
+assert.match(ddlReceiver, /reminderMode[\s\S]*daily[\s\S]*deadline-only/, "Android reminder delivery must honor each task's cadence mode");
+assert.match(activity, /cleanupInstalledUpdateApk[\s\S]*DownloadManager[\s\S]*remove\(downloadId\)/, "a successfully installed update must clean up its downloaded APK");
+assert.match(activity, /KEY_SOURCE_VERSION_CODE[\s\S]*BuildConfig\.VERSION_CODE/, "APK cleanup must only happen after the app version has advanced");
 
 const requiredModelFiles = [
   "am/final.mdl",

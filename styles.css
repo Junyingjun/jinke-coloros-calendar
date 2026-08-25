@@ -342,9 +342,23 @@ button:disabled { cursor: default; }
 .reminder-stepper-row small, .date-stepper-row small { margin: 0 0 5px 4px; display: block; color: var(--ink-3); font-size: 10px; font-weight: 650; }
 .reminder-stepper-row .jinke-stepper, .date-stepper-row .jinke-stepper { width: 100%; min-width: 0; }
 .reminder-summary { min-height: 34px; margin-top: 5px; display: grid; place-items: center; color: var(--accent); font-size: 12px; font-weight: 700; }
-.date-stepper-row { display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 6px; }
-.date-stepper-row .jinke-stepper { grid-template-columns: 34px minmax(32px, 1fr) 34px; }
-.date-stepper-row .jinke-stepper button { width: 34px; }
+.date-stepper-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.date-stepper-row > div:first-child { grid-column: 1 / -1; width: min(100%, 220px); justify-self: center; }
+.date-stepper-row .jinke-stepper { grid-template-columns: 38px minmax(34px, 1fr) 38px; }
+.date-stepper-row .jinke-stepper button { width: 38px; }
+.critical-reminder-picker { min-width: 0; display: grid; gap: 9px; }
+.critical-reminder-picker.disabled { opacity: .72; }
+.critical-reminder-picker .jinke-time-picker { padding-top: 8px; border-top: 1px solid var(--line); }
+.critical-reminder-picker .picker-head button:disabled { opacity: .35; }
+.critical-plan-frequency { display: grid; gap: 6px; }
+.control-caption { color: var(--ink-3); font-size: 11px; font-weight: 650; }
+.critical-plan-frequency .jinke-segments { min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.critical-plan-frequency .jinke-segments button { min-width: 0; padding-inline: 5px; font-size: 11px; }
+.critical-plan-rule-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.critical-plan-rule-grid > div { min-width: 0; }
+.critical-plan-rule-grid small { min-height: 28px; margin: 0 0 5px 4px; display: flex; align-items: flex-end; color: var(--ink-3); font-size: 10px; font-weight: 650; }
+.critical-plan-rule-grid .jinke-stepper { width: 100%; min-width: 0; }
+.critical-plan-summary { min-height: 34px; display: grid; place-items: center; color: var(--accent); font-size: 11px; font-weight: 700; text-align: center; }
 .edit-textarea { min-height: 58px; resize: none; text-align: left; line-height: 1.45; font-weight: 560; }
 .save-wide { width: 100%; margin-top: 12px; }
 .renew-row { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 10px; }

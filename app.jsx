@@ -2,6 +2,7 @@ const { useEffect, useRef, useState } = React;
 const {
   APP_DATA,
   getCriticalReminder,
+  normalizeCriticalReminderPlan,
   repeatDaysFromValue,
   repeatLabelFromDays,
   taskOccursOnDate,
@@ -113,6 +114,13 @@ function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
   return task.daysLeft - dateKeyOffset(anchorKey, dateKey);
 }
 
+function withCriticalReminderDefaults(task) {
+  const deadlineTime = task.deadlineTime ?? (task.time && task.time !== "待定" ? task.time : null);
+  const plan = normalizeCriticalReminderPlan(task);
+  const next = { ...task, deadlineTime, time: deadlineTime, ...plan };
+  return { ...next, reminder: getCriticalReminder(next) };
+}
+
 const CN_DIGITS = { "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
 
 function normalizeSpeechText(value) {
@@ -122,7 +130,10 @@ function normalizeSpeechText(value) {
     previous = normalized;
     normalized = normalized.replace(/([\u3400-\u9fff\d])\s+(?=[\u3400-\u9fff\d])/g, "$1");
   }
-  return normalized;
+  return normalized
+    .replace(/\bd\s*d\s*l\b/ig, "ddl")
+    .replace(/(?:滴|迪|低|弟|地|的)[，,\s]*(?:滴|迪|低|弟|地|的)[，,\s]*(?:艾|爱|挨)(?:尔|耳|儿|乐|了|勒)?/g, "ddl")
+    .replace(/(?:戴德莱恩|代德莱恩|带的来因|带的赖因|戴的来因|代的来因|得来因)/g, "deadline");
 }
 
 function parseNumber(value) {
@@ -206,7 +217,7 @@ function parseRepeat(text) {
 }
 
 function parseDeadline(text) {
-  const explicitNone = text.match(/(?:无|没有)\s*(?:ddl|deadline|截止(?:日期)?|期限)/i);
+  const explicitNone = text.match(/(?:无|没有)\s*(?:ddl|deadline|截止(?:日期)?|期限|死线)/i);
   if (explicitNone) return { deadline: null, daysLeft: null, source: explicitNone[0], kind: "explicit-none" };
   const relative = text.match(/(今天|明天|后天)(?:截止|到期)?/);
   if (relative) {
@@ -311,7 +322,8 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
   let title = rawText;
   [...removableParts, durationSource].filter(Boolean).forEach((part) => { title = title.replace(part, " "); });
   title = title
-    .replace(/没有\s*(?:ddl|截止日期|期限)|无\s*(?:ddl|截止)/ig, " ")
+    .replace(/(?:没有|无)\s*(?:ddl|deadline|截止日期|截止|期限|死线)/ig, " ")
+    .replace(/(?:有|带|包含)?\s*(?:ddl|deadline|截止日期|截止期限|期限|死线)(?:的)?/ig, " ")
     .replace(/(?:帮我|给我|请)?(?:创建|添加|新增|安排|记下|记一下|提醒我)\s*(?:一个|一条)?/g, " ")
     .replace(/(?:重要|关键|特殊)(?:任务|事项|事件)?|(?:任务|事项|日程)[:：]?/g, " ")
     .replace(/^\s*(?:的\s*)+/, "")
@@ -362,13 +374,14 @@ function parseVoiceTask(rawText) {
   const withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   const durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   const duration = durationMatch ? `${parseNumber(durationMatch[1])} ${durationMatch[2]}` : "";
-  const isCritical = Boolean(span) || deadline.kind === "explicit-none" || (!repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|到期)/i.test(text) || deadline.kind === "absolute"));
+  const isCritical = Boolean(span) || deadline.kind === "explicit-none" || (!repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|期限|到期|死线)/i.test(text) || deadline.kind === "absolute"));
 
   const spanSources = span ? [span.start.source, span.end.source] : [];
   const semantics = extractTaskSemantics(text, [reminderMatch?.[0], time.source, timeRange?.end?.source, repeat.source, deadline.source, ...spanSources], durationMatch?.[0]);
   const noteParts = [];
   if (duration) noteParts.push(`持续 ${duration}`);
 
+  const criticalPlan = normalizeCriticalReminderPlan({ deadline: deadline.deadline, reminderEnabled: Boolean(deadline.deadline) });
   return {
     type: isCritical ? "critical" : "daily",
     title: span?.title || semantics.title,
@@ -377,8 +390,10 @@ function parseVoiceTask(rawText) {
     spansMidnight: Boolean(timeRange?.crossesMidnight),
     repeat: repeat.source ? repeat.value : (!isCritical && deadline.deadline ? deadline.deadline : repeat.value),
     repeatDays: repeat.days,
-    reminder: isCritical ? getCriticalReminder(time.source ? time.value : null) : reminder,
+    reminder: isCritical ? getCriticalReminder(criticalPlan) : reminder,
     deadline: deadline.deadline,
+    deadlineTime: isCritical && time.source ? time.value : null,
+    ...(isCritical ? criticalPlan : {}),
     daysLeft: deadline.daysLeft,
     note: noteParts.join(" · "),
     action: semantics.action,
@@ -476,19 +491,19 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     return commandResult("theme", `切换为${themeLabel}`, [["外观", themeLabel]], { themeMode, confirmLabel: "切换" });
   }
 
-  if (!wantsCreate && /(ddl|关键事项).*(默认提醒时间|提醒时间|默认时间)/i.test(text) && /(设置|设为|改为|改到|调整)/.test(text)) {
+  if (!wantsCreate && /(ddl|deadline|关键事项|关键任务|截止任务).*(默认提醒时间|提醒时间|默认时间)/i.test(text) && /(设置|设为|改为|改到|调整)/.test(text)) {
     const reminderTime = parseTime(text);
     return reminderTime.source
       ? commandResult("set-ddl-reminder-time", "修改 DDL 默认提醒时间", [["时间", reminderTime.value], ["频率", "5 的倍数天；最后 5 天每日"]], { reminderTime: reminderTime.value, confirmLabel: "保存" })
       : commandResult("set-ddl-reminder-time", "没有识别到提醒时间", [["示例", "把 DDL 默认提醒时间改为早上九点"]], { valid: false, error: "请说出具体时间" });
   }
 
-  if (!wantsCreate && /(ddl|关键事项).*(倍数|每隔|节点)/i.test(text) && /(设置|设为|改为|改成|调整)/.test(text)) {
+  if (!wantsCreate && /(ddl|deadline|关键事项|关键任务|截止任务).*(倍数|每隔|节点)/i.test(text) && /(设置|设为|改为|改成|调整)/.test(text)) {
     const multiple = parseDelayDays(text);
     return commandResult("set-ddl-reminder-policy", "修改 DDL 提醒倍数", [["倍数节点", `每 ${multiple} 天`]], { policy: "multiple", value: multiple, confirmLabel: "保存" });
   }
 
-  if (!wantsCreate && /(ddl|关键事项).*(最后|临近|连续).*提醒/i.test(text) && /(设置|设为|改为|改成|调整)/.test(text)) {
+  if (!wantsCreate && /(ddl|deadline|关键事项|关键任务|截止任务).*(最后|临近|连续).*提醒/i.test(text) && /(设置|设为|改为|改成|调整)/.test(text)) {
     const finalDays = parseDelayDays(text);
     return commandResult("set-ddl-reminder-policy", "修改 DDL 连续提醒天数", [["临近截止", `最后 ${finalDays} 天`]], { policy: "final-days", value: finalDays, confirmLabel: "保存" });
   }
@@ -509,7 +524,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   }
 
   if (!wantsCreate && hasAll && arrangementNoun && /(清空|清除|删除|移除|删掉)/.test(text)) {
-    const scope = /(日常|每日)/.test(text) ? "daily" : /(关键|ddl)/i.test(text) ? "critical" : "all";
+    const scope = /(日常|每日)/.test(text) ? "daily" : /(关键|ddl|deadline|截止任务)/i.test(text) ? "critical" : "all";
     const dailyCount = scope === "critical" ? 0 : dailyTasks.length;
     const criticalCount = scope === "daily" ? 0 : criticalTasks.length;
     const scopeLabel = scope === "daily" ? "全部日常事项" : scope === "critical" ? "全部关键事项" : "全部未完成安排";
@@ -530,7 +545,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     if (/(月报|月度总结|上月复盘)/.test(text)) return commandResult("navigate", "打开月度复盘", [["页面", "月度复盘"]], { route: "month", confirmLabel: "打开" });
     if (/(年报|年度总结|年度复盘)/.test(text)) return commandResult("navigate", "打开年度复盘", [["页面", "年度复盘"]], { route: "year", confirmLabel: "打开" });
     if (/历史/.test(text)) return commandResult("navigate", "打开历史记录", [["页面", "历史记录"]], { route: "history", confirmLabel: "打开" });
-    if (/(ddl|关键).*(提醒|通知)/i.test(text)) return commandResult("navigate", "打开 DDL 提醒", [["页面", "DDL 提醒"]], { route: "critical-reminders", confirmLabel: "打开" });
+    if (/(ddl|deadline|关键|截止).*(提醒|通知)/i.test(text)) return commandResult("navigate", "打开关键提醒", [["页面", "关键提醒"]], { route: "critical-reminders", confirmLabel: "打开" });
     if (/(版本|更新)/.test(text)) return commandResult("navigate", "打开版本更新", [["页面", "版本更新"]], { route: "version", confirmLabel: "打开" });
     if (/(通知|权限|后台|电池)/.test(text)) return commandResult("navigate", "打开提醒与权限", [["页面", "提醒与权限"]], { route: "permissions", confirmLabel: "打开" });
     if (/(语音模型|离线语音|语音设置)/.test(text)) return commandResult("navigate", "打开语音设置", [["页面", "语音模型"]], { route: "voice", confirmLabel: "打开" });
@@ -559,12 +574,12 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
       : commandResult("extend", "没有找到对应的 DDL 任务", [["建议", "说出关键事项名称"]], { valid: false, error: "只有关键事项可以延期" });
   }
 
-  if (!wantsCreate && /(设置|设为|改到|调整).*(ddl|截止|期限|[零〇一二三四五六七八九十两\d]{1,3}月[零〇一二三四五六七八九十两\d]{1,3}[日号]?)/i.test(text)) {
+  if (!wantsCreate && /(设置|设为|改到|调整).*(ddl|deadline|截止|期限|[零〇一二三四五六七八九十两\d]{1,3}月[零〇一二三四五六七八九十两\d]{1,3}[日号]?)/i.test(text)) {
     const deadline = parseDeadline(text);
     const eventTime = parseTime(text);
     const nextTime = eventTime.source ? eventTime.value : target?.task?.time || null;
     return target?.kind === "critical" && deadline.deadline
-      ? commandResult("set-deadline", `设置「${target.task.title}」的期限`, [["截止", deadline.deadline], ["时间", nextTime || "未设置"], ["提醒", getCriticalReminder(nextTime)]], { target, deadline, eventTime: eventTime.source ? eventTime.value : null, confirmLabel: "设置期限" })
+      ? commandResult("set-deadline", `设置「${target.task.title}」的期限`, [["截止日期", deadline.deadline], ["截止时刻", nextTime || "未设置"], ["提醒计划", getCriticalReminder(target.task)]], { target, deadline, eventTime: eventTime.source ? eventTime.value : null, confirmLabel: "设置期限" })
       : commandResult("set-deadline", "期限或目标任务不完整", [["示例", "把年度体检设置到 9 月 30 日截止"]], { valid: false, error: "请同时说出关键事项名称和具体日期" });
   }
 
@@ -583,8 +598,8 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     const changes = {};
     if (noteMatch) changes.note = noteMatch[1].trim();
     if (parsed.hasTime) {
-      changes.time = parsed.time;
-      if (target.kind === "critical") changes.reminder = getCriticalReminder(parsed.time);
+      if (target.kind === "critical") changes.deadlineTime = parsed.time;
+      else changes.time = parsed.time;
     }
     if (parsed.hasRepeat) {
       changes.repeat = parsed.repeat;
@@ -598,7 +613,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     if (/(?:改成|改为|设为|调整为).*(关键|特殊)/.test(text)) changes.type = "critical";
     if (/(?:改成|改为|设为|调整为).*(日常|每日)/.test(text)) changes.type = "daily";
     if (!noteMatch && parsed.title !== "未命名事项") changes.title = parsed.title;
-    const rows = Object.entries(changes).filter(([key]) => key !== "repeatDays").map(([key, value]) => [{ title: "名称", type: "类型", time: "时间", repeat: "重复", reminder: "提醒", deadline: "截止", daysLeft: "剩余天数", note: "备注" }[key] || key, key === "type" ? (value === "critical" ? "关键事项" : "日常事项") : value]);
+    const rows = Object.entries(changes).filter(([key]) => key !== "repeatDays").map(([key, value]) => [{ title: "名称", type: "类型", time: "时间", deadlineTime: "截止时刻", repeat: "重复", reminder: "提醒", deadline: "截止日期", daysLeft: "剩余天数", note: "备注" }[key] || key, key === "type" ? (value === "critical" ? "关键事项" : "日常事项") : value]);
     return rows.length
       ? commandResult("edit", `修改「${target.task.title}」`, rows, { target, changes, confirmLabel: "确认修改" })
       : commandResult("edit", "没有识别到修改内容", [["示例", "把健身改成慢跑 30 分钟"]], { valid: false, error: "请说明要改成什么" });
@@ -612,7 +627,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   const rows = task.span
     ? [["类型", "时间段"], ["去程", task.span.start.deadline], ["返程", task.span.end.deadline], ["记录", "生成两个关联 DDL"]]
     : task.type === "critical"
-      ? [["类型", "关键事务"], ["截止", task.deadline || "无 DDL"], ["时间", task.hasTime ? task.time : "未设置"], ["提醒", task.reminder]]
+      ? [["类型", "关键事务"], ["截止日期", task.deadline || "未设置"], ["截止时刻", task.deadlineTime || "未设置"], ["提醒计划", task.reminder]]
       : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.endTime ? `${task.time}—${task.endTime}` : task.time], ["提醒", task.reminder]];
   return commandResult("create", task.title, rows, { task, confirmLabel: "创建任务" });
 }
@@ -681,7 +696,7 @@ function MobileDesignApp() {
   const [criticalTasks, setCriticalTasks] = useState(() => {
     const anchorDateKey = localDateKey();
     return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map((task) => (
-      task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? { ...task, anchorDateKey } : task
+      withCriticalReminderDefaults(task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? { ...task, anchorDateKey } : task)
     ));
   });
   const [ddlReminderTime, setDdlReminderTime] = useState(() => {
@@ -837,7 +852,6 @@ function MobileDesignApp() {
     try { localStorage.setItem("jinke-ddl-reminder-time", ddlReminderTime); } catch {}
     try { localStorage.setItem("jinke-ddl-reminder-multiple", String(ddlReminderMultiple)); } catch {}
     try { localStorage.setItem("jinke-ddl-reminder-final-days", String(ddlReminderFinalDays)); } catch {}
-    setCriticalTasks((current) => current.map((task) => task.deadline ? { ...task, reminder: getCriticalReminder(task.time, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays) } : task));
   }, [ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
 
   useEffect(() => {
@@ -845,7 +859,10 @@ function MobileDesignApp() {
     const payload = criticalTasks
       .map((task) => ({ ...task, daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey) }))
       .filter((task) => task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0)
-      .map((task) => ({ id: task.id, title: task.title, daysLeft: task.daysLeft }));
+      .map((task) => {
+        const plan = normalizeCriticalReminderPlan(task, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
+        return { id: task.id, title: task.title, daysLeft: task.daysLeft, ...plan };
+      });
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch {}
@@ -946,7 +963,7 @@ function MobileDesignApp() {
 
   const openCritical = (task) => {
     setSelectedCritical(task);
-    setCriticalDraft({ ...task });
+    setCriticalDraft(withCriticalReminderDefaults(task));
     setRenewDays(7);
     setOverlay("critical-detail");
   };
@@ -954,18 +971,22 @@ function MobileDesignApp() {
   const saveCritical = (taskId, changes) => {
     const deadlineText = changes.deadline?.trim() || null;
     const parsed = deadlineText ? parseDeadline(deadlineText) : null;
-    const eventTime = changes.time && changes.time !== "待定" ? changes.time : null;
-    setCriticalTasks((current) => current.map((task) => task.id === taskId ? {
-      ...task,
-      ...changes,
-      deadline: deadlineText,
-      daysLeft: deadlineText ? (parsed?.deadline
-        ? parsed.daysLeft
-        : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(task, todayDateKey, todayDateKey)) : null,
-      anchorDateKey: deadlineText ? todayDateKey : null,
-      time: eventTime,
-      reminder: getCriticalReminder(eventTime),
-    } : task));
+    const deadlineTime = changes.deadlineTime || (changes.time && changes.time !== "待定" ? changes.time : null);
+    setCriticalTasks((current) => current.map((task) => {
+      if (task.id !== taskId) return task;
+      return withCriticalReminderDefaults({
+        ...task,
+        ...changes,
+        deadline: deadlineText,
+        daysLeft: deadlineText ? (parsed?.deadline
+          ? parsed.daysLeft
+          : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(task, todayDateKey, todayDateKey)) : null,
+        anchorDateKey: deadlineText ? todayDateKey : null,
+        deadlineTime,
+        time: deadlineTime,
+        reminderEnabled: deadlineText ? changes.reminderEnabled : false,
+      });
+    }));
     setSelectedCritical(null);
     setCriticalDraft(null);
     setRenewDays(7);
@@ -1098,7 +1119,7 @@ function MobileDesignApp() {
       if (task.span) {
         const spanId = `voice-span-${Date.now()}`;
         const created = [
-          {
+          withCriticalReminderDefaults({
             id: `${spanId}-start`,
             spanId,
             spanRole: "start",
@@ -1107,11 +1128,10 @@ function MobileDesignApp() {
             deadline: task.span.start.deadline,
             daysLeft: task.span.start.daysLeft,
             anchorDateKey: todayDateKey,
-            time: task.hasTime && task.time !== "待定" ? task.time : null,
-            reminder: getCriticalReminder(task.hasTime ? task.time : null),
+            deadlineTime: task.hasTime && task.time !== "待定" ? task.time : null,
             progress: 0,
-          },
-          {
+          }),
+          withCriticalReminderDefaults({
             id: `${spanId}-end`,
             spanId,
             spanRole: "end",
@@ -1120,26 +1140,29 @@ function MobileDesignApp() {
             deadline: task.span.end.deadline,
             daysLeft: task.span.end.daysLeft,
             anchorDateKey: todayDateKey,
-            time: task.endTime || null,
-            reminder: getCriticalReminder(task.endTime || null),
+            deadlineTime: task.endTime || null,
             progress: 0,
-          },
+          }),
         ];
         setCriticalTasks((current) => [...created, ...current]);
         setActiveTab("critical");
       } else if (task.type === "critical") {
         const normalizedDeadline = task.deadline ? parseDeadline(task.deadline) : null;
-        const created = {
+        const created = withCriticalReminderDefaults({
           id: `voice-critical-${Date.now()}`,
           title: task.title,
           note: task.note,
           deadline: task.deadline,
           daysLeft: normalizedDeadline?.daysLeft ?? task.daysLeft,
           anchorDateKey: task.deadline ? todayDateKey : null,
-          time: task.hasTime && task.time !== "待定" ? task.time : null,
-          reminder: getCriticalReminder(task.hasTime ? task.time : null),
+          deadlineTime: task.deadlineTime || (task.hasTime && task.time !== "待定" ? task.time : null),
+          reminderEnabled: Boolean(task.deadline && task.reminderEnabled !== false),
+          reminderTime: task.reminderTime,
+          reminderMode: task.reminderMode,
+          reminderMultiple: task.reminderMultiple,
+          reminderFinalDays: task.reminderFinalDays,
           progress: 0,
-        };
+        });
         setCriticalTasks((current) => [created, ...current]);
         setActiveTab("critical");
       } else {
@@ -1222,7 +1245,7 @@ function MobileDesignApp() {
         if (task.id !== target.task.id) return task;
         const currentDaysLeft = criticalDaysLeftOn(task, todayDateKey, todayDateKey) || 0;
         const daysLeft = currentDaysLeft + command.days;
-        return { ...task, daysLeft, anchorDateKey: todayDateKey, deadline: deadlineLabelFromDays(daysLeft), reminder: getCriticalReminder(task.time) };
+        return { ...task, daysLeft, anchorDateKey: todayDateKey, deadline: deadlineLabelFromDays(daysLeft) };
       }));
       setActiveTab("critical");
       setSecondary(null);
@@ -1233,8 +1256,9 @@ function MobileDesignApp() {
         deadline: command.deadline.deadline,
         daysLeft: command.deadline.daysLeft,
         anchorDateKey: todayDateKey,
-        time: command.eventTime || task.time || null,
-        reminder: getCriticalReminder(command.eventTime || task.time),
+        deadlineTime: command.eventTime || task.deadlineTime || task.time || null,
+        time: command.eventTime || task.deadlineTime || task.time || null,
+        reminderEnabled: task.deadline ? task.reminderEnabled : true,
       } : task));
       setActiveTab("critical");
       setSecondary(null);
@@ -1243,17 +1267,16 @@ function MobileDesignApp() {
       const { type: nextType, ...changes } = command.changes;
       if (target.kind === "daily" && nextType === "critical") {
         setDailyTasks((current) => current.filter((task) => task.id !== target.task.id));
-        setCriticalTasks((current) => [{
+        setCriticalTasks((current) => [withCriticalReminderDefaults({
           id: target.task.id,
           title: changes.title || target.task.title,
           note: changes.note || target.task.note,
           deadline: changes.deadline || null,
           daysLeft: changes.daysLeft ?? null,
           anchorDateKey: changes.deadline ? todayDateKey : null,
-          time: changes.time && changes.time !== "待定" ? changes.time : null,
-          reminder: getCriticalReminder(changes.time),
+          deadlineTime: changes.deadlineTime || (changes.time && changes.time !== "待定" ? changes.time : null),
           progress: 0,
-        }, ...current]);
+        }), ...current]);
         setActiveTab("critical");
       } else if (target.kind === "critical" && nextType === "daily") {
         setCriticalTasks((current) => current.filter((task) => task.id !== target.task.id));

@@ -64,26 +64,54 @@ window.getCalendarMarker = function getCalendarMarker(dateKey) {
   }
 };
 
-window.shouldRemindCritical = function shouldRemindCritical(
-  daysLeft,
-  multiple = window.JINKE_DDL_REMINDER_MULTIPLE || 5,
-  finalDays = window.JINKE_DDL_REMINDER_FINAL_DAYS || 5,
+window.normalizeCriticalReminderPlan = function normalizeCriticalReminderPlan(
+  task = {},
+  defaultTime = window.JINKE_DDL_REMINDER_TIME || "10:00",
+  defaultMultiple = window.JINKE_DDL_REMINDER_MULTIPLE || 5,
+  defaultFinalDays = window.JINKE_DDL_REMINDER_FINAL_DAYS || 5,
 ) {
-  const safeMultiple = Math.max(1, Number(multiple) || 5);
-  const safeFinalDays = Math.max(0, Number(finalDays) || 0);
-  return Number.isFinite(daysLeft) && daysLeft >= 0 && (daysLeft <= safeFinalDays || daysLeft % safeMultiple === 0);
+  const source = task && typeof task === "object" ? task : {};
+  const reminderTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(source.reminderTime || "") ? source.reminderTime : defaultTime;
+  const reminderMode = ["smart", "daily", "deadline-only"].includes(source.reminderMode) ? source.reminderMode : "smart";
+  return {
+    reminderEnabled: typeof source.reminderEnabled === "boolean" ? source.reminderEnabled : Boolean(source.deadline),
+    reminderTime,
+    reminderMode,
+    reminderMultiple: Math.max(1, Number(source.reminderMultiple) || Number(defaultMultiple) || 5),
+    reminderFinalDays: Math.max(0, source.reminderFinalDays !== undefined && source.reminderFinalDays !== null ? Number(source.reminderFinalDays) || 0 : Number(defaultFinalDays) || 0),
+  };
+};
+
+window.shouldRemindCritical = function shouldRemindCritical(daysLeft, planOrMultiple, finalDays) {
+  if (!Number.isFinite(daysLeft) || daysLeft < 0) return false;
+  if (planOrMultiple && typeof planOrMultiple === "object") {
+    const plan = window.normalizeCriticalReminderPlan(planOrMultiple);
+    if (!plan.reminderEnabled) return false;
+    if (plan.reminderMode === "daily") return true;
+    if (plan.reminderMode === "deadline-only") return daysLeft === 0;
+    return daysLeft <= plan.reminderFinalDays || daysLeft % plan.reminderMultiple === 0;
+  }
+  const safeMultiple = Math.max(1, Number(planOrMultiple) || window.JINKE_DDL_REMINDER_MULTIPLE || 5);
+  const safeFinalDays = Math.max(0, finalDays !== undefined && finalDays !== null ? Number(finalDays) || 0 : window.JINKE_DDL_REMINDER_FINAL_DAYS || 0);
+  return daysLeft <= safeFinalDays || daysLeft % safeMultiple === 0;
 };
 
 window.getCriticalReminder = function getCriticalReminder(
-  time,
-  summaryTime = window.JINKE_DDL_REMINDER_TIME || "10:00",
-  multiple = window.JINKE_DDL_REMINDER_MULTIPLE || 5,
-  finalDays = window.JINKE_DDL_REMINDER_FINAL_DAYS || 5,
+  taskOrPlan = {},
+  defaultTime = window.JINKE_DDL_REMINDER_TIME || "10:00",
+  defaultMultiple = window.JINKE_DDL_REMINDER_MULTIPLE || 5,
+  defaultFinalDays = window.JINKE_DDL_REMINDER_FINAL_DAYS || 5,
 ) {
-  const cadence = `每${Math.max(1, Number(multiple) || 5)}天/最后${Math.max(0, Number(finalDays) || 0)}天 ${summaryTime}`;
-  if (!time || time === "待定") return cadence;
-  if (time <= summaryTime) return `当天 ${time}`;
-  return `${cadence} · 当天 ${time}`;
+  const plan = window.normalizeCriticalReminderPlan(
+    taskOrPlan && typeof taskOrPlan === "object" ? taskOrPlan : {},
+    defaultTime,
+    defaultMultiple,
+    defaultFinalDays,
+  );
+  if (!plan.reminderEnabled) return "不提醒";
+  if (plan.reminderMode === "daily") return `每天 ${plan.reminderTime}`;
+  if (plan.reminderMode === "deadline-only") return `仅截止日 ${plan.reminderTime}`;
+  return `每 ${plan.reminderMultiple} 天 · 最后 ${plan.reminderFinalDays} 天每天 · ${plan.reminderTime}`;
 };
 
 const CALENDAR_WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -208,7 +236,7 @@ window.APP_DATA = {
     { id: "demo-daily", demo: true, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },
   ],
   criticalTasks: [
-    { id: "demo-ddl", demo: true, title: "演示：完成第一个 DDL", note: "向左滑动可编辑或删除", deadline: "7天后", daysLeft: 7, time: null, reminder: "每5天/最后5天 10:00", progress: 0 },
+    { id: "demo-ddl", demo: true, title: "演示：完成第一个 DDL", note: "向左滑动可编辑或删除", deadline: "7天后", daysLeft: 7, deadlineTime: null, reminderEnabled: true, reminderTime: "10:00", reminderMode: "smart", reminderMultiple: 5, reminderFinalDays: 5, reminder: "每 5 天 · 最后 5 天每天 · 10:00", progress: 0 },
   ],
   history: [],
   monthRanking: [],

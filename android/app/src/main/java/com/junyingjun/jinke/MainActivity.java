@@ -54,6 +54,7 @@ public class MainActivity extends Activity {
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
         NotificationSupport.createChannels(this);
+        cleanupInstalledUpdateApk();
         requestNotificationPermissionIfNeeded();
 
         webView = new WebView(this);
@@ -477,10 +478,32 @@ public class MainActivity extends Activity {
             DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
             long downloadId = manager.enqueue(request);
             getSharedPreferences(UpdateDownloadReceiver.PREFS, MODE_PRIVATE)
-                    .edit().putLong(UpdateDownloadReceiver.KEY_DOWNLOAD_ID, downloadId).apply();
+                    .edit()
+                    .putLong(UpdateDownloadReceiver.KEY_DOWNLOAD_ID, downloadId)
+                    .putInt(UpdateDownloadReceiver.KEY_SOURCE_VERSION_CODE, BuildConfig.VERSION_CODE)
+                    .apply();
             Toast.makeText(this, "正在下载更新", Toast.LENGTH_SHORT).show();
         } catch (Exception error) {
             Toast.makeText(this, "更新下载失败，请稍后重试", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void cleanupInstalledUpdateApk() {
+        android.content.SharedPreferences prefs = getSharedPreferences(UpdateDownloadReceiver.PREFS, MODE_PRIVATE);
+        long downloadId = prefs.getLong(UpdateDownloadReceiver.KEY_DOWNLOAD_ID, -1L);
+        int sourceVersionCode = prefs.getInt(UpdateDownloadReceiver.KEY_SOURCE_VERSION_CODE, BuildConfig.VERSION_CODE);
+        if (downloadId < 0 || BuildConfig.VERSION_CODE <= sourceVersionCode) return;
+        try {
+            DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            manager.remove(downloadId);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) notificationManager.cancel(5200);
+        } catch (Exception ignored) {
+            // The package may already have been removed by the system or the user.
+        }
+        prefs.edit()
+                .remove(UpdateDownloadReceiver.KEY_DOWNLOAD_ID)
+                .remove(UpdateDownloadReceiver.KEY_SOURCE_VERSION_CODE)
+                .apply();
     }
 }

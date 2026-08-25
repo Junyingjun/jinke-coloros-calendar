@@ -12,6 +12,7 @@ import android.net.Uri;
 public class UpdateDownloadReceiver extends BroadcastReceiver {
     public static final String PREFS = "jinke_update_preferences";
     public static final String KEY_DOWNLOAD_ID = "download_id";
+    public static final String KEY_SOURCE_VERSION_CODE = "source_version_code";
 
     @Override
     public void onReceive(Context context, Intent intent) {
