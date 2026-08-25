@@ -318,8 +318,8 @@ function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, on
             </div>
           </section>
           {deadlineTasks.length ? (
-            <section className="today-ddl-pane" aria-label="当天 DDL 事项">
-              <SectionHeader title="DDL" />
+            <section className="today-ddl-pane" aria-label="当天关键事项">
+              <SectionHeader title={deadlineTasks.some((task) => !task.deadline) ? "关键" : "DDL"} />
               <div className="critical-stack daily-ddl-stack">{deadlineTasks.map((task) => <CriticalTaskRow task={task} onToggle={onToggleCritical} onOpen={onOpenCritical} onDelete={onDeleteCritical} key={task.id} />)}</div>
             </section>
           ) : null}
@@ -681,7 +681,7 @@ function MoreSheet({ onClose, onOpen, themeMode, onThemeChange }) {
   );
 }
 
-function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraftChange, onClose, onComplete, onRenew, onSave }) {
+function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraftChange, onClose, onRenew, onSave }) {
   if (!task || !draft) return null;
   const update = (field, value) => onDraftChange({ ...draft, [field]: value });
   const updateDeadlineTime = (deadlineTime) => onDraftChange({ ...draft, deadlineTime: deadlineTime || null, time: deadlineTime || null });
@@ -711,7 +711,6 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
           </div>
         </div>
       ) : null}
-      <button className="primary-button accent pressable save-wide complete-wide" onClick={() => onComplete(task.id)}><Icon name="check" size={17} /> 已完成</button>
     </Sheet>
   );
 }
@@ -903,7 +902,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.18";
+const JINKE_FALLBACK_VERSION = "1.0.19";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

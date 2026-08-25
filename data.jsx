@@ -185,10 +185,52 @@ window.taskOccursOnDate = function taskOccursOnDate(task, dateKey, fallbackDateK
   return days.includes(weekday);
 };
 
+window.normalizeCriticalCompletion = function normalizeCriticalCompletion(task, fallbackDateKey = window.APP_DATA?.today?.dateKey) {
+  const done = Boolean(task?.done || task?.status === "completed");
+  if (!done) return { ...task, done: false, status: task?.status === "completed" ? "active" : (task?.status || "active") };
+  return {
+    ...task,
+    done: true,
+    status: "completed",
+    completedDateKey: task.completedDateKey || fallbackDateKey,
+    progressBeforeCompletion: Number.isFinite(task.progressBeforeCompletion) ? task.progressBeforeCompletion : (Number(task.progress) || 0),
+    progress: 100,
+  };
+};
+
+window.completeCriticalForDate = function completeCriticalForDate(task, dateKey) {
+  if (task?.done && task?.completedDateKey) return window.normalizeCriticalCompletion(task, dateKey);
+  return window.normalizeCriticalCompletion({
+    ...task,
+    done: true,
+    status: "completed",
+    completedDateKey: dateKey,
+    completedAt: new Date().toISOString(),
+    progressBeforeCompletion: Number(task?.progress) || 0,
+    progress: 100,
+  }, dateKey);
+};
+
+window.uncompleteCriticalTask = function uncompleteCriticalTask(task) {
+  const { completedDateKey, completedAt, completionKey, progressBeforeCompletion, ...rest } = task || {};
+  return {
+    ...rest,
+    done: false,
+    status: "active",
+    progress: Number.isFinite(progressBeforeCompletion) ? progressBeforeCompletion : (Number(rest.progress) || 0),
+  };
+};
+
+window.criticalTaskVisibleOnTodayDate = function criticalTaskVisibleOnTodayDate(task, dateKey) {
+  if (task?.done) return task.completedDateKey === dateKey;
+  return Boolean(task?.deadline);
+};
+
 window.countScheduledTasksOnDate = function countScheduledTasksOnDate(dailyTasks = [], criticalTasks = [], dateKey, fallbackDateKey = window.APP_DATA?.today?.dateKey) {
   const dailyLoad = dailyTasks.filter((task) => window.taskOccursOnDate(task, dateKey, fallbackDateKey)).length;
   const target = parseCalendarDateKey(dateKey);
   const deadlineLoad = criticalTasks.filter((task) => {
+    if (task?.done) return task.completedDateKey === dateKey;
     if (!task?.deadline || !Number.isFinite(task.daysLeft)) return false;
     const anchor = parseCalendarDateKey(task.anchorDateKey || fallbackDateKey);
     const elapsedDays = Math.round((target.getTime() - anchor.getTime()) / 86400000);

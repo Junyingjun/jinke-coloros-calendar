@@ -23,7 +23,7 @@
 
 - `CreateTask`：创建日常事务、无 DDL 关键事项或有 DDL 关键事项。
 - `DeleteTask`：删除目标任务。
-- `SetCompletion`：勾选或取消勾选日常任务；关键任务完成后进入历史。
+- `SetCompletion`：勾选或取消勾选日常、DDL 与无 DDL 任务；关键任务完成后进入历史并保留在完成当天。
 - `SetDeadline` / `ExtendDeadline`：设置期限，或按天、周、月延期。
 - `UpdateTask`：修改名称、时间、重复规则、提醒偏移与备注。
 - `ClearTasks` / `CompleteDailyBatch`：按日常、关键或全部范围批量清除，以及完成所选日期的全部日常事项。
@@ -45,7 +45,7 @@
 
 `CriticalTask` 增加可空 `eventTime: LocalTime?`，DataStore 保存 `defaultDdlReminderTime`（默认 10:00）、`reminderMultiple`（默认 5）和 `finalReminderDays`（默认 5）。`CriticalReminderPolicy` 只为 `daysLeft % reminderMultiple == 0` 或 `0 <= daysLeft <= finalReminderDays` 的任务生成汇总提醒；通知列出任务名称和剩余天数。`eventTime <= defaultDdlReminderTime` 时只在截止日该时刻提醒；更晚时保留阶段汇总，并在截止日 `eventTime` 再提醒一次。修改任一策略、事件时间、延期或改期后必须替换未来 AlarmManager 请求。
 
-结构化确认卡使用可编辑 `VoiceCommandDraft`，用户可以覆盖名称、类型、时间、重复、提醒、截止日期和备注后再执行。日常事务列表正文与时间均可打开同一 `DailyTaskEditor`；关键事项卡片打开 `CriticalTaskEditor`，可修改名称、期限、提醒、完成度和备注。编辑器只呈现字段与操作，不显示解释性标题或副标题。所有按钮编辑、语音编辑最终调用相同的 Repository 更新方法。
+结构化确认卡使用可编辑 `VoiceCommandDraft`，用户可以覆盖名称、类型、时间、重复、提醒、截止日期和备注后再执行。日常与关键事项单击只切换完成状态，向左滑动后才显示编辑和删除；`CriticalTaskEditor` 只修改名称、期限、提醒、完成度和备注，不提供独立的“已完成”按钮。编辑器只呈现字段与操作，不显示解释性标题或副标题。所有按钮编辑、语音编辑最终调用相同的 Repository 更新方法。
 
 外观设置使用 `ThemeMode.DARK / SYSTEM / LIGHT` 三态，首次启动默认为 DARK；用户选择存入 DataStore。SYSTEM 由 `isSystemInDarkTheme()` 实时解析，状态栏、导航栏和通知预览色同步使用当前解析后的主题。
 
@@ -96,8 +96,8 @@ Room 对 `(taskId, scheduledDate)` 建立唯一索引，所有勾选、取消勾
 
 - 有 DDL：任务始终同时保留在今日与关键列表；剩余天数大于 5 时仅在 5 的倍数节点通知，最后 5 天到截止日每天通知。时间使用用户设置的默认 DDL 提醒时间，内容汇总当前任务与剩余天数；当天筛选结果为空时不创建通知。
 - DDL 当天：点击通知进入“今日”主页，再由用户手动选择续期或已完成；通知本身不直接改变任务状态。
-- 提前完成：立即归档，记录 `deadline - completedAt` 作为提前完成天数。
-- 无 DDL：保留在关键首页，使用用户选择的回顾周期。
+- 提前完成：勾选后从关键列表移除，写入历史并记录 `deadline - completedAt` 作为提前完成天数；任务仍显示在完成当天，取消勾选会恢复到关键列表。
+- 无 DDL：未完成时保留在关键首页；勾选后同样进入历史并显示在完成当天，取消勾选后恢复到无 DDL 列表。
 
 ## 月报与年报
 

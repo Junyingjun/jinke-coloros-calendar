@@ -326,7 +326,7 @@ assert.match(screensSource, /function CriticalReminderScreen[\s\S]*<TimePicker l
 assert.match(screensSource, /<Stepper label="默认间隔天数"/, "the default critical reminder multiple must be editable");
 assert.match(screensSource, /<Stepper label="默认最后每天提醒天数"/, "the default final daily reminder window must be editable");
 assert.doesNotMatch(screensSource, /锁屏、精确闹钟与后台运行/, "notification permission helper copy must be removed");
-assert.match(appSource, /displayedDeadlineTasks = criticalTasks\s*\.filter\(\(task\) => task\.deadline\)/, "today must keep every unfinished DDL task regardless of reminder cadence");
+assert.match(appSource, /displayedDeadlineTasks = criticalTasks\s*\.filter\(\(task\) => criticalTaskVisibleOnTodayDate\(task, selectedDateKey\)\)/, "today must keep unfinished DDL tasks and completion-day critical tasks regardless of reminder cadence");
 assert.match(screensSource, /const withDDL = tasks\.filter\(\(task\) => task\.deadline\)/, "critical list must keep every DDL task regardless of reminder cadence");
 assert.match(screensSource, /reminderTasks = tasks\.filter\(\(task\) => task\.deadline && shouldRemindCritical\(task\.daysLeft, task\)\)/, "cadence filtering must be isolated to notifications and use each task's independent plan");
 assert.match(screensSource, /今天不提醒[\s\S]*DDL 仍保留在今日与关键列表/, "zero reminder nodes must suppress the notification while preserving both lists");

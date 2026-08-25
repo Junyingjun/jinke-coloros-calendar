@@ -7,6 +7,10 @@ const {
   repeatLabelFromDays,
   taskOccursOnDate,
   countScheduledTasksOnDate,
+  normalizeCriticalCompletion,
+  completeCriticalForDate,
+  uncompleteCriticalTask,
+  criticalTaskVisibleOnTodayDate,
   shiftDateKeyByDays,
   PhoneFrame,
   BottomNav,
@@ -126,6 +130,20 @@ function withCriticalReminderDefaults(task) {
     : normalizedPlan;
   const next = { ...task, deadlineTime, time: deadlineTime, ...plan };
   return { ...next, reminder: getCriticalReminder(next) };
+}
+
+function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
+  const completionKey = `${task.id}:${completionDateKey}`;
+  const [, month, day] = completionDateKey.split("-").map(Number);
+  return {
+    id: `done-${task.id}-${completionDateKey}`,
+    completionKey,
+    sourceTaskId: task.id,
+    title: task.title,
+    completed: `${month}月${day}日`,
+    completedDateKey: completionDateKey,
+    leadDays: criticalDaysLeftOn(task, completionDateKey, fallbackAnchorKey) || 0,
+  };
 }
 
 const CN_DIGITS = { "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
@@ -697,7 +715,10 @@ function MobileDesignApp() {
   const [criticalTasks, setCriticalTasks] = useState(() => {
     const anchorDateKey = localDateKey();
     return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map((task) => (
-      withCriticalReminderDefaults(task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? { ...task, anchorDateKey } : task)
+      withCriticalReminderDefaults(normalizeCriticalCompletion(
+        task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? { ...task, anchorDateKey } : task,
+        anchorDateKey,
+      ))
     ));
   });
   const [ddlReminderTime, setDdlReminderTime] = useState(() => {
@@ -721,7 +742,13 @@ function MobileDesignApp() {
     window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
     return value;
   });
-  const [history, setHistory] = useState(() => readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray));
+  const [history, setHistory] = useState(() => {
+    const stored = readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray);
+    const migrated = criticalTasks
+      .filter((task) => task.done && task.completedDateKey)
+      .map((task) => criticalHistoryEntry(task, task.completedDateKey, task.anchorDateKey || task.completedDateKey));
+    return [...migrated.filter((entry) => !stored.some((item) => item.completionKey === entry.completionKey)), ...stored];
+  });
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedDaily, setSelectedDaily] = useState(null);
   const [dailyDraft, setDailyDraft] = useState(null);
@@ -751,6 +778,7 @@ function MobileDesignApp() {
     ...task,
     daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey),
   }));
+  const activeCriticalTasks = currentCriticalTasks.filter((task) => !task.done);
   const parsedVoiceCommand = transcript.trim()
     ? parseVoiceCommand(transcript, dailyTasks, currentCriticalTasks)
     : commandResult("invalid", "没有识别到内容", [["建议", "再说一次，或直接输入安排"]], { valid: false, error: "没有听清，请重试" });
@@ -761,7 +789,7 @@ function MobileDesignApp() {
       done: Boolean(dailyCompletionByDate[`${task.id}:${selectedDateKey}`]),
     }));
   const displayedDeadlineTasks = criticalTasks
-    .filter((task) => task.deadline)
+    .filter((task) => criticalTaskVisibleOnTodayDate(task, selectedDateKey))
     .map((task) => ({ ...task, daysLeft: criticalDaysLeftOn(task, selectedDateKey, todayDateKey) }));
   const getDateTaskLoad = (dateKey) => {
     return countScheduledTasksOnDate(dailyTasks, criticalTasks, dateKey, todayDateKey);
@@ -866,6 +894,7 @@ function MobileDesignApp() {
   useEffect(() => {
     if (!window.JinkeAndroid?.syncDdlReminders) return;
     const payload = criticalTasks
+      .filter((task) => !task.done)
       .map((task) => ({ ...task, daysLeft: criticalDaysLeftOn(task, todayDateKey, todayDateKey) }))
       .filter((task) => task.deadline && Number.isFinite(task.daysLeft) && task.daysLeft >= 0)
       .map((task) => {
@@ -946,14 +975,28 @@ function MobileDesignApp() {
     if (nowDone) showToast("已完成，记入本月统计");
   };
 
+  const setCriticalCompleted = (taskId, shouldComplete = true) => {
+    const task = criticalTasks.find((item) => item.id === taskId);
+    if (!task) return;
+    if (shouldComplete) {
+      const completionDateKey = localDateKey();
+      const completionKey = `${taskId}:${completionDateKey}`;
+      const completedTask = { ...completeCriticalForDate(task, completionDateKey), completionKey };
+      setCriticalTasks((current) => current.map((item) => item.id === taskId ? completedTask : item));
+      setHistory((current) => current.some((item) => item.completionKey === completionKey)
+        ? current
+        : [criticalHistoryEntry(task, completionDateKey, todayDateKey), ...current]);
+      showToast("已完成，保留在今天的任务列表");
+      return;
+    }
+    setCriticalTasks((current) => current.map((item) => item.id === taskId ? uncompleteCriticalTask(item) : item));
+    setHistory((current) => current.filter((item) => item.sourceTaskId !== taskId));
+    showToast("已取消完成，恢复到关键事项");
+  };
+
   const toggleCriticalCheck = (taskId) => {
-    let nowDone = false;
-    setCriticalTasks((current) => current.map((task) => {
-      if (task.id !== taskId) return task;
-      nowDone = !Boolean(task.done);
-      return { ...task, done: nowDone };
-    }));
-    showToast(nowDone ? "关键事项已勾选" : "已取消勾选");
+    const task = criticalTasks.find((item) => item.id === taskId);
+    if (task) setCriticalCompleted(taskId, !task.done);
   };
 
   const selectDate = (dateKey) => {
@@ -1039,18 +1082,6 @@ function MobileDesignApp() {
     }));
     closeOverlay();
     showToast("关键事项已更新");
-  };
-
-  const completeCritical = (taskId) => {
-    const task = criticalTasks.find((item) => item.id === taskId);
-    if (!task) return;
-    const completionKey = `${taskId}:${localDateKey()}`;
-    setCriticalTasks((current) => current.filter((item) => item.id !== taskId));
-    setHistory((current) => current.some((item) => item.completionKey === completionKey)
-      ? current
-      : [{ id: `done-${taskId}-${localDateKey()}`, completionKey, sourceTaskId: taskId, title: task.title, completed: "今天", completedDateKey: localDateKey(), leadDays: task.daysLeft || 0 }, ...current]);
-    closeOverlay();
-    showToast("已完成，并移入历史记录");
   };
 
   const renewCritical = (taskId, requestedDays = 7) => {
@@ -1283,20 +1314,17 @@ function MobileDesignApp() {
         setSecondary(null);
         showToast("已勾选，并记入完成统计");
       } else {
-        const completionKey = `${target.task.id}:${localDateKey()}`;
-        setCriticalTasks((current) => current.filter((task) => task.id !== target.task.id));
-        setHistory((current) => current.some((item) => item.completionKey === completionKey)
-          ? current
-          : [{ id: `done-${target.task.id}-${localDateKey()}`, completionKey, sourceTaskId: target.task.id, title: target.task.title, completed: "今天", completedDateKey: localDateKey(), leadDays: target.task.daysLeft || 0 }, ...current]);
-        setActiveTab("critical");
+        setCriticalCompleted(target.task.id, true);
+        setActiveTab("today");
+        setSelectedDateKey(localDateKey());
         setSecondary(null);
-        showToast("已完成，并移入历史记录");
       }
     } else if (intent === "uncomplete") {
-      setDailyCompletionByDate((current) => ({ ...current, [`${target.task.id}:${selectedDateKey}`]: false }));
+      if (target.kind === "critical") setCriticalCompleted(target.task.id, false);
+      else setDailyCompletionByDate((current) => ({ ...current, [`${target.task.id}:${selectedDateKey}`]: false }));
       setActiveTab("today");
       setSecondary(null);
-      showToast("已取消勾选");
+      if (target.kind !== "critical") showToast("已取消勾选");
     } else if (intent === "extend") {
       setCriticalTasks((current) => current.map((task) => {
         if (task.id !== target.task.id) return task;
@@ -1490,7 +1518,7 @@ function MobileDesignApp() {
   }, []);
 
   const renderScreen = () => {
-    if (activeTab === "critical") return <CriticalScreen tasks={currentCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} onOpenReminders={() => setSecondary("critical-reminders")} />;
+    if (activeTab === "critical") return <CriticalScreen tasks={activeCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} onOpenReminders={() => setSecondary("critical-reminders")} />;
     return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={selectDate} getDateLoad={getDateTaskLoad} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
   };
 
@@ -1499,7 +1527,7 @@ function MobileDesignApp() {
     if (route === "month") return <ReportScreen type="month" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "year") return <ReportScreen type="year" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={closeSecondary} />;
-    if (route === "critical-reminders") return <CriticalReminderScreen tasks={criticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
+    if (route === "critical-reminders") return <CriticalReminderScreen tasks={activeCriticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "version") return <VersionScreen onBack={closeSecondary} />;
     if (route === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={closeSecondary} />;
     return null;
@@ -1518,7 +1546,7 @@ function MobileDesignApp() {
       ))}
       {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} /> : null}
       {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} /> : null}
-      {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onComplete={completeCritical} onRenew={renewCritical} onSave={saveCritical} /> : null}
+      {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onRenew={renewCritical} onSave={saveCritical} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}
       {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} selectedDateKey={selectedDateKey} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
       {toast ? <div className="sr-only" role="status" aria-live="polite">{toast}</div> : null}
