@@ -379,8 +379,7 @@ button:disabled { cursor: default; }
 .date-stepper-row > div:first-child { grid-column: 1 / -1; width: min(100%, 220px); justify-self: center; }
 .date-stepper-row .jinke-stepper { grid-template-columns: 38px minmax(34px, 1fr) 38px; }
 .date-stepper-row .jinke-stepper button { width: 38px; }
-.completion-time-field { display: grid; gap: 12px; }
-.completion-time-field .jinke-time-picker { padding-top: 10px; border-top: 1px solid var(--line); }
+.completion-date-field { display: grid; gap: 12px; }
 .completion-date-picker .picker-head strong { color: var(--ink); font-size: 12px; font-weight: 720; }
 .critical-reminder-picker { min-width: 0; display: grid; gap: 9px; }
 .critical-reminder-picker.disabled { opacity: .72; }

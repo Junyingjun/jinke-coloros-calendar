@@ -968,6 +968,10 @@ function SectionHeader(_ref4) {
     className: "section-note ".concat(noteTone ? "is-".concat(noteTone) : "")
   }, note) : null);
 }
+function displayDeadline(deadline) {
+  var match = String(deadline || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? "".concat(Number(match[2]), "\u6708").concat(Number(match[3]), "\u65E5") : deadline;
+}
 function SwipeTaskActions(_ref5) {
   var label = _ref5.label,
     onEdit = _ref5.onEdit,
@@ -1177,7 +1181,7 @@ function CriticalTaskRow(_ref7) {
     className: "days-left ".concat(task.daysLeft <= 0 ? "today" : "")
   }, dueCopy)), React.createElement("div", {
     className: "critical-meta"
-  }, React.createElement("span", null, task.done ? "".concat(Number((_task$completedDateKe = task.completedDateKey) === null || _task$completedDateKe === void 0 ? void 0 : _task$completedDateKe.slice(5, 7)), "\u6708").concat(Number((_task$completedDateKe2 = task.completedDateKey) === null || _task$completedDateKe2 === void 0 ? void 0 : _task$completedDateKe2.slice(8, 10)), "\u65E5\u5B8C\u6210") : task.deadline ? [task.deadline, task.time].filter(Boolean).join(" · ") : task.reminder), React.createElement("div", {
+  }, React.createElement("span", null, task.done ? "".concat(Number((_task$completedDateKe = task.completedDateKey) === null || _task$completedDateKe === void 0 ? void 0 : _task$completedDateKe.slice(5, 7)), "\u6708").concat(Number((_task$completedDateKe2 = task.completedDateKey) === null || _task$completedDateKe2 === void 0 ? void 0 : _task$completedDateKe2.slice(8, 10)), "\u65E5\u5B8C\u6210") : task.deadline ? [displayDeadline(task.deadline), task.time].filter(Boolean).join(" · ") : task.reminder), React.createElement("div", {
     className: "mini-progress",
     "aria-label": "\u5B8C\u6210 ".concat(task.progress, "%")
   }, React.createElement("span", {
@@ -1682,17 +1686,15 @@ function deadlineToDateInput(deadline) {
 }
 function dateInputToDeadline(value) {
   if (!value) return null;
-  var _value$split$map = value.split("-").map(Number),
-    _value$split$map2 = _slicedToArray(_value$split$map, 3),
-    month = _value$split$map2[1],
-    day = _value$split$map2[2];
-  return "".concat(month, "\u6708").concat(day, "\u65E5");
+  return value;
 }
 function DatePicker(_ref8) {
   var value = _ref8.value,
     onChange = _ref8.onChange,
     _ref8$label = _ref8.label,
-    label = _ref8$label === void 0 ? "截止日期" : _ref8$label;
+    label = _ref8$label === void 0 ? "截止日期" : _ref8$label,
+    _ref8$allowPast = _ref8.allowPast,
+    allowPast = _ref8$allowPast === void 0 ? false : _ref8$allowPast;
   var today = new Date();
   var iso = deadlineToDateInput(value) || "".concat(today.getFullYear(), "-").concat(String(today.getMonth() + 1).padStart(2, "0"), "-").concat(String(today.getDate()).padStart(2, "0"));
   var _iso$split$map = iso.split("-").map(Number),
@@ -1701,9 +1703,13 @@ function DatePicker(_ref8) {
     month = _iso$split$map2[1],
     day = _iso$split$map2[2];
   var maxDay = new Date(year, month, 0).getDate();
+  var minYear = allowPast ? 1900 : today.getFullYear();
   var update = function update(nextYear, nextMonth, nextDay) {
     var safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
-    onChange(dateInputToDeadline("".concat(nextYear, "-").concat(String(nextMonth).padStart(2, "0"), "-").concat(String(safeDay).padStart(2, "0"))));
+    var candidate = new Date(nextYear, nextMonth - 1, safeDay, 12);
+    var floor = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    var next = !allowPast && candidate < floor ? floor : candidate;
+    onChange(dateInputToDeadline("".concat(next.getFullYear(), "-").concat(String(next.getMonth() + 1).padStart(2, "0"), "-").concat(String(next.getDate()).padStart(2, "0"))));
   };
   return React.createElement("div", {
     className: "jinke-date-picker",
@@ -1721,8 +1727,9 @@ function DatePicker(_ref8) {
   }, React.createElement("div", null, React.createElement("small", null, "\u5E74"), React.createElement(Stepper, {
     label: "\u622A\u6B62\u5E74\u4EFD",
     value: year,
-    min: today.getFullYear(),
+    min: minYear,
     max: today.getFullYear() + 10,
+    wrap: true,
     onChange: function onChange(next) {
       return update(next, month, day);
     }
@@ -1760,7 +1767,7 @@ function CompletionDatePicker(_ref9) {
     month = _iso$split$map4[1],
     day = _iso$split$map4[2];
   var maxDay = new Date(year, month, 0).getDate();
-  var minYear = Math.max(2000, today.getFullYear() - 20);
+  var minYear = 1900;
   var update = function update(nextYear, nextMonth, nextDay) {
     var safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
     var candidate = new Date(nextYear, nextMonth - 1, safeDay, 12);
@@ -2990,28 +2997,21 @@ function CriticalDetailSheet(_ref27) {
       return update("title", event.target.value);
     }
   })), task.done ? React.createElement("div", {
-    className: "edit-field stacked custom-control-field completion-time-field",
-    "aria-label": "\u8BBE\u7F6E\u5B8C\u6210\u65F6\u95F4"
+    className: "edit-field stacked custom-control-field completion-date-field",
+    "aria-label": "\u8BBE\u7F6E\u5B8C\u6210\u65E5\u671F"
   }, React.createElement(CompletionDatePicker, {
     value: draft.completedDateKey,
     onChange: function onChange(completedDateKey) {
       return update("completedDateKey", completedDateKey);
     }
-  }), React.createElement(TimePicker, {
-    label: "\u5B8C\u6210\u65F6\u523B",
-    value: draft.completionTime,
-    onChange: function onChange(completionTime) {
-      return update("completionTime", completionTime || "00:00");
-    },
-    allowUnset: false,
-    maxHour: 23
   })) : null, React.createElement("div", {
     className: "edit-field stacked custom-control-field"
   }, React.createElement(DatePicker, {
     value: draft.deadline,
     onChange: function onChange(deadline) {
       return update("deadline", deadline);
-    }
+    },
+    allowPast: task.done
   })), React.createElement("div", {
     className: "edit-field stacked custom-control-field"
   }, React.createElement(TimePicker, {
@@ -3489,7 +3489,7 @@ function CriticalReminderScreen(_ref32) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.20";
+var JINKE_FALLBACK_VERSION = "1.0.21";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3710,8 +3710,7 @@ Object.assign(window, {
 
 /* app.jsx */
 (() => {
-var _excluded = ["completionTime"],
-  _excluded2 = ["type"];
+var _excluded = ["type"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
@@ -3724,13 +3723,13 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _React = React,
   useEffect = _React.useEffect,
   useRef = _React.useRef,
@@ -3777,20 +3776,6 @@ var SIMULATOR_HEIGHT = DEVICE_HEIGHT + 34;
 function localDateKey() {
   var date = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : new Date();
   return "".concat(date.getFullYear(), "-").concat(String(date.getMonth() + 1).padStart(2, "0"), "-").concat(String(date.getDate()).padStart(2, "0"));
-}
-function localTimeText(value) {
-  if (!value) return "";
-  var date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return "".concat(String(date.getHours()).padStart(2, "0"), ":").concat(String(date.getMinutes()).padStart(2, "0"));
-}
-function editableCompletionTime(value) {
-  var text = localTimeText(value) || localTimeText(new Date());
-  var _text$split$map = text.split(":").map(Number),
-    _text$split$map2 = _slicedToArray(_text$split$map, 2),
-    hour = _text$split$map2[0],
-    minute = _text$split$map2[1];
-  return "".concat(String(hour).padStart(2, "0"), ":").concat(String(Math.floor(minute / 5) * 5).padStart(2, "0"));
 }
 function readStoredJson(key, fallback, validator) {
   try {
@@ -3873,10 +3858,25 @@ function dateKeyOffset(fromKey, toKey) {
   var to = Date.UTC(toYear, toMonth - 1, toDay);
   return Math.round((to - from) / 86400000);
 }
+function dateKeyAddDays(dateKey, days) {
+  var _dateKey$split$map = dateKey.split("-").map(Number),
+    _dateKey$split$map2 = _slicedToArray(_dateKey$split$map, 3),
+    year = _dateKey$split$map2[0],
+    month = _dateKey$split$map2[1],
+    day = _dateKey$split$map2[2];
+  var next = new Date(year, month - 1, day + days, 12);
+  return localDateKey(next);
+}
 function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
   if (!Number.isFinite(task === null || task === void 0 ? void 0 : task.daysLeft)) return null;
   var anchorKey = task.anchorDateKey || fallbackAnchorKey;
   return task.daysLeft - dateKeyOffset(anchorKey, dateKey);
+}
+function editableCriticalDeadline(task, todayKey) {
+  if (!(task !== null && task !== void 0 && task.deadline)) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(task.deadline))) return task.deadline;
+  var daysLeft = criticalDaysLeftOn(task, todayKey, todayKey);
+  return Number.isFinite(daysLeft) ? dateKeyAddDays(todayKey, daysLeft) : task.deadline;
 }
 function withCriticalReminderDefaults(task) {
   var _task$deadlineTime;
@@ -3899,13 +3899,12 @@ function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
     _completionDateKey$sp2 = _slicedToArray(_completionDateKey$sp, 3),
     month = _completionDateKey$sp2[1],
     day = _completionDateKey$sp2[2];
-  var completionTime = localTimeText(task.completedAt);
   return {
     id: "done-".concat(task.id, "-").concat(completionDateKey),
     completionKey: completionKey,
     sourceTaskId: task.id,
     title: task.title,
-    completed: "".concat(month, "\u6708").concat(day, "\u65E5").concat(completionTime ? " ".concat(completionTime) : ""),
+    completed: "".concat(month, "\u6708").concat(day, "\u65E5"),
     completedDateKey: completionDateKey,
     completedAt: task.completedAt || null,
     leadDays: criticalDaysLeftOn(task, completionDateKey, fallbackAnchorKey) || 0
@@ -4054,6 +4053,29 @@ function parseDeadline(text) {
     source: explicitNone[0],
     kind: "explicit-none"
   };
+  var iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    var year = Number(iso[1]);
+    var _month = Number(iso[2]);
+    var _day = Number(iso[3]);
+    var _target = new Date(year, _month - 1, _day, 12);
+    if (_target.getFullYear() !== year || _target.getMonth() !== _month - 1 || _target.getDate() !== _day) {
+      return {
+        deadline: null,
+        daysLeft: null,
+        source: iso[0],
+        kind: "invalid"
+      };
+    }
+    var _now = new Date();
+    var _today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate(), 12);
+    return {
+      deadline: iso[0],
+      daysLeft: Math.round((_target - _today) / 86400000),
+      source: iso[0],
+      kind: "absolute-iso"
+    };
+  }
   var relative = text.match(/(今天|明天|后天)(?:截止|到期)?/);
   if (relative) {
     var _daysLeft = relative[1] === "今天" ? 0 : relative[1] === "明天" ? 1 : 2;
@@ -4150,12 +4172,12 @@ function parseDatePoints(text) {
     for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
       var _match = _step4.value;
       var weekday = _match[2] === "天" ? 7 : ["一", "二", "三", "四", "五", "六", "日"].indexOf(_match[2]) + 1;
-      var _now = new Date();
-      var todayWeekday = _now.getDay() || 7;
+      var _now2 = new Date();
+      var todayWeekday = _now2.getDay() || 7;
       var offset = weekday - todayWeekday;
       if (_match[1] === "下周") offset += offset <= 0 ? 7 : 7;else if (offset < 0) offset += 7;
-      var _target = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() + offset);
-      points.push(_objectSpread(_objectSpread({}, datePointFromDate(_target, _match[0])), {}, {
+      var _target2 = new Date(_now2.getFullYear(), _now2.getMonth(), _now2.getDate() + offset);
+      points.push(_objectSpread(_objectSpread({}, datePointFromDate(_target2, _match[0])), {}, {
         index: _match.index
       }));
     }
@@ -4790,7 +4812,16 @@ function MobileDesignApp() {
     ddlReminderFinalDays = _useState28[0],
     setDdlReminderFinalDays = _useState28[1];
   var _useState29 = useState(function () {
-      var stored = readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray);
+      var stored = readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray).map(function (item) {
+        if (!item.completedDateKey || !item.sourceTaskId) return item;
+        var _item$completedDateKe = item.completedDateKey.split("-").map(Number),
+          _item$completedDateKe2 = _slicedToArray(_item$completedDateKe, 3),
+          month = _item$completedDateKe2[1],
+          day = _item$completedDateKe2[2];
+        return _objectSpread(_objectSpread({}, item), {}, {
+          completed: "".concat(month, "\u6708").concat(day, "\u65E5")
+        });
+      });
       var migrated = criticalTasks.filter(function (task) {
         return task.done && task.completedDateKey;
       }).map(function (task) {
@@ -5250,10 +5281,15 @@ function MobileDesignApp() {
     pushSecondary(route === "settings" ? "permissions" : route);
   };
   var openCritical = function openCritical(task) {
-    setSelectedCritical(task);
-    setCriticalDraft(_objectSpread(_objectSpread({}, withCriticalReminderDefaults(task)), {}, {
-      completionTime: task.done ? editableCompletionTime(task.completedAt) : ""
-    }));
+    var storedTask = criticalTasks.find(function (item) {
+      return item.id === task.id;
+    }) || task;
+    var editableTask = _objectSpread(_objectSpread({}, storedTask), {}, {
+      daysLeft: criticalDaysLeftOn(storedTask, todayDateKey, todayDateKey),
+      deadline: editableCriticalDeadline(storedTask, todayDateKey)
+    });
+    setSelectedCritical(editableTask);
+    setCriticalDraft(withCriticalReminderDefaults(editableTask));
     setRenewDays(7);
     setOverlay("critical-detail");
   };
@@ -5263,12 +5299,10 @@ function MobileDesignApp() {
       return task.id === taskId;
     });
     if (!originalTask) return;
-    var completionTime = changes.completionTime,
-      persistedChanges = _objectWithoutProperties(changes, _excluded);
     var deadlineText = ((_changes$deadline = changes.deadline) === null || _changes$deadline === void 0 ? void 0 : _changes$deadline.trim()) || null;
     var parsed = deadlineText ? parseDeadline(deadlineText) : null;
     var deadlineTime = changes.deadlineTime || (changes.time && changes.time !== "待定" ? changes.time : null);
-    var updatedTask = withCriticalReminderDefaults(_objectSpread(_objectSpread(_objectSpread({}, originalTask), persistedChanges), {}, {
+    var updatedTask = withCriticalReminderDefaults(_objectSpread(_objectSpread(_objectSpread({}, originalTask), changes), {}, {
       deadline: deadlineText,
       daysLeft: deadlineText ? parsed !== null && parsed !== void 0 && parsed.deadline ? parsed.daysLeft : Number.isFinite(changes.daysLeft) ? changes.daysLeft : criticalDaysLeftOn(originalTask, todayDateKey, todayDateKey) : null,
       anchorDateKey: deadlineText ? todayDateKey : null,
@@ -5277,7 +5311,7 @@ function MobileDesignApp() {
       reminderEnabled: deadlineText ? changes.reminderEnabled : false
     }));
     if (updatedTask.done && updatedTask.completedDateKey) {
-      updatedTask = moveCriticalCompletion(updatedTask, updatedTask.completedDateKey, completionTime);
+      updatedTask = moveCriticalCompletion(updatedTask, updatedTask.completedDateKey);
     }
     setCriticalTasks(function (current) {
       return current.map(function (task) {
@@ -5297,7 +5331,7 @@ function MobileDesignApp() {
       }
     }
     closeOverlay();
-    showToast(updatedTask.done && updatedTask.completedDateKey !== originalTask.completedDateKey ? "完成时间已更新" : "关键事项已更新");
+    showToast(updatedTask.done && updatedTask.completedDateKey !== originalTask.completedDateKey ? "完成日期已更新" : "关键事项已更新");
   };
   var renewCritical = function renewCritical(taskId) {
     var requestedDays = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 7;
@@ -5623,7 +5657,7 @@ function MobileDesignApp() {
     } else if (intent === "edit") {
       var _command$changes = command.changes,
         nextType = _command$changes.type,
-        changes = _objectWithoutProperties(_command$changes, _excluded2);
+        changes = _objectWithoutProperties(_command$changes, _excluded);
       if (target.kind === "daily" && nextType === "critical") {
         setDailyTasks(function (current) {
           return current.filter(function (task) {

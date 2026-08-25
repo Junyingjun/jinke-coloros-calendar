@@ -48,11 +48,9 @@ assert.equal(restoredNoDdl.done, false);
 assert.equal(restoredNoDdl.progress, 50);
 assert.equal(criticalTaskVisibleOnTodayDate(restoredNoDdl, "2026-08-26"), false, "restored no-DDL returns only to Critical");
 
-const movedCompletion = moveCriticalCompletion(completedNoDdl, "2026-08-24", "23:35");
+const movedCompletion = moveCriticalCompletion(completedNoDdl, "2026-08-24");
 assert.equal(movedCompletion.completedDateKey, "2026-08-24", "completed critical tasks can be moved back to the intended date");
 assert.equal(movedCompletion.completionKey, "focus:2026-08-24");
-assert.equal(new Date(movedCompletion.completedAt).getHours(), 23, "manual completion hour must be stored as an exact instant");
-assert.equal(new Date(movedCompletion.completedAt).getMinutes(), 35, "manual completion minute must be stored as an exact instant");
 assert.equal(criticalTaskVisibleOnTodayDate(movedCompletion, "2026-08-24"), true);
 assert.equal(criticalTaskVisibleOnTodayDate(movedCompletion, "2026-08-26"), false);
 
@@ -64,6 +62,10 @@ const detailSource = screensSource.slice(detailStart, detailEnd);
 assert.match(appSource, /activeCriticalTasks = currentCriticalTasks\.filter\(\(task\) => !task\.done\)/, "completed tasks must disappear from Critical");
 assert.match(appSource, /setCriticalTasks\(\(current\) => current\.map/, "completion must retain the task record instead of deleting it");
 assert.doesNotMatch(detailSource, /onComplete|已完成/, "critical editors must not expose a separate completion button");
-assert.match(detailSource, /task\.done[\s\S]*设置完成时间[\s\S]*CompletionDatePicker/, "only completed critical editors must expose the custom completion time control");
+assert.match(detailSource, /task\.done[\s\S]*设置完成日期[\s\S]*CompletionDatePicker/, "only completed critical editors must expose the custom completion date control");
+assert.doesNotMatch(detailSource, /label="完成时刻"|completionTime/, "completion archival must not expose an unnecessary clock control");
+assert.match(detailSource, /DatePicker value=\{draft\.deadline\}[\s\S]{0,160}allowPast=\{task\.done\}/, "only completed critical tasks may move their deadline into the past");
+assert.match(appSource, /const iso = text\.match\(\/\(\\d\{4\}\)-\(\\d\{2\}\)-\(\\d\{2\}\)\//, "deadline parsing must preserve an explicitly edited historical year");
+assert.match(appSource, /editableCriticalDeadline\(storedTask, todayDateKey\)/, "opening an old completed task must reconstruct its original deadline instead of rolling it into next year");
 
 console.log("critical completion logic: DDL/no-DDL completion date retention and undo passed");

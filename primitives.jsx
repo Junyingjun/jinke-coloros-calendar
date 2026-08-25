@@ -43,6 +43,11 @@ function SectionHeader({ title, note, noteTone }) {
   return <div className="section-head"><h2 className="section-title">{title}</h2>{note ? <span className={`section-note ${noteTone ? `is-${noteTone}` : ""}`}>{note}</span> : null}</div>;
 }
 
+function displayDeadline(deadline) {
+  const match = String(deadline || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${Number(match[2])}月${Number(match[3])}日` : deadline;
+}
+
 function SwipeTaskActions({ label, onEdit, onDelete, children }) {
   const revealRatio = 0.4;
   const [offsetRatio, setOffsetRatio] = React.useState(0);
@@ -182,7 +187,7 @@ function CriticalTaskRow({ task, onToggle, onOpen, onDelete }) {
           <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
         </div>
         <div className="critical-meta">
-          <span>{task.done ? `${Number(task.completedDateKey?.slice(5, 7))}月${Number(task.completedDateKey?.slice(8, 10))}日完成` : task.deadline ? [task.deadline, task.time].filter(Boolean).join(" · ") : task.reminder}</span>
+          <span>{task.done ? `${Number(task.completedDateKey?.slice(5, 7))}月${Number(task.completedDateKey?.slice(8, 10))}日完成` : task.deadline ? [displayDeadline(task.deadline), task.time].filter(Boolean).join(" · ") : task.reminder}</span>
           <div className="mini-progress" aria-label={`完成 ${task.progress}%`}><span style={{ width: `${task.progress}%` }} /></div>
         </div>
       </button>

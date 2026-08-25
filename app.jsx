@@ -44,19 +44,6 @@ function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function localTimeText(value) {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function editableCompletionTime(value) {
-  const text = localTimeText(value) || localTimeText(new Date());
-  const [hour, minute] = text.split(":").map(Number);
-  return `${String(hour).padStart(2, "0")}:${String(Math.floor(minute / 5) * 5).padStart(2, "0")}`;
-}
-
 function readStoredJson(key, fallback, validator) {
   try {
     const parsed = JSON.parse(localStorage.getItem(key) || "null");
@@ -130,10 +117,23 @@ function dateKeyOffset(fromKey, toKey) {
   return Math.round((to - from) / 86400000);
 }
 
+function dateKeyAddDays(dateKey, days) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const next = new Date(year, month - 1, day + days, 12);
+  return localDateKey(next);
+}
+
 function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
   if (!Number.isFinite(task?.daysLeft)) return null;
   const anchorKey = task.anchorDateKey || fallbackAnchorKey;
   return task.daysLeft - dateKeyOffset(anchorKey, dateKey);
+}
+
+function editableCriticalDeadline(task, todayKey) {
+  if (!task?.deadline) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(task.deadline))) return task.deadline;
+  const daysLeft = criticalDaysLeftOn(task, todayKey, todayKey);
+  return Number.isFinite(daysLeft) ? dateKeyAddDays(todayKey, daysLeft) : task.deadline;
 }
 
 function withCriticalReminderDefaults(task) {
@@ -149,13 +149,12 @@ function withCriticalReminderDefaults(task) {
 function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
   const completionKey = `${task.id}:${completionDateKey}`;
   const [, month, day] = completionDateKey.split("-").map(Number);
-  const completionTime = localTimeText(task.completedAt);
   return {
     id: `done-${task.id}-${completionDateKey}`,
     completionKey,
     sourceTaskId: task.id,
     title: task.title,
-    completed: `${month}月${day}日${completionTime ? ` ${completionTime}` : ""}`,
+    completed: `${month}月${day}日`,
     completedDateKey: completionDateKey,
     completedAt: task.completedAt || null,
     leadDays: criticalDaysLeftOn(task, completionDateKey, fallbackAnchorKey) || 0,
@@ -236,6 +235,19 @@ function parseRepeat(text) {
 function parseDeadline(text) {
   const explicitNone = text.match(/(?:无|没有)\s*(?:ddl|deadline|截止(?:日期)?|期限|死线)/i);
   if (explicitNone) return { deadline: null, daysLeft: null, source: explicitNone[0], kind: "explicit-none" };
+  const iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    const target = new Date(year, month - 1, day, 12);
+    if (target.getFullYear() !== year || target.getMonth() !== month - 1 || target.getDate() !== day) {
+      return { deadline: null, daysLeft: null, source: iso[0], kind: "invalid" };
+    }
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+    return { deadline: iso[0], daysLeft: Math.round((target - today) / 86400000), source: iso[0], kind: "absolute-iso" };
+  }
   const relative = text.match(/(今天|明天|后天)(?:截止|到期)?/);
   if (relative) {
     const daysLeft = relative[1] === "今天" ? 0 : relative[1] === "明天" ? 1 : 2;
@@ -759,7 +771,11 @@ function MobileDesignApp() {
     return value;
   });
   const [history, setHistory] = useState(() => {
-    const stored = readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray);
+    const stored = readStoredJson("jinke-task-history", APP_DATA.history, Array.isArray).map((item) => {
+      if (!item.completedDateKey || !item.sourceTaskId) return item;
+      const [, month, day] = item.completedDateKey.split("-").map(Number);
+      return { ...item, completed: `${month}月${day}日` };
+    });
     const migrated = criticalTasks
       .filter((task) => task.done && task.completedDateKey)
       .map((task) => criticalHistoryEntry(task, task.completedDateKey, task.anchorDateKey || task.completedDateKey));
@@ -1071,11 +1087,14 @@ function MobileDesignApp() {
   };
 
   const openCritical = (task) => {
-    setSelectedCritical(task);
-    setCriticalDraft({
-      ...withCriticalReminderDefaults(task),
-      completionTime: task.done ? editableCompletionTime(task.completedAt) : "",
-    });
+    const storedTask = criticalTasks.find((item) => item.id === task.id) || task;
+    const editableTask = {
+      ...storedTask,
+      daysLeft: criticalDaysLeftOn(storedTask, todayDateKey, todayDateKey),
+      deadline: editableCriticalDeadline(storedTask, todayDateKey),
+    };
+    setSelectedCritical(editableTask);
+    setCriticalDraft(withCriticalReminderDefaults(editableTask));
     setRenewDays(7);
     setOverlay("critical-detail");
   };
@@ -1083,13 +1102,12 @@ function MobileDesignApp() {
   const saveCritical = (taskId, changes) => {
     const originalTask = criticalTasks.find((task) => task.id === taskId);
     if (!originalTask) return;
-    const { completionTime, ...persistedChanges } = changes;
     const deadlineText = changes.deadline?.trim() || null;
     const parsed = deadlineText ? parseDeadline(deadlineText) : null;
     const deadlineTime = changes.deadlineTime || (changes.time && changes.time !== "待定" ? changes.time : null);
     let updatedTask = withCriticalReminderDefaults({
       ...originalTask,
-      ...persistedChanges,
+      ...changes,
       deadline: deadlineText,
       daysLeft: deadlineText ? (parsed?.deadline
         ? parsed.daysLeft
@@ -1100,7 +1118,7 @@ function MobileDesignApp() {
       reminderEnabled: deadlineText ? changes.reminderEnabled : false,
     });
     if (updatedTask.done && updatedTask.completedDateKey) {
-      updatedTask = moveCriticalCompletion(updatedTask, updatedTask.completedDateKey, completionTime);
+      updatedTask = moveCriticalCompletion(updatedTask, updatedTask.completedDateKey);
     }
     setCriticalTasks((current) => current.map((task) => task.id === taskId ? updatedTask : task));
     if (updatedTask.done && updatedTask.completedDateKey) {
@@ -1112,7 +1130,7 @@ function MobileDesignApp() {
       }
     }
     closeOverlay();
-    showToast(updatedTask.done && updatedTask.completedDateKey !== originalTask.completedDateKey ? "完成时间已更新" : "关键事项已更新");
+    showToast(updatedTask.done && updatedTask.completedDateKey !== originalTask.completedDateKey ? "完成日期已更新" : "关键事项已更新");
   };
 
   const renewCritical = (taskId, requestedDays = 7) => {

@@ -124,24 +124,27 @@ function deadlineToDateInput(deadline) {
 
 function dateInputToDeadline(value) {
   if (!value) return null;
-  const [, month, day] = value.split("-").map(Number);
-  return `${month}月${day}日`;
+  return value;
 }
 
-function DatePicker({ value, onChange, label = "截止日期" }) {
+function DatePicker({ value, onChange, label = "截止日期", allowPast = false }) {
   const today = new Date();
   const iso = deadlineToDateInput(value) || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [year, month, day] = iso.split("-").map(Number);
   const maxDay = new Date(year, month, 0).getDate();
+  const minYear = allowPast ? 1900 : today.getFullYear();
   const update = (nextYear, nextMonth, nextDay) => {
     const safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
-    onChange(dateInputToDeadline(`${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`));
+    const candidate = new Date(nextYear, nextMonth - 1, safeDay, 12);
+    const floor = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    const next = !allowPast && candidate < floor ? floor : candidate;
+    onChange(dateInputToDeadline(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`));
   };
   return (
     <div className="jinke-date-picker" aria-label={label}>
       <div className="picker-head"><span>{label}</span><button type="button" aria-pressed={Boolean(value)} onClick={() => onChange(value ? null : dateInputToDeadline(iso))}>{value ? "清除" : "设置"}</button></div>
       {value ? <div className="date-stepper-row">
-        <div><small>年</small><Stepper label="截止年份" value={year} min={today.getFullYear()} max={today.getFullYear() + 10} onChange={(next) => update(next, month, day)} /></div>
+        <div><small>年</small><Stepper label="截止年份" value={year} min={minYear} max={today.getFullYear() + 10} wrap onChange={(next) => update(next, month, day)} /></div>
         <div><small>月</small><Stepper label="截止月份" value={month} min={1} max={12} wrap onChange={(next) => update(year, next, day)} /></div>
         <div><small>日</small><Stepper label="截止日期" value={day} min={1} max={maxDay} wrap onChange={(next) => update(year, month, next)} /></div>
       </div> : <span className="picker-empty">未设置</span>}
@@ -155,7 +158,7 @@ function CompletionDatePicker({ value, onChange }) {
   const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : todayKey;
   const [year, month, day] = iso.split("-").map(Number);
   const maxDay = new Date(year, month, 0).getDate();
-  const minYear = Math.max(2000, today.getFullYear() - 20);
+  const minYear = 1900;
   const update = (nextYear, nextMonth, nextDay) => {
     const safeDay = Math.min(new Date(nextYear, nextMonth, 0).getDate(), nextDay);
     const candidate = new Date(nextYear, nextMonth - 1, safeDay, 12);
@@ -721,12 +724,11 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
       <div className="edit-form critical-edit-form">
         <label className="edit-field"><span className="edit-label">名称</span><input className="edit-input title-input" value={draft.title} onChange={(event) => update("title", event.target.value)} /></label>
         {task.done ? (
-          <div className="edit-field stacked custom-control-field completion-time-field" aria-label="设置完成时间">
+          <div className="edit-field stacked custom-control-field completion-date-field" aria-label="设置完成日期">
             <CompletionDatePicker value={draft.completedDateKey} onChange={(completedDateKey) => update("completedDateKey", completedDateKey)} />
-            <TimePicker label="完成时刻" value={draft.completionTime} onChange={(completionTime) => update("completionTime", completionTime || "00:00")} allowUnset={false} maxHour={23} />
           </div>
         ) : null}
-        <div className="edit-field stacked custom-control-field"><DatePicker value={draft.deadline} onChange={(deadline) => update("deadline", deadline)} /></div>
+        <div className="edit-field stacked custom-control-field"><DatePicker value={draft.deadline} onChange={(deadline) => update("deadline", deadline)} allowPast={task.done} /></div>
         <div className="edit-field stacked custom-control-field"><TimePicker label="截止时刻" value={draft.deadlineTime || draft.time} onChange={updateDeadlineTime} /></div>
         <div className="edit-field stacked custom-control-field"><CriticalReminderPlanPicker task={draft} onChange={onDraftChange} /></div>
         <div className="edit-field stacked custom-control-field"><span className="edit-label">完成度</span><SegmentedChoice label="完成度" value={draft.progress ?? 0} options={[0, 25, 50, 75, 100].map((value) => [value, `${value}%`])} onChange={(progress) => update("progress", Number(progress))} compact /></div>
@@ -934,7 +936,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.20";
+const JINKE_FALLBACK_VERSION = "1.0.21";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
