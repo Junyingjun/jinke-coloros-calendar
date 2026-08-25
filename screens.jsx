@@ -286,12 +286,14 @@ function ViewMenu({ onSelect, onClose }) {
 function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, onToggleCritical, onOpenCritical, onDeleteCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, getDateLoad, onOpenDayArchive }) {
   const done = tasks.filter((task) => task.done).length;
   const percent = Math.round((done / Math.max(tasks.length, 1)) * 100);
+  const allComplete = tasks.length > 0 && done === tasks.length;
   const selectedDay = getDateMeta(selectedDateKey);
   const isToday = selectedDateKey === todayDateKey;
   const dateLabel = `${selectedDay.month}月${selectedDay.date}日`;
   const calendarMarker = getCalendarMarker(selectedDateKey);
   return (
     <main className="screen today-screen">
+      <div className="fold-divider" aria-hidden="true" />
       <div className="top-row">
         <IconButton name="menu" label="更多" onClick={onMenu} />
         <button className="view-trigger pressable" onClick={onOpenView}>{viewMode === "day" ? "日" : "月"}<Icon name="chevronDown" size={15} /></button>
@@ -323,7 +325,7 @@ function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, on
           ) : null}
         </div>
         <section className="today-daily-pane" aria-label="日常事项">
-          <SectionHeader title={isToday ? "今天" : `星期${selectedDay.day}`} note={`${tasks.length - done} 项待完成`} />
+          <SectionHeader title={isToday ? "今天" : `星期${selectedDay.day}`} note={allComplete ? "全部完成" : `${tasks.length - done} 项待完成`} noteTone={allComplete ? "complete" : ""} />
           {tasks.some((task) => task.demo) ? <div className="demo-guide">左滑删除演示，点下方语音键创建第一项日程</div> : null}
           <div className="task-list">{tasks.map((task) => <DailyTaskRow task={task} onToggle={onToggle} onEdit={onEdit} onDelete={onDeleteDaily} key={task.id} />)}</div>
           {!tasks.length ? <div className="empty-guide">点下方语音键，创建第一项日程</div> : null}
@@ -501,6 +503,7 @@ function CriticalScreen({ tasks, onToggle, onOpen, onDelete, onMenu, onOpenRemin
   const withoutDDL = tasks.filter((task) => !task.deadline);
   return (
     <main className="screen critical-screen">
+      <div className="fold-divider" aria-hidden="true" />
       <div className="top-row"><IconButton name="menu" label="更多" onClick={onMenu} /><button className="view-trigger pressable" type="button" aria-label="打开关键提醒设置" onClick={onOpenReminders}><Icon name="bell" size={16} /></button></div>
       <div className="page-title-row">
         <h1 className="page-title">关键事项</h1>
@@ -899,7 +902,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.16";
+const JINKE_FALLBACK_VERSION = "1.0.17";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

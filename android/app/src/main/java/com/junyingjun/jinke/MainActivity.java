@@ -111,6 +111,11 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onAlternatives(String candidatesJson) {
+                runOnUiThread(() -> deliverSpeechAlternatives(candidatesJson));
+            }
+
+            @Override
             public void onFinal(String text) {
                 runOnUiThread(() -> deliverSpeechResult(text));
             }
@@ -174,6 +179,13 @@ public class MainActivity extends Activity {
         if (webView == null) return;
         String script = "window.JINKE_NATIVE_SPEECH_PARTIAL && window.JINKE_NATIVE_SPEECH_PARTIAL("
                 + JSONObject.quote(result) + ");";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void deliverSpeechAlternatives(String candidatesJson) {
+        if (webView == null) return;
+        String script = "window.JINKE_NATIVE_SPEECH_CANDIDATES && window.JINKE_NATIVE_SPEECH_CANDIDATES("
+                + JSONObject.quote(candidatesJson) + ");";
         webView.evaluateJavascript(script, null);
     }
 

@@ -347,6 +347,370 @@ window.APP_DATA = {
 };
 })();
 
+/* voice-domain-model.js */
+(() => {
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+(function () {
+  var CN_DIGITS = {
+    "零": 0,
+    "〇": 0,
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9
+  };
+  var NUMBER_SOURCE = "[零〇一二三四五六七八九十两\\d]{1,3}";
+  var PERIOD_SOURCE = "凌晨|清晨|早晨|早上|上午|中午|下午|傍晚|晚上|夜里|夜间";
+  var PERIOD_CANONICAL = {
+    清晨: "凌晨",
+    早晨: "早上",
+    夜里: "晚上",
+    夜间: "晚上"
+  };
+  var NIGHT_ACTIONS = /洗漱|刷牙|睡觉|睡眠|上床|休息|晚安/;
+  var MORNING_ACTIONS = /起床|早餐|晨练|早饭/;
+  var NOON_ACTIONS = /午饭|午餐|午休/;
+  var CLAUSE_BOUNDARY = /[，,。；;！？!?、\n]/;
+  function normalizeTranscript(value) {
+    var normalized = String(value || "").trim();
+    normalized = normalized.replace(/\bd\s*[，,、.\s]*d\s*[，,、.\s]*l\b/ig, "ddl").replace(/(?:滴|迪|低|弟|地|的)[，,、.\s]*(?:滴|迪|低|弟|地|的)[，,、.\s]*(?:艾|爱|挨)(?:尔|耳|儿|乐|了|勒)?/g, "ddl").replace(/(?:戴德莱恩|代德莱恩|带的来因|带的赖因|戴的来因|代的来因|得来因)/g, "deadline").replace(/[﹕：]/g, ":").replace(/[；;]/g, "，").replace(/\s+/g, " ");
+    var previous = "";
+    while (normalized !== previous) {
+      previous = normalized;
+      normalized = normalized.replace(/([\u3400-\u9fff\d])\s+(?=[\u3400-\u9fff\d])/g, "$1");
+    }
+    var number = "([零〇一二三四五六七八九十两\\d]{1,3})";
+    var timeBoundary = "(?=$|[，,。！？!?、]|凌晨|清晨|早晨|早上|上午|中午|下午|傍晚|晚上|夜里|夜间|洗漱|刷牙|睡觉|睡眠|休息|起床|出发|回来|回家|看书|学习|健身|吃饭|开会|上课|下班)";
+    normalized = normalized.replace(new RegExp("".concat(number, "\\s*[\u5E97\u7535]\\s*"), "g"), "$1点").replace(new RegExp("".concat(number, "\u70B9\\s*[\u529E\u4F34\u73ED\u7248\u822C]").concat(timeBoundary), "g"), "$1点半");
+    return normalized.trim();
+  }
+  function parseNumber(value) {
+    if (!value) return null;
+    if (/^\d+$/.test(value)) return Number(value);
+    if (value === "十") return 10;
+    if (value.includes("十")) {
+      var _value$split = value.split("十"),
+        _value$split2 = _slicedToArray(_value$split, 2),
+        tens = _value$split2[0],
+        ones = _value$split2[1];
+      return (tens ? CN_DIGITS[tens] : 1) * 10 + (ones ? CN_DIGITS[ones] : 0);
+    }
+    return value.split("").reduce(function (total, char) {
+      var _CN_DIGITS$char;
+      return total * 10 + ((_CN_DIGITS$char = CN_DIGITS[char]) !== null && _CN_DIGITS$char !== void 0 ? _CN_DIGITS$char : 0);
+    }, 0);
+  }
+  function clauseBounds(text, index) {
+    var start = 0;
+    var end = text.length;
+    for (var cursor = index - 1; cursor >= 0; cursor -= 1) {
+      if (CLAUSE_BOUNDARY.test(text[cursor])) {
+        start = cursor + 1;
+        break;
+      }
+    }
+    for (var _cursor = index; _cursor < text.length; _cursor += 1) {
+      if (CLAUSE_BOUNDARY.test(text[_cursor])) {
+        end = _cursor;
+        break;
+      }
+    }
+    return {
+      start: start,
+      end: end,
+      text: text.slice(start, end)
+    };
+  }
+  function closestClausePeriod(text, mentionStart, mentionEnd) {
+    var bounds = clauseBounds(text, mentionStart);
+    var clause = bounds.text;
+    var matches = _toConsumableArray(clause.matchAll(new RegExp(PERIOD_SOURCE, "g"))).map(function (match) {
+      return {
+        value: match[0],
+        start: bounds.start + match.index,
+        end: bounds.start + match.index + match[0].length
+      };
+    }).filter(function (item) {
+      return item.end <= mentionStart || item.start >= mentionEnd;
+    }).map(function (item) {
+      return _objectSpread(_objectSpread({}, item), {}, {
+        distance: item.end <= mentionStart ? mentionStart - item.end : item.start - mentionEnd
+      });
+    }).sort(function (a, b) {
+      return a.distance - b.distance;
+    });
+    return matches[0] || null;
+  }
+  function inferPeriodFromClause(clause, hour) {
+    if (NIGHT_ACTIONS.test(clause) && (hour === 12 || hour >= 1 && hour <= 11)) return "晚上";
+    if (MORNING_ACTIONS.test(clause) && hour >= 1 && hour <= 11) return "早上";
+    if (NOON_ACTIONS.test(clause) && hour >= 1 && hour <= 12) return "中午";
+    return "";
+  }
+  function normalizeClock(hourValue, minuteValue, periodValue) {
+    var hour = Number(hourValue);
+    var minute = Number(minuteValue);
+    var period = PERIOD_CANONICAL[periodValue] || periodValue || "";
+    if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
+    if (period === "晚上") hour = hour === 0 || hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
+    if (period === "中午" && hour < 11) hour += 12;
+    if (period === "凌晨" && hour === 12) hour = 0;
+    hour = Math.min(24, Math.max(0, hour));
+    minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
+    if (hour === 24) minute = 0;
+    return {
+      hour: hour,
+      minute: minute,
+      value: "".concat(String(hour).padStart(2, "0"), ":").concat(String(minute).padStart(2, "0")),
+      period: period,
+      dayBoundary: hour === 24 ? "end" : "start"
+    };
+  }
+  function buildTimeMention(text, match, kind) {
+    var beforePeriod = match[1] || "";
+    var hour = parseNumber(match[2]);
+    var rawMinute = kind === "colon" ? Number(match[3]) : match[3] === "半" ? 30 : parseNumber(String(match[3] || "").replace("分", "")) || 0;
+    var afterPeriod = match[4] || "";
+    var start = match.index;
+    var end = start + match[0].length;
+    var qualifier = beforePeriod || afterPeriod;
+    var qualifierSource = "";
+    var qualifierBinding = qualifier ? beforePeriod ? "before" : "after" : "";
+    if (!qualifier) {
+      var nearby = closestClausePeriod(text, start, end);
+      if (nearby) {
+        qualifier = nearby.value;
+        qualifierSource = nearby.value;
+        qualifierBinding = "clause";
+      }
+    }
+    var clause = clauseBounds(text, start).text;
+    if (!qualifier) {
+      qualifier = inferPeriodFromClause(clause, hour);
+      if (qualifier) qualifierBinding = "semantic";
+    }
+    var clock = normalizeClock(hour, rawMinute, qualifier);
+    var source = match[0].trim();
+    var sources = _toConsumableArray(new Set([source, qualifierSource].filter(Boolean)));
+    return _objectSpread(_objectSpread({}, clock), {}, {
+      source: source,
+      sources: sources,
+      start: start,
+      end: end,
+      qualifierBinding: qualifierBinding,
+      confidence: qualifierBinding === "before" || qualifierBinding === "after" ? 0.99 : qualifierBinding === "clause" ? 0.92 : qualifierBinding === "semantic" ? 0.78 : 0.72
+    });
+  }
+  function extractTimeMentions(rawText) {
+    var text = normalizeTranscript(rawText);
+    var mentions = [];
+    var occupied = [];
+    var colonPattern = new RegExp("(".concat(PERIOD_SOURCE, ")?\\s*(").concat(NUMBER_SOURCE, ")\\s*:\\s*(\\d{1,2})\\s*(").concat(PERIOD_SOURCE, ")?"), "g");
+    var spokenPattern = new RegExp("(".concat(PERIOD_SOURCE, ")?\\s*(").concat(NUMBER_SOURCE, ")\\s*[\u70B9\u65F6\u7535]\\s*(\u534A|").concat(NUMBER_SOURCE, "\u5206?)?\\s*(").concat(PERIOD_SOURCE, ")?"), "g");
+    var _iterator = _createForOfIteratorHelper(text.matchAll(colonPattern)),
+      _step;
+    try {
+      for (_iterator.s(); !(_step = _iterator.n()).done;) {
+        var match = _step.value;
+        var mention = buildTimeMention(text, match, "colon");
+        mentions.push(mention);
+        occupied.push([mention.start, mention.end]);
+      }
+    } catch (err) {
+      _iterator.e(err);
+    } finally {
+      _iterator.f();
+    }
+    var _iterator2 = _createForOfIteratorHelper(text.matchAll(spokenPattern)),
+      _step2;
+    try {
+      var _loop = function _loop() {
+        var match = _step2.value;
+        var start = match.index;
+        var end = start + match[0].length;
+        if (occupied.some(function (_ref) {
+          var _ref2 = _slicedToArray(_ref, 2),
+            from = _ref2[0],
+            to = _ref2[1];
+          return start < to && end > from;
+        })) return 1;
+        mentions.push(buildTimeMention(text, match, "spoken"));
+      };
+      for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+        if (_loop()) continue;
+      }
+    } catch (err) {
+      _iterator2.e(err);
+    } finally {
+      _iterator2.f();
+    }
+    return mentions.sort(function (a, b) {
+      return a.start - b.start;
+    });
+  }
+  function addScore(scores, intent, amount, evidence) {
+    var current = scores.get(intent) || {
+      intent: intent,
+      score: 0,
+      evidence: []
+    };
+    current.score += amount;
+    if (evidence) current.evidence.push(evidence);
+    scores.set(intent, current);
+  }
+  function classifyIntent(rawText) {
+    var text = normalizeTranscript(rawText);
+    var scores = new Map();
+    addScore(scores, "create", 0.5, "domain-default");
+    var rules = [["clear-all", /(清空|清除|删除|移除|删掉).*(全部|所有)|(全部|所有).*(清空|清除|删除|移除|删掉)/, 12], ["delete", /(删除|移除|删掉|清除)/, 8], ["uncomplete", /(取消勾选|取消完成|标记为未完成|恢复未完成)/, 12], ["complete", /(打勾|勾选|标记完成|做完|完成了|^完成)/, 8], ["extend", /(延期|延长|再续期|续期\s*[零〇一二三四五六七八九十两\d]+\s*天)/, 10], ["edit", /(修改|更改|改成|改为|改名|更名|改到|改在|调到|调整|挪到|提前到|延后到|设置)/, 8], ["query", /(有什么|有哪些|列出|告诉我|汇总|查询|多少|还剩什么|还有什么|需要做什么|该做什么)/, 9], ["navigate", /(打开|进入|查看|切换|回到)/, 5], ["create", /(创建|添加|新增|记下|记一下|提醒我|安排一个|安排一条)/, 10]];
+    rules.forEach(function (_ref3) {
+      var _ref4 = _slicedToArray(_ref3, 3),
+        intent = _ref4[0],
+        pattern = _ref4[1],
+        score = _ref4[2];
+      var match = text.match(pattern);
+      if (match) addScore(scores, intent, score, match[0]);
+    });
+    if (/(每天|每日|工作日|周末|每周|星期|\d{1,2}:\d{2}|[零〇一二三四五六七八九十两\d]+[点时电])/.test(text)) addScore(scores, "create", 2, "task-slots");
+    if (/(任务|事项|日程|安排)/.test(text)) {
+      for (var _i = 0, _arr = ["create", "delete", "edit", "complete", "query", "clear-all"]; _i < _arr.length; _i++) {
+        var intent = _arr[_i];
+        if (scores.has(intent)) addScore(scores, intent, 1, "domain-object");
+      }
+    }
+    var ranked = _toConsumableArray(scores.values()).sort(function (a, b) {
+      return b.score - a.score;
+    });
+    var top = ranked[0] || {
+      intent: "clarify",
+      score: 0,
+      evidence: []
+    };
+    var second = ranked[1] || {
+      score: 0
+    };
+    var margin = top.score - second.score;
+    var confidence = Math.max(0.35, Math.min(0.99, 0.55 + top.score / 30 + margin / 24));
+    return {
+      intent: top.intent,
+      confidence: confidence,
+      evidence: top.evidence,
+      ranked: ranked
+    };
+  }
+  function normalizeComparable(value) {
+    return normalizeTranscript(value).toLowerCase().replace(/(?:任务|事项|日程|安排|ddl|deadline)/ig, "").replace(/[\s\d０-９·。、，,：:（）()\-]/g, "");
+  }
+  function levenshtein(left, right) {
+    if (!left) return right.length;
+    if (!right) return left.length;
+    var row = Array.from({
+      length: right.length + 1
+    }, function (_, index) {
+      return index;
+    });
+    for (var i = 1; i <= left.length; i += 1) {
+      var diagonal = row[0];
+      row[0] = i;
+      for (var j = 1; j <= right.length; j += 1) {
+        var previous = row[j];
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + (left[i - 1] === right[j - 1] ? 0 : 1));
+        diagonal = previous;
+      }
+    }
+    return row[right.length];
+  }
+  function similarity(leftValue, rightValue) {
+    var left = normalizeComparable(leftValue);
+    var right = normalizeComparable(rightValue);
+    if (!left || !right) return 0;
+    if (left.includes(right) || right.includes(left)) return 1;
+    var distance = levenshtein(left, right);
+    return Math.max(0, 1 - distance / Math.max(left.length, right.length));
+  }
+  function analyze(rawText) {
+    var normalized = normalizeTranscript(rawText);
+    return {
+      raw: String(rawText || ""),
+      normalized: normalized,
+      intent: classifyIntent(normalized),
+      times: extractTimeMentions(normalized),
+      domain: "jinke-app-functions",
+      modelVersion: 1
+    };
+  }
+  function scoreCandidate(candidate) {
+    var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    var text = normalizeTranscript((candidate === null || candidate === void 0 ? void 0 : candidate.text) || "");
+    if (!text) return -Infinity;
+    var analysis = analyze(text);
+    var acoustic = Math.max(0, Math.min(1, Number(candidate === null || candidate === void 0 ? void 0 : candidate.confidence) || 0));
+    var knownTasks = [].concat(_toConsumableArray(Array.isArray(context.dailyTasks) ? context.dailyTasks : []), _toConsumableArray(Array.isArray(context.criticalTasks) ? context.criticalTasks : []));
+    var targetSimilarity = knownTasks.reduce(function (best, task) {
+      return Math.max(best, similarity(text, (task === null || task === void 0 ? void 0 : task.title) || ""));
+    }, 0);
+    var hasOperation = /(创建|添加|新增|删除|移除|清除|完成|勾选|修改|更改|改到|延期|续期|查询|有什么|打开|切换)/.test(text);
+    var hasTaskSlot = analysis.times.length > 0 || /(每天|工作日|周末|星期|周[一二三四五六日天]|ddl|deadline|截止|无期限|无ddl)/i.test(text);
+    var hasExplicitTaskType = /(?:有|无)?(?:ddl|deadline)|关键(?:任务|事项)|日常(?:任务|事项)/i.test(text);
+    var domainFit = Math.min(1, (analysis.intent.confidence || 0) * 0.55 + (hasOperation ? 0.2 : 0) + (hasTaskSlot ? 0.15 : 0) + targetSimilarity * 0.25);
+    return acoustic * 0.68 + domainFit * 0.27 + (hasExplicitTaskType ? 0.05 : 0);
+  }
+  function rankCandidates(rawCandidates) {
+    var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    var candidates = (Array.isArray(rawCandidates) ? rawCandidates : []).map(function (candidate, index) {
+      return _objectSpread(_objectSpread({}, candidate), {}, {
+        text: normalizeTranscript((candidate === null || candidate === void 0 ? void 0 : candidate.text) || ""),
+        index: index
+      });
+    }).filter(function (candidate) {
+      return candidate.text;
+    }).map(function (candidate) {
+      return _objectSpread(_objectSpread({}, candidate), {}, {
+        score: scoreCandidate(candidate, context)
+      });
+    }).sort(function (left, right) {
+      return right.score - left.score || left.index - right.index;
+    });
+    return {
+      best: candidates[0] || null,
+      candidates: candidates
+    };
+  }
+  window.JINKE_DOMAIN_NLU = Object.freeze({
+    normalizeTranscript: normalizeTranscript,
+    parseNumber: parseNumber,
+    extractTimeMentions: extractTimeMentions,
+    classifyIntent: classifyIntent,
+    similarity: similarity,
+    analyze: analyze,
+    scoreCandidate: scoreCandidate,
+    rankCandidates: rankCandidates
+  });
+})();
+})();
+
 /* primitives.jsx */
 (() => {
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
@@ -527,13 +891,14 @@ function IconButton(_ref3) {
 }
 function SectionHeader(_ref4) {
   var title = _ref4.title,
-    note = _ref4.note;
+    note = _ref4.note,
+    noteTone = _ref4.noteTone;
   return React.createElement("div", {
     className: "section-head"
   }, React.createElement("h2", {
     className: "section-title"
   }, title), note ? React.createElement("span", {
-    className: "section-note"
+    className: "section-note ".concat(noteTone ? "is-".concat(noteTone) : "")
   }, note) : null);
 }
 function SwipeTaskActions(_ref5) {
@@ -1622,6 +1987,7 @@ function TodayScreen(_ref14) {
     return task.done;
   }).length;
   var percent = Math.round(done / Math.max(tasks.length, 1) * 100);
+  var allComplete = tasks.length > 0 && done === tasks.length;
   var selectedDay = getDateMeta(selectedDateKey);
   var isToday = selectedDateKey === todayDateKey;
   var dateLabel = "".concat(selectedDay.month, "\u6708").concat(selectedDay.date, "\u65E5");
@@ -1629,6 +1995,9 @@ function TodayScreen(_ref14) {
   return React.createElement("main", {
     className: "screen today-screen"
   }, React.createElement("div", {
+    className: "fold-divider",
+    "aria-hidden": "true"
+  }), React.createElement("div", {
     className: "top-row"
   }, React.createElement(IconButton, {
     name: "menu",
@@ -1706,7 +2075,8 @@ function TodayScreen(_ref14) {
     "aria-label": "\u65E5\u5E38\u4E8B\u9879"
   }, React.createElement(SectionHeader, {
     title: isToday ? "今天" : "\u661F\u671F".concat(selectedDay.day),
-    note: "".concat(tasks.length - done, " \u9879\u5F85\u5B8C\u6210")
+    note: allComplete ? "全部完成" : "".concat(tasks.length - done, " \u9879\u5F85\u5B8C\u6210"),
+    noteTone: allComplete ? "complete" : ""
   }), tasks.some(function (task) {
     return task.demo;
   }) ? React.createElement("div", {
@@ -1982,6 +2352,9 @@ function CriticalScreen(_ref16) {
   return React.createElement("main", {
     className: "screen critical-screen"
   }, React.createElement("div", {
+    className: "fold-divider",
+    "aria-hidden": "true"
+  }), React.createElement("div", {
     className: "top-row"
   }, React.createElement(IconButton, {
     name: "menu",
@@ -2975,7 +3348,7 @@ function CriticalReminderScreen(_ref31) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.16";
+var JINKE_FALLBACK_VERSION = "1.0.17";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3199,11 +3572,11 @@ Object.assign(window, {
 var _excluded = ["type"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
-function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -3247,6 +3620,7 @@ var _window = window,
   CriticalReminderScreen = _window.CriticalReminderScreen,
   VersionScreen = _window.VersionScreen,
   VoiceSettingsScreen = _window.VoiceSettingsScreen;
+var DOMAIN_NLU = window.JINKE_DOMAIN_NLU;
 var PHONE_WIDTH = 430;
 var EXPANDED_WIDTH = 860;
 var DEVICE_HEIGHT = 956;
@@ -3373,15 +3747,11 @@ var CN_DIGITS = {
   "九": 9
 };
 function normalizeSpeechText(value) {
-  var normalized = String(value || "").trim();
-  var previous = "";
-  while (normalized !== previous) {
-    previous = normalized;
-    normalized = normalized.replace(/([\u3400-\u9fff\d])\s+(?=[\u3400-\u9fff\d])/g, "$1");
-  }
-  return normalized.replace(/\bd\s*d\s*l\b/ig, "ddl").replace(/(?:滴|迪|低|弟|地|的)[，,\s]*(?:滴|迪|低|弟|地|的)[，,\s]*(?:艾|爱|挨)(?:尔|耳|儿|乐|了|勒)?/g, "ddl").replace(/(?:戴德莱恩|代德莱恩|带的来因|带的赖因|戴的来因|代的来因|得来因)/g, "deadline");
+  var _DOMAIN_NLU$normalize, _DOMAIN_NLU$normalize2;
+  return (_DOMAIN_NLU$normalize = DOMAIN_NLU === null || DOMAIN_NLU === void 0 || (_DOMAIN_NLU$normalize2 = DOMAIN_NLU.normalizeTranscript) === null || _DOMAIN_NLU$normalize2 === void 0 ? void 0 : _DOMAIN_NLU$normalize2.call(DOMAIN_NLU, value)) !== null && _DOMAIN_NLU$normalize !== void 0 ? _DOMAIN_NLU$normalize : String(value || "").trim();
 }
 function parseNumber(value) {
+  if (DOMAIN_NLU !== null && DOMAIN_NLU !== void 0 && DOMAIN_NLU.parseNumber) return DOMAIN_NLU.parseNumber(value);
   if (!value) return null;
   if (/^\d+$/.test(value)) return Number(value);
   if (value === "十") return 10;
@@ -3398,32 +3768,14 @@ function parseNumber(value) {
   }, 0);
 }
 function parseTime(text) {
-  var periodPattern = "(凌晨|早上|上午|中午|下午|傍晚|晚上)?";
-  var numberPattern = "([零〇一二三四五六七八九十两\\d]{1,3})";
-  var halfBoundary = "(?=$|[，,。；;！？!?、]|上床|睡觉|睡眠|休息|起床|出发|回来|回家|看书|学习|健身|吃饭|开会|上课|下班)";
-  var colon = text.match(new RegExp("".concat(periodPattern, "\\s*(\\d{1,2})\\s*[:\uFF1A]\\s*(\\d{2})")));
-  var spokenHalf = text.match(new RegExp("".concat(periodPattern, "\\s*").concat(numberPattern, "\\s*[\u70B9\u65F6\u7535]\\s*(?:\u534A|[\u529E\u4F34\u73ED\u7248\u822C]").concat(halfBoundary, ")(?:\u949F)?")));
-  var spoken = text.match(new RegExp("".concat(periodPattern, "\\s*").concat(numberPattern, "\\s*[\u70B9\u65F6\u7535](?:\u949F)?\\s*(\u534A|[\u96F6\u3007\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u4E24\\d]{1,3}\u5206?)?")));
-  var match = colon || spokenHalf || spoken;
-  if (!match) return {
+  var _DOMAIN_NLU$extractTi;
+  var mention = DOMAIN_NLU === null || DOMAIN_NLU === void 0 || (_DOMAIN_NLU$extractTi = DOMAIN_NLU.extractTimeMentions) === null || _DOMAIN_NLU$extractTi === void 0 || (_DOMAIN_NLU$extractTi = _DOMAIN_NLU$extractTi.call(DOMAIN_NLU, text)) === null || _DOMAIN_NLU$extractTi === void 0 ? void 0 : _DOMAIN_NLU$extractTi[0];
+  return mention || {
     value: "待定",
-    source: ""
-  };
-  var period = match[1] || "";
-  var hour = parseNumber(match[2]);
-  var minute = colon ? Number(match[3]) : spokenHalf ? 30 : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
-  if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
-  if (period === "晚上") hour = hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
-  if (period === "中午" && hour < 11) hour += 12;
-  if (period === "凌晨" && hour === 12) hour = 0;
-  if (!period && hour === 12 && /(睡觉|睡眠|上床|休息)/.test(text)) hour = 24;
-  hour = Math.min(Math.max(hour, 0), 24);
-  minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
-  return {
-    value: "".concat(String(hour).padStart(2, "0"), ":").concat(String(minute).padStart(2, "0")),
-    source: match[0].trim(),
-    period: period,
-    dayBoundary: hour === 24 ? "end" : "start"
+    source: "",
+    sources: [],
+    period: "",
+    confidence: 0
   };
 }
 function parseTimeRange(text) {
@@ -3437,10 +3789,14 @@ function parseTimeRange(text) {
   var inheritedPeriod = start.period && !/^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)/.test(after.trim()) ? start.period : "";
   var end = parseTime("".concat(inheritedPeriod).concat(after));
   if (!end.source) return null;
+  var endSources = (end.sources || [end.source]).map(function (source) {
+    return source.replace(new RegExp("^".concat(inheritedPeriod)), "");
+  }).filter(Boolean);
   return {
     start: start,
     end: end,
     source: "".concat(start.source).concat(connector[0]).concat(end.source.replace(new RegExp("^".concat(inheritedPeriod)), "")),
+    sources: _toConsumableArray(new Set([].concat(_toConsumableArray(start.sources || [start.source]), _toConsumableArray(endSources)).filter(Boolean))),
     crossesMidnight: end.value < start.value || start.value.startsWith("24:")
   };
 }
@@ -3695,7 +4051,7 @@ function formatDailyReminder(totalMinutes) {
   return "\u63D0\u524D".concat(hours ? "".concat(hours, "\u5C0F\u65F6") : "").concat(minutes ? "".concat(minutes, "\u5206\u949F") : "");
 }
 function parseVoiceTask(rawText) {
-  var _timeRange$end, _timeRange$end2;
+  var _timeRange$end;
   var text = normalizeSpeechText(rawText);
   var span = parseTaskSpan(text);
   var repeat = span ? {
@@ -3715,7 +4071,8 @@ function parseVoiceTask(rawText) {
   var duration = durationMatch ? "".concat(parseNumber(durationMatch[1]), " ").concat(durationMatch[2]) : "";
   var isCritical = Boolean(span) || deadline.kind === "explicit-none" || !repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|期限|到期|死线)/i.test(text) || deadline.kind === "absolute");
   var spanSources = span ? [span.start.source, span.end.source] : [];
-  var semantics = extractTaskSemantics(text, [reminderMatch === null || reminderMatch === void 0 ? void 0 : reminderMatch[0], time.source, timeRange === null || timeRange === void 0 || (_timeRange$end = timeRange.end) === null || _timeRange$end === void 0 ? void 0 : _timeRange$end.source, repeat.source, deadline.source].concat(spanSources), durationMatch === null || durationMatch === void 0 ? void 0 : durationMatch[0]);
+  var timeSources = (timeRange === null || timeRange === void 0 ? void 0 : timeRange.sources) || time.sources || [time.source];
+  var semantics = extractTaskSemantics(text, [reminderMatch === null || reminderMatch === void 0 ? void 0 : reminderMatch[0]].concat(_toConsumableArray(timeSources), [repeat.source, deadline.source], spanSources), durationMatch === null || durationMatch === void 0 ? void 0 : durationMatch[0]);
   var noteParts = [];
   if (duration) noteParts.push("\u6301\u7EED ".concat(duration));
   var criticalPlan = normalizeCriticalReminderPlan({
@@ -3726,7 +4083,7 @@ function parseVoiceTask(rawText) {
     type: isCritical ? "critical" : "daily",
     title: (span === null || span === void 0 ? void 0 : span.title) || semantics.title,
     time: time.value,
-    endTime: (timeRange === null || timeRange === void 0 || (_timeRange$end2 = timeRange.end) === null || _timeRange$end2 === void 0 ? void 0 : _timeRange$end2.value) || null,
+    endTime: (timeRange === null || timeRange === void 0 || (_timeRange$end = timeRange.end) === null || _timeRange$end === void 0 ? void 0 : _timeRange$end.value) || null,
     spansMidnight: Boolean(timeRange === null || timeRange === void 0 ? void 0 : timeRange.crossesMidnight),
     repeat: repeat.source ? repeat.value : !isCritical && deadline.deadline ? deadline.deadline : repeat.value,
     repeatDays: repeat.days,
@@ -3782,6 +4139,10 @@ function findMentionedTask(text, dailyTasks, criticalTasks) {
         }
       }
     }
+    if (!score && DOMAIN_NLU !== null && DOMAIN_NLU !== void 0 && DOMAIN_NLU.similarity) {
+      var fuzzyScore = DOMAIN_NLU.similarity(haystack, title);
+      if (fuzzyScore >= 0.68) score = fuzzyScore * 10;
+    }
     if (score > bestScore) {
       bestScore = score;
       best = candidate;
@@ -3817,9 +4178,11 @@ function commandResult(intent, heading, rows) {
   }, options);
 }
 function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
+  var _DOMAIN_NLU$analyze, _domainAnalysis$inten, _domainAnalysis$inten2;
   var text = normalizeSpeechText(rawText);
+  var domainAnalysis = (DOMAIN_NLU === null || DOMAIN_NLU === void 0 || (_DOMAIN_NLU$analyze = DOMAIN_NLU.analyze) === null || _DOMAIN_NLU$analyze === void 0 ? void 0 : _DOMAIN_NLU$analyze.call(DOMAIN_NLU, text)) || null;
   var target = findMentionedTask(text, dailyTasks, criticalTasks);
-  var wantsCreate = /(创建|添加|新增|记下|记一下|提醒我)/.test(text) || /^(?:帮我|请)?安排/.test(text);
+  var wantsCreate = (domainAnalysis === null || domainAnalysis === void 0 || (_domainAnalysis$inten = domainAnalysis.intent) === null || _domainAnalysis$inten === void 0 ? void 0 : _domainAnalysis$inten.intent) === "create" || /(创建|添加|新增|记下|记一下|提醒我)/.test(text) || /^(?:帮我|请)?安排/.test(text);
   var hasAll = /(全部|所有)/.test(text);
   var arrangementNoun = /(安排|日程|任务|事项)/.test(text);
   if (/(切换|改成|设置|使用|启用).*(暗色|深色|夜间|亮色|浅色|跟随系统|系统主题)|^(暗色|深色|夜间|亮色|浅色|跟随系统|系统主题)(?:模式)?$/.test(text)) {
@@ -3891,7 +4254,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
       confirmLabel: "全部完成"
     });
   }
-  if (!wantsCreate && /(有什么|有哪些|列出|告诉我|汇总|查询|多少)/.test(text) && arrangementNoun) {
+  if (!wantsCreate && /(有什么|有哪些|列出|告诉我|汇总|查询|多少|还剩什么|还有什么|需要做什么|该做什么)/.test(text) && (arrangementNoun || /(还剩什么|还有什么|需要做什么|该做什么)/.test(text))) {
     var ddlCount = criticalTasks.filter(function (task) {
       return task.deadline;
     }).length;
@@ -4065,6 +4428,8 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   var rows = task.span ? [["类型", "时间段"], ["去程", task.span.start.deadline], ["返程", task.span.end.deadline], ["记录", "生成两个关联 DDL"]] : task.type === "critical" ? [["类型", "关键事务"], ["截止日期", task.deadline || "未设置"], ["截止时刻", task.deadlineTime || "未设置"], ["提醒计划", task.reminder]] : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.endTime ? "".concat(task.time, "\u2014").concat(task.endTime) : task.time], ["提醒", task.reminder]];
   return commandResult("create", task.title, rows, {
     task: task,
+    analysis: domainAnalysis,
+    confidence: domainAnalysis === null || domainAnalysis === void 0 || (_domainAnalysis$inten2 = domainAnalysis.intent) === null || _domainAnalysis$inten2 === void 0 ? void 0 : _domainAnalysis$inten2.confidence,
     confirmLabel: "创建任务"
   });
 }
@@ -4294,6 +4659,7 @@ function MobileDesignApp() {
     _useState56 = _slicedToArray(_useState55, 2),
     speechStatus = _useState56[0],
     setSpeechStatus = _useState56[1];
+  var speechCandidatesRef = useRef([]);
   var _useState57 = useState(""),
     _useState58 = _slicedToArray(_useState57, 2),
     toast = _useState58[0],
@@ -4694,6 +5060,7 @@ function MobileDesignApp() {
     setVoiceDraft(null);
     setVoicePhase("listening");
     setSpeechStatus("starting");
+    speechCandidatesRef.current = [];
     setOverlay("voice");
     if ((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.startSpeechRecognition) {
       window.JINKE_NATIVE_SPEECH_STATUS = function (status) {
@@ -4704,8 +5071,21 @@ function MobileDesignApp() {
         setTranscript(String(next || ""));
         setSpeechAvailable(true);
       };
+      window.JINKE_NATIVE_SPEECH_CANDIDATES = function (payload) {
+        try {
+          var candidates = typeof payload === "string" ? JSON.parse(payload) : payload;
+          speechCandidatesRef.current = Array.isArray(candidates) ? candidates : [];
+        } catch (_unused19) {
+          speechCandidatesRef.current = [];
+        }
+      };
       window.JINKE_NATIVE_SPEECH_RESULT = function (next) {
-        setTranscript(String(next || ""));
+        var _DOMAIN_NLU$rankCandi, _ranked$best;
+        var ranked = DOMAIN_NLU === null || DOMAIN_NLU === void 0 || (_DOMAIN_NLU$rankCandi = DOMAIN_NLU.rankCandidates) === null || _DOMAIN_NLU$rankCandi === void 0 ? void 0 : _DOMAIN_NLU$rankCandi.call(DOMAIN_NLU, speechCandidatesRef.current, {
+          dailyTasks: dailyTasks,
+          criticalTasks: criticalTasks
+        });
+        setTranscript(String((ranked === null || ranked === void 0 || (_ranked$best = ranked.best) === null || _ranked$best === void 0 ? void 0 : _ranked$best.text) || next || ""));
         setSpeechStatus("idle");
         window.setTimeout(function () {
           return setVoicePhase("review");
@@ -4714,7 +5094,7 @@ function MobileDesignApp() {
       try {
         window.JinkeAndroid.startSpeechRecognition();
         setSpeechAvailable(true);
-      } catch (_unused19) {
+      } catch (_unused20) {
         setSpeechAvailable(false);
       }
       return;
@@ -4741,7 +5121,7 @@ function MobileDesignApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setSpeechAvailable(true);
-    } catch (_unused20) {
+    } catch (_unused21) {
       setSpeechAvailable(false);
     }
   };
@@ -4758,7 +5138,7 @@ function MobileDesignApp() {
       setSpeechStatus("processing");
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused21) {
+      } catch (_unused22) {
         setSpeechAvailable(false);
       }
       return;
@@ -4766,7 +5146,7 @@ function MobileDesignApp() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_unused22) {}
+      } catch (_unused23) {}
       recognitionRef.current = null;
     }
     window.setTimeout(function () {
@@ -4780,16 +5160,16 @@ function MobileDesignApp() {
     if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
-      } catch (_unused23) {}
+      } catch (_unused24) {}
     } else if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused24) {}
+      } catch (_unused25) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused25) {}
+      } catch (_unused26) {}
       recognitionRef.current = null;
     }
     setSpeechStatus("idle");
@@ -5081,16 +5461,16 @@ function MobileDesignApp() {
     if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
-      } catch (_unused26) {}
+      } catch (_unused27) {}
     } else if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused27) {}
+      } catch (_unused28) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused28) {}
+      } catch (_unused29) {}
       recognitionRef.current = null;
     }
     var finish = function finish() {
@@ -5258,7 +5638,7 @@ function MobileDesignApp() {
         try {
           var _window$JinkeAndroid11, _window$JinkeAndroid12;
           (_window$JinkeAndroid11 = window.JinkeAndroid) === null || _window$JinkeAndroid11 === void 0 || (_window$JinkeAndroid12 = _window$JinkeAndroid11.openCapabilitySettings) === null || _window$JinkeAndroid12 === void 0 || _window$JinkeAndroid12.call(_window$JinkeAndroid11, key);
-        } catch (_unused29) {}
+        } catch (_unused30) {}
       },
       onBack: closeSecondary
     });

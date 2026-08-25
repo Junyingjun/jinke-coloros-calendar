@@ -9,13 +9,16 @@ const root = path.resolve(here, "..");
 const context = { window: {} };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, "data.jsx"), "utf8"), context);
+vm.runInContext(fs.readFileSync(path.join(root, "voice-domain-model.js"), "utf8"), context);
 
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
+const domainNluSource = fs.readFileSync(path.join(root, "voice-domain-model.js"), "utf8");
 const dataSource = fs.readFileSync(path.join(root, "data.jsx"), "utf8");
 const screensSource = fs.readFileSync(path.join(root, "screens.jsx"), "utf8");
 const primitivesSource = fs.readFileSync(path.join(root, "primitives.jsx"), "utf8");
 const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const serviceWorkerSource = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const activitySource = fs.readFileSync(path.join(root, "android/app/src/main/java/com/junyingjun/jinke/MainActivity.java"), "utf8");
 const manifestSource = fs.readFileSync(path.join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
 const start = appSource.indexOf("const CN_DIGITS");
@@ -26,7 +29,8 @@ context.APP_DATA = context.window.APP_DATA;
 context.getCriticalReminder = context.window.getCriticalReminder;
 context.normalizeCriticalReminderPlan = context.window.normalizeCriticalReminderPlan;
 context.repeatLabelFromDays = context.window.repeatLabelFromDays;
-vm.runInContext(`${appSource.slice(start, end)}\nthis.parseVoiceCommand = parseVoiceCommand;`, context);
+context.JINKE_DOMAIN_NLU = context.window.JINKE_DOMAIN_NLU;
+vm.runInContext(`const DOMAIN_NLU = this.JINKE_DOMAIN_NLU;\n${appSource.slice(start, end)}\nthis.parseVoiceCommand = parseVoiceCommand;`, context);
 
 const routerDailyTasks = [
   { id: "gym", title: "健身", time: "19:00", note: "力量训练", repeat: "周一、三、五", reminder: "到点提醒" },
@@ -116,6 +120,14 @@ assert.equal(route("每天晚上十二点睡觉").task.time, "24:00", "evening t
 assert.equal(route("每天12 点睡觉").task.time, "24:00", "spaced twelve o'clock sleep speech must infer the end-of-day boundary");
 assert.equal(route("每天12电睡觉").task.time, "24:00", "common 点/电 recognition confusion must not leak into the title");
 assert.equal(route("每天12电睡觉").task.title, "睡觉");
+assert.equal(route("每天十一点晚上洗漱").task.time, "23:00", "a period word after the clock must bind to that clock");
+assert.equal(route("每天十一点晚上洗漱").task.title, "洗漱", "a post-clock period word must not leak into the title");
+assert.equal(route("每天晚上洗漱十一点").task.time, "23:00", "a same-clause period word must bind regardless of task-word order");
+assert.equal(route("每天晚上洗漱十一点").task.title, "洗漱", "a separated same-clause period word must be removed from the title");
+assert.equal(route("每天洗漱晚上十一点").task.time, "23:00", "task-first speech must preserve evening semantics");
+assert.equal(route("每天十 一 点 晚 上 洗 漱").task.time, "23:00", "spaced Chinese ASR output must keep time semantics");
+assert.equal(route("每天十二点晚上睡觉").task.time, "24:00", "post-clock evening twelve must remain the selected day's end boundary");
+assert.equal(route("每天十一点中午吃饭").task.time, "11:00", "post-clock noon must not be mistaken for evening");
 assert.equal(route("每天零点起床").task.time, "00:00", "zero o'clock must remain the start of the selected day");
 assert.equal(route("每天晚上十点到十二点睡觉").task.time, "22:00");
 assert.equal(route("每天晚上十点到十二点睡觉").task.endTime, "24:00");
@@ -136,6 +148,19 @@ assert.equal(route("创建一个有DDL的任务，九月三十号上午九点提
 assert.equal(route("创建一个有DDL的任务，九月三十号上午九点提交报告").task.reminderTime, "10:00", "deadline time must not overwrite the independent reminder time");
 assert.equal(route("创建一个有deadline的任务，九月三十号提交报告").task.type, "critical", "spoken deadline must remain supported");
 assert.equal(route("创建一个有滴滴艾尔的任务，九月三十号提交报告").task.type, "critical", "common Chinese-model DDL transcription must be normalized");
+assert.equal(context.JINKE_DOMAIN_NLU.classifyIntent("创建一个每天喝水任务").intent, "create", "the domain model must classify creation");
+assert.equal(context.JINKE_DOMAIN_NLU.classifyIntent("删除健身").intent, "delete", "the domain model must classify deletion");
+assert.equal(context.JINKE_DOMAIN_NLU.classifyIntent("把健身改到晚上八点").intent, "edit", "the domain model must classify edits");
+assert.equal(context.JINKE_DOMAIN_NLU.classifyIntent("给健身打勾").intent, "complete", "the domain model must classify completion");
+assert.equal(context.JINKE_DOMAIN_NLU.classifyIntent("今天还有什么要做").intent, "query", "the domain model must classify queries");
+assert.equal(context.JINKE_DOMAIN_NLU.analyze("十一点晚上洗漱").domain, "jinke-app-functions", "the embedded model must remain scoped to Jinke app functions");
+const rankedCandidates = context.JINKE_DOMAIN_NLU.rankCandidates([
+  { text: "创建一个每天的任务提交报告", confidence: 0.78 },
+  { text: "创建一个有滴滴艾尔的任务提交报告", confidence: 0.74 },
+], { dailyTasks: routerDailyTasks, criticalTasks: routerCriticalTasks });
+assert.equal(rankedCandidates.best.text, "创建一个有ddl的任务提交报告", "domain slots must be able to outweigh a small acoustic-score gap");
+assert.equal(route("把健身改到十一点晚上").changes.time, "23:00", "editing must use the same order-independent time model");
+assert.equal(route("今天还有什么要做").intent, "query", "natural task questions must not create accidental tasks");
 
 const runtimeNow = new Date();
 const runtimeDateKey = `${runtimeNow.getFullYear()}-${String(runtimeNow.getMonth() + 1).padStart(2, "0")}-${String(runtimeNow.getDate()).padStart(2, "0")}`;
@@ -341,6 +366,13 @@ assert.match(primitivesSource, /function DailyTaskRow[\s\S]*onClick=\{\(\) => on
 assert.match(primitivesSource, /function CriticalTaskRow[\s\S]*onClick=\{\(\) => onToggle\(task\.id\)\}/, "tapping a critical task must only toggle completion");
 assert.doesNotMatch(primitivesSource, /task-time-edit|task-edit-button/, "task bodies must not retain hidden click-to-edit affordances");
 assert.match(appSource, /displayedDailyTasks = dailyTasks\s*\.filter\(\(task\) => taskOccursOnDate\(task, selectedDateKey, todayDateKey\)\)/, "daily list must be filtered by the selected date and current system-day schedule");
+assert.match(screensSource, /allComplete = tasks\.length > 0 && done === tasks\.length[\s\S]*note=\{allComplete \? "全部完成"/, "a fully completed non-empty day must say 全部完成");
+assert.match(stylesSource, /\.section-note\.is-complete\s*\{[^}]*color:\s*var\(--accent\)/, "the all-complete label must use the signal color");
+assert.match(screensSource, /className="fold-divider"/g, "expanded primary screens must render a dedicated fold divider");
+assert.match(stylesSource, /\.phone-shell-expanded \.fold-divider\s*\{[^}]*top:\s*19\.1%[^}]*height:\s*61\.8%/, "the expanded fold divider must be a centered golden-ratio segment");
+assert.doesNotMatch(stylesSource, /\.phone-shell-expanded \.today-daily-pane[^}]*border-left|\.phone-shell-expanded \.critical-without-ddl[^}]*border-left/, "expanded dividers must not inherit either column's content height");
+assert.match(indexSource, /app-bundle\.js\?v=1\.0\.17/, "release HTML must cache-bust the current domain model bundle");
+assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.0\.17"/, "the service worker cache must advance with the APK version");
 
 const ambiguous = route("调整所有安排");
 assert.notEqual(ambiguous.intent, "create", "unclear action must never create a task");

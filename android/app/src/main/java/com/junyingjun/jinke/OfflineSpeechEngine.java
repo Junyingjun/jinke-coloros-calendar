@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vosk.Model;
 import org.vosk.Recognizer;
@@ -24,10 +25,12 @@ final class OfflineSpeechEngine implements RecognitionListener {
     static final String MODEL_ASSET_DIR = "vosk-model-small-cn-0.22";
     private static final float SAMPLE_RATE = 16000.0f;
     private static final int LISTEN_TIMEOUT_MS = 30000;
+    private static final int MAX_ALTERNATIVES = 5;
 
     interface Callback {
         void onStatus(String status);
         void onPartial(String text);
+        void onAlternatives(String candidatesJson);
         void onFinal(String text);
         void onError(String message);
     }
@@ -121,6 +124,7 @@ final class OfflineSpeechEngine implements RecognitionListener {
         resultDelivered = false;
         try {
             recognizer = new Recognizer(model, SAMPLE_RATE);
+            recognizer.setMaxAlternatives(MAX_ALTERNATIVES);
             speechService = new SpeechService(recognizer, SAMPLE_RATE);
             speechService.startListening(this, LISTEN_TIMEOUT_MS);
             Log.i(LOG_TAG, "Offline microphone recognition started");
@@ -141,8 +145,10 @@ final class OfflineSpeechEngine implements RecognitionListener {
 
     @Override
     public void onResult(String hypothesis) {
-        String text = jsonText(hypothesis, "text");
+        String text = resultText(hypothesis);
         if (text.isEmpty()) return;
+        String alternatives = combinedAlternatives(hypothesis, committedText);
+        if (!"[]".equals(alternatives)) callback.onAlternatives(alternatives);
         committedText = appendSegment(committedText, text);
         latestText = committedText;
         callback.onPartial(committedText);
@@ -150,7 +156,9 @@ final class OfflineSpeechEngine implements RecognitionListener {
 
     @Override
     public void onFinalResult(String hypothesis) {
-        String text = jsonText(hypothesis, "text");
+        String text = resultText(hypothesis);
+        String alternatives = combinedAlternatives(hypothesis, committedText);
+        if (!"[]".equals(alternatives)) callback.onAlternatives(alternatives);
         finish(text.isEmpty() ? latestText : appendSegment(committedText, text));
     }
 
@@ -293,6 +301,49 @@ final class OfflineSpeechEngine implements RecognitionListener {
         } catch (Exception ignored) {
             return "";
         }
+    }
+
+    private String resultText(String payload) {
+        try {
+            JSONObject result = new JSONObject(payload);
+            JSONArray alternatives = result.optJSONArray("alternatives");
+            if (alternatives != null && alternatives.length() > 0) {
+                JSONObject best = alternatives.optJSONObject(0);
+                return best == null ? "" : best.optString("text", "").trim();
+            }
+            return result.optString("text", "").trim();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private String combinedAlternatives(String payload, String prefix) {
+        JSONArray combined = new JSONArray();
+        try {
+            JSONObject result = new JSONObject(payload);
+            JSONArray alternatives = result.optJSONArray("alternatives");
+            if (alternatives == null || alternatives.length() == 0) {
+                String text = result.optString("text", "").trim();
+                if (!text.isEmpty()) {
+                    JSONObject item = new JSONObject();
+                    item.put("text", appendSegment(prefix, text));
+                    item.put("confidence", 1.0);
+                    combined.put(item);
+                }
+                return combined.toString();
+            }
+            for (int index = 0; index < alternatives.length(); index += 1) {
+                JSONObject candidate = alternatives.optJSONObject(index);
+                if (candidate == null) continue;
+                String text = candidate.optString("text", "").trim();
+                if (text.isEmpty()) continue;
+                JSONObject item = new JSONObject();
+                item.put("text", appendSegment(prefix, text));
+                item.put("confidence", candidate.optDouble("confidence", 0.0));
+                combined.put(item);
+            }
+        } catch (Exception ignored) {}
+        return combined.toString();
     }
 
     private static String safeMessage(Exception error) {

@@ -99,6 +99,7 @@ button:disabled { cursor: default; }
 .today-daily-pane { order: 2; min-width: 0; }
 .today-ddl-pane { order: 3; min-width: 0; }
 .critical-responsive-grid { display: block; }
+.fold-divider { display: none; }
 .top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .icon-button { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-muted); transition: transform 160ms var(--ease-out), background 160ms var(--ease-out); }
 .icon-button:active, .pressable:active { transform: scale(0.96); }
@@ -129,6 +130,7 @@ button:disabled { cursor: default; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 27px 0 10px; }
 .section-title { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
 .section-note { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.section-note.is-complete { color: var(--accent); font-weight: 720; }
 .demo-guide, .empty-guide { min-height: 44px; margin: 0 0 8px; padding: 0 12px; display: flex; align-items: center; border-radius: 14px; color: var(--ink-2); background: var(--surface-muted); font-size: 11px; line-height: 1.4; }
 .empty-guide { justify-content: center; margin-top: 8px; color: var(--ink-3); text-align: center; }
 .report-empty { min-height: 120px; margin-top: 24px; }
@@ -228,13 +230,26 @@ button:disabled { cursor: default; }
 .phone-shell-expanded .today-ddl-pane { order: initial; }
 .phone-shell-expanded .today-calendar-pane .page-title-row { margin-top: 0; }
 .phone-shell-expanded .today-left-pane { padding-right: 30px; }
-.phone-shell-expanded .today-daily-pane { min-width: 0; padding-left: 30px; border-left: 1px solid var(--line); }
+.phone-shell-expanded .today-daily-pane { min-width: 0; padding-left: 30px; }
 .phone-shell-expanded .today-daily-pane .section-head { margin-top: 4px; }
 .phone-shell-expanded .today-ddl-pane .section-head { margin-top: 23px; }
 .phone-shell-expanded .critical-responsive-grid { margin-top: 5px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; align-items: start; }
 .phone-shell-expanded .critical-pane { min-width: 0; }
 .phone-shell-expanded .critical-with-ddl { padding-right: 30px; }
-.phone-shell-expanded .critical-without-ddl { padding-left: 30px; border-left: 1px solid var(--line); }
+.phone-shell-expanded .critical-without-ddl { padding-left: 30px; }
+.phone-shell-expanded .fold-divider {
+  display: block;
+  position: fixed;
+  z-index: 1;
+  left: 50%;
+  top: 19.1%;
+  width: 1px;
+  height: 61.8%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 78%, transparent);
+  pointer-events: none;
+}
 .phone-shell-expanded .critical-pane .section-head { margin-top: 18px; }
 .phone-shell-expanded .critical-reminder-screen .reminder-time-card { grid-template-columns: minmax(112px, .8fr) minmax(0, 1.2fr); gap: 18px; }
 .phone-shell-expanded .critical-reminder-screen .reminder-rule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

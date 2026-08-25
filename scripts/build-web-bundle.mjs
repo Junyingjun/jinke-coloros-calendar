@@ -7,7 +7,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptDir, "..");
 const require = createRequire(import.meta.url);
 const Babel = require(resolve(projectRoot, "vendor/babel.min.js"));
-const sourceFiles = ["data.jsx", "primitives.jsx", "screens.jsx", "app.jsx"];
+const sourceFiles = ["data.jsx", "voice-domain-model.js", "primitives.jsx", "screens.jsx", "app.jsx"];
 
 const compiled = [];
 for (const file of sourceFiles) {

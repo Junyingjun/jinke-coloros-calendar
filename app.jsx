@@ -27,6 +27,7 @@ const {
   VersionScreen,
   VoiceSettingsScreen,
 } = window;
+const DOMAIN_NLU = window.JINKE_DOMAIN_NLU;
 
 const PHONE_WIDTH = 430;
 const EXPANDED_WIDTH = 860;
@@ -130,19 +131,11 @@ function withCriticalReminderDefaults(task) {
 const CN_DIGITS = { "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
 
 function normalizeSpeechText(value) {
-  let normalized = String(value || "").trim();
-  let previous = "";
-  while (normalized !== previous) {
-    previous = normalized;
-    normalized = normalized.replace(/([\u3400-\u9fff\d])\s+(?=[\u3400-\u9fff\d])/g, "$1");
-  }
-  return normalized
-    .replace(/\bd\s*d\s*l\b/ig, "ddl")
-    .replace(/(?:滴|迪|低|弟|地|的)[，,\s]*(?:滴|迪|低|弟|地|的)[，,\s]*(?:艾|爱|挨)(?:尔|耳|儿|乐|了|勒)?/g, "ddl")
-    .replace(/(?:戴德莱恩|代德莱恩|带的来因|带的赖因|戴的来因|代的来因|得来因)/g, "deadline");
+  return DOMAIN_NLU?.normalizeTranscript?.(value) ?? String(value || "").trim();
 }
 
 function parseNumber(value) {
+  if (DOMAIN_NLU?.parseNumber) return DOMAIN_NLU.parseNumber(value);
   if (!value) return null;
   if (/^\d+$/.test(value)) return Number(value);
   if (value === "十") return 10;
@@ -154,26 +147,8 @@ function parseNumber(value) {
 }
 
 function parseTime(text) {
-  const periodPattern = "(凌晨|早上|上午|中午|下午|傍晚|晚上)?";
-  const numberPattern = "([零〇一二三四五六七八九十两\\d]{1,3})";
-  const halfBoundary = "(?=$|[，,。；;！？!?、]|上床|睡觉|睡眠|休息|起床|出发|回来|回家|看书|学习|健身|吃饭|开会|上课|下班)";
-  const colon = text.match(new RegExp(`${periodPattern}\\s*(\\d{1,2})\\s*[:：]\\s*(\\d{2})`));
-  const spokenHalf = text.match(new RegExp(`${periodPattern}\\s*${numberPattern}\\s*[点时电]\\s*(?:半|[办伴班版般]${halfBoundary})(?:钟)?`));
-  const spoken = text.match(new RegExp(`${periodPattern}\\s*${numberPattern}\\s*[点时电](?:钟)?\\s*(半|[零〇一二三四五六七八九十两\\d]{1,3}分?)?`));
-  const match = colon || spokenHalf || spoken;
-  if (!match) return { value: "待定", source: "" };
-
-  const period = match[1] || "";
-  let hour = parseNumber(match[2]);
-  let minute = colon ? Number(match[3]) : spokenHalf ? 30 : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
-  if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
-  if (period === "晚上") hour = hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
-  if (period === "中午" && hour < 11) hour += 12;
-  if (period === "凌晨" && hour === 12) hour = 0;
-  if (!period && hour === 12 && /(睡觉|睡眠|上床|休息)/.test(text)) hour = 24;
-  hour = Math.min(Math.max(hour, 0), 24);
-  minute = Math.min(55, Math.max(0, Math.round(minute / 5) * 5));
-  return { value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`, source: match[0].trim(), period, dayBoundary: hour === 24 ? "end" : "start" };
+  const mention = DOMAIN_NLU?.extractTimeMentions?.(text)?.[0];
+  return mention || { value: "待定", source: "", sources: [], period: "", confidence: 0 };
 }
 
 function parseTimeRange(text) {
@@ -187,10 +162,12 @@ function parseTimeRange(text) {
   const inheritedPeriod = start.period && !/^(?:凌晨|早上|上午|中午|下午|傍晚|晚上)/.test(after.trim()) ? start.period : "";
   const end = parseTime(`${inheritedPeriod}${after}`);
   if (!end.source) return null;
+  const endSources = (end.sources || [end.source]).map((source) => source.replace(new RegExp(`^${inheritedPeriod}`), "")).filter(Boolean);
   return {
     start,
     end,
     source: `${start.source}${connector[0]}${end.source.replace(new RegExp(`^${inheritedPeriod}`), "")}`,
+    sources: [...new Set([...(start.sources || [start.source]), ...endSources].filter(Boolean))],
     crossesMidnight: end.value < start.value || start.value.startsWith("24:"),
   };
 }
@@ -383,7 +360,8 @@ function parseVoiceTask(rawText) {
   const isCritical = Boolean(span) || deadline.kind === "explicit-none" || (!repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|期限|到期|死线)/i.test(text) || deadline.kind === "absolute"));
 
   const spanSources = span ? [span.start.source, span.end.source] : [];
-  const semantics = extractTaskSemantics(text, [reminderMatch?.[0], time.source, timeRange?.end?.source, repeat.source, deadline.source, ...spanSources], durationMatch?.[0]);
+  const timeSources = timeRange?.sources || time.sources || [time.source];
+  const semantics = extractTaskSemantics(text, [reminderMatch?.[0], ...timeSources, repeat.source, deadline.source, ...spanSources], durationMatch?.[0]);
   const noteParts = [];
   if (duration) noteParts.push(`持续 ${duration}`);
 
@@ -446,6 +424,10 @@ function findMentionedTask(text, dailyTasks, criticalTasks) {
         }
       }
     }
+    if (!score && DOMAIN_NLU?.similarity) {
+      const fuzzyScore = DOMAIN_NLU.similarity(haystack, title);
+      if (fuzzyScore >= 0.68) score = fuzzyScore * 10;
+    }
     if (score > bestScore) {
       bestScore = score;
       best = candidate;
@@ -486,8 +468,9 @@ function commandResult(intent, heading, rows, options = {}) {
 
 function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
   const text = normalizeSpeechText(rawText);
+  const domainAnalysis = DOMAIN_NLU?.analyze?.(text) || null;
   const target = findMentionedTask(text, dailyTasks, criticalTasks);
-  const wantsCreate = /(创建|添加|新增|记下|记一下|提醒我)/.test(text) || /^(?:帮我|请)?安排/.test(text);
+  const wantsCreate = domainAnalysis?.intent?.intent === "create" || /(创建|添加|新增|记下|记一下|提醒我)/.test(text) || /^(?:帮我|请)?安排/.test(text);
   const hasAll = /(全部|所有)/.test(text);
   const arrangementNoun = /(安排|日程|任务|事项)/.test(text);
 
@@ -541,7 +524,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     return commandResult("complete-all", "完成所选日期的全部日常事项", [["日常事项", `${dailyTasks.length} 项`], ["日期", "当前所选日期"]], { confirmLabel: "全部完成" });
   }
 
-  if (!wantsCreate && /(有什么|有哪些|列出|告诉我|汇总|查询|多少)/.test(text) && arrangementNoun) {
+  if (!wantsCreate && /(有什么|有哪些|列出|告诉我|汇总|查询|多少|还剩什么|还有什么|需要做什么|该做什么)/.test(text) && (arrangementNoun || /(还剩什么|还有什么|需要做什么|该做什么)/.test(text))) {
     const ddlCount = criticalTasks.filter((task) => task.deadline).length;
     const noDdlCount = criticalTasks.length - ddlCount;
     return commandResult("query", "当前安排", [["日常", `${dailyTasks.length} 项`], ["有 DDL", `${ddlCount} 项`], ["无 DDL", `${noDdlCount} 项`]], { confirmLabel: "关闭" });
@@ -635,7 +618,7 @@ function parseVoiceCommand(rawText, dailyTasks, criticalTasks) {
     : task.type === "critical"
       ? [["类型", "关键事务"], ["截止日期", task.deadline || "未设置"], ["截止时刻", task.deadlineTime || "未设置"], ["提醒计划", task.reminder]]
       : [["类型", "日常事务"], ["重复", task.repeat], ["时间", task.endTime ? `${task.time}—${task.endTime}` : task.time], ["提醒", task.reminder]];
-  return commandResult("create", task.title, rows, { task, confirmLabel: "创建任务" });
+  return commandResult("create", task.title, rows, { task, analysis: domainAnalysis, confidence: domainAnalysis?.intent?.confidence, confirmLabel: "创建任务" });
 }
 
 function useViewportScale(width, height) {
@@ -743,6 +726,7 @@ function MobileDesignApp() {
   const [archiveIndex, setArchiveIndex] = useState(0);
   const [speechAvailable, setSpeechAvailable] = useState(true);
   const [speechStatus, setSpeechStatus] = useState("idle");
+  const speechCandidatesRef = useRef([]);
   const [toast, setToast] = useState("");
   const [nativeWindow, setNativeWindow] = useState(() => getNativeWindowState());
   const [nativeCapabilities, setNativeCapabilities] = useState(() => getNativeCapabilities());
@@ -1050,6 +1034,7 @@ function MobileDesignApp() {
     setVoiceDraft(null);
     setVoicePhase("listening");
     setSpeechStatus("starting");
+    speechCandidatesRef.current = [];
     setOverlay("voice");
     if (window.JinkeAndroid?.startSpeechRecognition) {
       window.JINKE_NATIVE_SPEECH_STATUS = (status) => {
@@ -1060,8 +1045,17 @@ function MobileDesignApp() {
         setTranscript(String(next || ""));
         setSpeechAvailable(true);
       };
+      window.JINKE_NATIVE_SPEECH_CANDIDATES = (payload) => {
+        try {
+          const candidates = typeof payload === "string" ? JSON.parse(payload) : payload;
+          speechCandidatesRef.current = Array.isArray(candidates) ? candidates : [];
+        } catch {
+          speechCandidatesRef.current = [];
+        }
+      };
       window.JINKE_NATIVE_SPEECH_RESULT = (next) => {
-        setTranscript(String(next || ""));
+        const ranked = DOMAIN_NLU?.rankCandidates?.(speechCandidatesRef.current, { dailyTasks, criticalTasks });
+        setTranscript(String(ranked?.best?.text || next || ""));
         setSpeechStatus("idle");
         window.setTimeout(() => setVoicePhase("review"), 80);
       };

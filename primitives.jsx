@@ -39,8 +39,8 @@ function IconButton({ name, label, onClick }) {
   return <button className="icon-button" aria-label={label} onClick={onClick}><Icon name={name} /></button>;
 }
 
-function SectionHeader({ title, note }) {
-  return <div className="section-head"><h2 className="section-title">{title}</h2>{note ? <span className="section-note">{note}</span> : null}</div>;
+function SectionHeader({ title, note, noteTone }) {
+  return <div className="section-head"><h2 className="section-title">{title}</h2>{note ? <span className={`section-note ${noteTone ? `is-${noteTone}` : ""}`}>{note}</span> : null}</div>;
 }
 
 function SwipeTaskActions({ label, onEdit, onDelete, children }) {

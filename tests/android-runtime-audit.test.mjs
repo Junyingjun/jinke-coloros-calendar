@@ -32,6 +32,9 @@ assert.match(build, /com\.alphacephei:vosk-android:0\.3\.75@aar/, "Vosk Android 
 assert.match(build, /net\.java\.dev\.jna:jna:5\.18\.1@aar/, "Vosk native bridge dependency must be packaged");
 assert.match(engine, /class OfflineSpeechEngine implements RecognitionListener/, "APK must include its own offline recognizer");
 assert.match(engine, /new SpeechService\(recognizer, SAMPLE_RATE\)/, "offline engine must record directly from the microphone");
+assert.match(engine, /setMaxAlternatives\(MAX_ALTERNATIVES\)/, "offline ASR must expose N-best candidates for domain rescoring");
+assert.match(engine, /combinedAlternatives[\s\S]*confidence/, "offline ASR candidates must retain acoustic confidence");
+assert.match(activity, /JINKE_NATIVE_SPEECH_CANDIDATES/, "native ASR candidates must reach the app-domain language model");
 assert.match(engine, /Log\.i\(LOG_TAG, "Offline microphone recognition started"\)/, "offline microphone startup must leave a diagnostic log");
 assert.match(engine, /LISTEN_TIMEOUT_MS = 30000/, "offline listening must leave enough time for a follow-up phrase");
 assert.match(engine, /committedText = appendSegment\(committedText, text\)/, "pause-separated recognition segments must accumulate instead of replacing each other");
