@@ -276,6 +276,14 @@ assert.match(appSource, /const \[secondaryStack, setSecondaryStack\][\s\S]*pushS
 assert.match(appSource, /const openMore = \(route\) => \{\s*pushSecondary/, "opening a menu child must not dismiss and recreate the menu sheet");
 assert.match(appSource, /const handleNativeBack = \(\) => \{\s*if \(secondary\)[\s\S]*?if \(overlay\)/, "native back must pop the top child sheet before dismissing its underlying menu");
 assert.match(dataSource, /task\?\.activeFrom[\s\S]*task\?\.activeUntil/, "daily occurrence checks must honor each task's real historical lifetime");
+assert.doesNotMatch(dataSource, /\(date\.getDate\(\) \+ index\) % 4/, "calendar markers must never use synthetic date-based task loads");
+assert.equal(context.window.countScheduledTasksOnDate([], [], "2026-08-25", "2026-08-25"), 0, "an empty task store must render no calendar markers");
+assert.equal(context.window.countScheduledTasksOnDate([{ repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], activeFrom: "2026-08-25" }], [], "2026-08-25", "2026-08-25"), 1, "a live daily task must create one marker load");
+assert.equal(context.window.countScheduledTasksOnDate([], [{ deadline: "2天后", daysLeft: 2, anchorDateKey: "2026-08-25" }], "2026-08-27", "2026-08-25"), 1, "a deadline task must mark only its actual due date");
+assert.match(appSource, /const getDateTaskLoad[\s\S]*countScheduledTasksOnDate\(dailyTasks, criticalTasks[\s\S]*getDateLoad=\{getDateTaskLoad\}/, "week and month markers must derive from live daily and deadline tasks");
+assert.match(appSource, /if \(viewMode === "month"\)[\s\S]*setViewMode\("day"\);\s*setSelectedDateKey\(todayDateKey\)/, "leaving month view with native back must restore the device's current day");
+assert.match(appSource, /onSelect=\{\(mode\) => \{ setViewMode\(mode\); if \(mode === "day"\) setSelectedDateKey\(todayDateKey\)/, "switching from month to day must restore today");
+assert.match(appSource, /if \(route !== "month-view"\) setSelectedDateKey\(todayDateKey\)/, "voice navigation back to day view must restore today");
 assert.match(appSource, /mode === "future"[\s\S]*activeUntil[\s\S]*dateKey < selectedDateKey/, "future-only deletion must preserve earlier daily history while removing selected and future occurrences");
 assert.match(screensSource, /仅删除后续安排[\s\S]*删除全部记录/, "daily deletion must offer separate future-plan and complete-history choices");
 assert.match(appSource, /activeFrom: todayDateKey/, "new daily tasks must start on the day they are added");

@@ -208,6 +208,24 @@ window.taskOccursOnDate = function taskOccursOnDate(task, dateKey) {
   var weekday = date.getDay() === 0 ? 7 : date.getDay();
   return days.includes(weekday);
 };
+window.countScheduledTasksOnDate = function countScheduledTasksOnDate() {
+  var _window$APP_DATA2;
+  var dailyTasks = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+  var criticalTasks = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+  var dateKey = arguments.length > 2 ? arguments[2] : undefined;
+  var fallbackDateKey = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : (_window$APP_DATA2 = window.APP_DATA) === null || _window$APP_DATA2 === void 0 || (_window$APP_DATA2 = _window$APP_DATA2.today) === null || _window$APP_DATA2 === void 0 ? void 0 : _window$APP_DATA2.dateKey;
+  var dailyLoad = dailyTasks.filter(function (task) {
+    return window.taskOccursOnDate(task, dateKey, fallbackDateKey);
+  }).length;
+  var target = parseCalendarDateKey(dateKey);
+  var deadlineLoad = criticalTasks.filter(function (task) {
+    if (!(task !== null && task !== void 0 && task.deadline) || !Number.isFinite(task.daysLeft)) return false;
+    var anchor = parseCalendarDateKey(task.anchorDateKey || fallbackDateKey);
+    var elapsedDays = Math.round((target.getTime() - anchor.getTime()) / 86400000);
+    return task.daysLeft - elapsedDays === 0;
+  }).length;
+  return dailyLoad + deadlineLoad;
+};
 function parseCalendarDateKey(dateKey) {
   var _dateKey$split$map = dateKey.split("-").map(Number),
     _dateKey$split$map2 = _slicedToArray(_dateKey$split$map, 3),
@@ -237,16 +255,10 @@ window.getWeekDates = function getWeekDates(dateKey) {
   return Array.from({
     length: 7
   }, function (_, index) {
-    var _window$APP_DATA2, _seeded$load;
     var date = new Date(monday);
     date.setDate(monday.getDate() + index);
     var key = calendarDateKey(date);
-    var seeded = (_window$APP_DATA2 = window.APP_DATA) === null || _window$APP_DATA2 === void 0 || (_window$APP_DATA2 = _window$APP_DATA2.week) === null || _window$APP_DATA2 === void 0 ? void 0 : _window$APP_DATA2.find(function (item) {
-      return item.dateKey === key;
-    });
-    return _objectSpread(_objectSpread({}, window.getDateMeta(key)), {}, {
-      load: (_seeded$load = seeded === null || seeded === void 0 ? void 0 : seeded.load) !== null && _seeded$load !== void 0 ? _seeded$load : (date.getDate() + index) % 4
-    });
+    return window.getDateMeta(key);
   });
 };
 window.getMonthDates = function getMonthDates(dateKey) {
@@ -260,16 +272,11 @@ window.getMonthDates = function getMonthDates(dateKey) {
   return Array.from({
     length: 42
   }, function (_, index) {
-    var _window$APP_DATA3, _seeded$load2;
     var date = new Date(gridStart);
     date.setDate(gridStart.getDate() + index);
     var key = calendarDateKey(date);
-    var seeded = (_window$APP_DATA3 = window.APP_DATA) === null || _window$APP_DATA3 === void 0 || (_window$APP_DATA3 = _window$APP_DATA3.week) === null || _window$APP_DATA3 === void 0 ? void 0 : _window$APP_DATA3.find(function (item) {
-      return item.dateKey === key;
-    });
     return _objectSpread(_objectSpread({}, window.getDateMeta(key)), {}, {
-      muted: date.getMonth() !== monthIndex,
-      load: (_seeded$load2 = seeded === null || seeded === void 0 ? void 0 : seeded.load) !== null && _seeded$load2 !== void 0 ? _seeded$load2 : (date.getDate() + index) % 4
+      muted: date.getMonth() !== monthIndex
     });
   });
 };
@@ -302,8 +309,7 @@ window.APP_DATA = {
       date: item.date,
       dateKey: item.dateKey,
       today: item.dateKey === STARTUP_DATE_KEY,
-      active: item.dateKey === STARTUP_DATE_KEY,
-      load: item.load
+      active: item.dateKey === STARTUP_DATE_KEY
     };
   }),
   dailyTasks: [{
@@ -1462,13 +1468,15 @@ function CriticalReminderPlanPicker(_ref10) {
 function WeekStrip(_ref11) {
   var selectedDateKey = _ref11.selectedDateKey,
     todayDateKey = _ref11.todayDateKey,
-    onSelectDate = _ref11.onSelectDate;
+    onSelectDate = _ref11.onSelectDate,
+    getDateLoad = _ref11.getDateLoad;
   return React.createElement("div", {
     className: "week-strip",
     "aria-label": "\u672C\u5468"
   }, getWeekDates(selectedDateKey).map(function (item) {
     var isToday = item.dateKey === todayDateKey;
     var isSelected = item.dateKey === selectedDateKey;
+    var load = Math.max(0, Number(getDateLoad === null || getDateLoad === void 0 ? void 0 : getDateLoad(item.dateKey)) || 0);
     return React.createElement("button", {
       className: "day-cell ".concat(isToday ? "today" : "", " ").concat(isSelected && !isToday ? "selected" : ""),
       "aria-current": isToday ? "date" : undefined,
@@ -1484,7 +1492,7 @@ function WeekStrip(_ref11) {
     }, item.date), React.createElement("span", {
       className: "load-dots"
     }, Array.from({
-      length: Math.min(item.load, 3)
+      length: Math.min(load, 3)
     }).map(function (_, index) {
       return React.createElement("span", {
         key: index
@@ -1495,7 +1503,8 @@ function WeekStrip(_ref11) {
 function MonthPeekPanel(_ref12) {
   var selectedDateKey = _ref12.selectedDateKey,
     todayDateKey = _ref12.todayDateKey,
-    onSelectDate = _ref12.onSelectDate;
+    onSelectDate = _ref12.onSelectDate,
+    getDateLoad = _ref12.getDateLoad;
   var selected = getDateMeta(selectedDateKey);
   var monthDays = getMonthDates(selectedDateKey);
   return React.createElement("div", {
@@ -1536,9 +1545,10 @@ function MonthPeekPanel(_ref12) {
   }, monthDays.map(function (item) {
     var today = item.dateKey === todayDateKey;
     var isSelected = item.dateKey === selectedDateKey;
+    var load = Math.max(0, Number(getDateLoad === null || getDateLoad === void 0 ? void 0 : getDateLoad(item.dateKey)) || 0);
     return React.createElement("button", {
       type: "button",
-      className: "month-day ".concat(item.muted ? "muted" : "", " ").concat(today ? "today" : "", " ").concat(isSelected && !today ? "selected" : "", " ").concat(item.load ? "busy" : ""),
+      className: "month-day ".concat(item.muted ? "muted" : "", " ").concat(today ? "today" : "", " ").concat(isSelected && !today ? "selected" : "", " ").concat(load ? "busy" : ""),
       "aria-label": "".concat(item.year, "\u5E74").concat(item.month, "\u6708").concat(item.date, "\u65E5"),
       "aria-current": today ? "date" : undefined,
       "aria-pressed": isSelected,
@@ -1606,6 +1616,7 @@ function TodayScreen(_ref14) {
     selectedDateKey = _ref14.selectedDateKey,
     todayDateKey = _ref14.todayDateKey,
     onSelectDate = _ref14.onSelectDate,
+    getDateLoad = _ref14.getDateLoad,
     onOpenDayArchive = _ref14.onOpenDayArchive;
   var done = tasks.filter(function (task) {
     return task.done;
@@ -1656,11 +1667,13 @@ function TodayScreen(_ref14) {
   }, done, "/", tasks.length, " \u5DF2\u5B8C\u6210")), viewMode === "month" ? React.createElement(MonthPeekPanel, {
     selectedDateKey: selectedDateKey,
     todayDateKey: todayDateKey,
-    onSelectDate: onSelectDate
+    onSelectDate: onSelectDate,
+    getDateLoad: getDateLoad
   }) : React.createElement(WeekStrip, {
     selectedDateKey: selectedDateKey,
     todayDateKey: todayDateKey,
-    onSelectDate: onSelectDate
+    onSelectDate: onSelectDate,
+    getDateLoad: getDateLoad
   }), React.createElement("div", {
     className: "progress-line",
     "aria-label": "".concat(dateLabel, "\u5B8C\u6210 ").concat(percent, "%")
@@ -2962,7 +2975,7 @@ function CriticalReminderScreen(_ref31) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.15";
+var JINKE_FALLBACK_VERSION = "1.0.16";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3214,6 +3227,7 @@ var _window = window,
   repeatDaysFromValue = _window.repeatDaysFromValue,
   repeatLabelFromDays = _window.repeatLabelFromDays,
   taskOccursOnDate = _window.taskOccursOnDate,
+  countScheduledTasksOnDate = _window.countScheduledTasksOnDate,
   shiftDateKeyByDays = _window.shiftDateKeyByDays,
   PhoneFrame = _window.PhoneFrame,
   BottomNav = _window.BottomNav,
@@ -4327,6 +4341,9 @@ function MobileDesignApp() {
       daysLeft: criticalDaysLeftOn(task, selectedDateKey, todayDateKey)
     });
   });
+  var getDateTaskLoad = function getDateTaskLoad(dateKey) {
+    return countScheduledTasksOnDate(dailyTasks, criticalTasks, dateKey, todayDateKey);
+  };
   useEffect(function () {
     if (voicePhase === "review" && parsedVoiceCommand.intent === "create") setVoiceDraft(_objectSpread({}, parsedVoiceCommand.task));
   }, [voicePhase, transcript]);
@@ -5051,6 +5068,7 @@ function MobileDesignApp() {
         } else {
           setActiveTab("today");
           setViewMode(route === "month-view" ? "month" : "day");
+          if (route !== "month-view") setSelectedDateKey(todayDateKey);
         }
       }
       showToast(command.heading);
@@ -5151,6 +5169,7 @@ function MobileDesignApp() {
       }
       if (viewMode === "month") {
         setViewMode("day");
+        setSelectedDateKey(todayDateKey);
         return true;
       }
       if (activeTab === "critical") {
@@ -5163,7 +5182,7 @@ function MobileDesignApp() {
     return function () {
       if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
     };
-  }, [overlay, secondary, secondaryStack.length, viewMode, activeTab]);
+  }, [overlay, secondary, secondaryStack.length, viewMode, activeTab, todayDateKey]);
   var renderScreen = function renderScreen() {
     if (activeTab === "critical") return React.createElement(CriticalScreen, {
       tasks: currentCriticalTasks,
@@ -5204,6 +5223,7 @@ function MobileDesignApp() {
       selectedDateKey: selectedDateKey,
       todayDateKey: todayDateKey,
       onSelectDate: selectDate,
+      getDateLoad: getDateTaskLoad,
       onOpenDayArchive: function onOpenDayArchive() {
         setArchiveActive("china");
         setArchiveIndex(0);
@@ -5272,6 +5292,7 @@ function MobileDesignApp() {
       onTabChange: function onTabChange(tab) {
         setActiveTab(tab);
         setViewMode("day");
+        if (tab === "today") setSelectedDateKey(todayDateKey);
         setSecondaryStack([]);
       },
       onVoice: startVoice
@@ -5279,6 +5300,7 @@ function MobileDesignApp() {
       onClose: closeOverlay,
       onSelect: function onSelect(mode) {
         setViewMode(mode);
+        if (mode === "day") setSelectedDateKey(todayDateKey);
         closeOverlay();
       }
     }) : null, overlay === "more" ? React.createElement(MoreSheet, {

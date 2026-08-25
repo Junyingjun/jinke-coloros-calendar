@@ -6,6 +6,7 @@ const {
   repeatDaysFromValue,
   repeatLabelFromDays,
   taskOccursOnDate,
+  countScheduledTasksOnDate,
   shiftDateKeyByDays,
   PhoneFrame,
   BottomNav,
@@ -769,6 +770,9 @@ function MobileDesignApp() {
   const displayedDeadlineTasks = criticalTasks
     .filter((task) => task.deadline)
     .map((task) => ({ ...task, daysLeft: criticalDaysLeftOn(task, selectedDateKey, todayDateKey) }));
+  const getDateTaskLoad = (dateKey) => {
+    return countScheduledTasksOnDate(dailyTasks, criticalTasks, dateKey, todayDateKey);
+  };
 
   useEffect(() => {
     if (voicePhase === "review" && parsedVoiceCommand.intent === "create") setVoiceDraft({ ...parsedVoiceCommand.task });
@@ -1339,6 +1343,7 @@ function MobileDesignApp() {
         } else {
           setActiveTab("today");
           setViewMode(route === "month-view" ? "month" : "day");
+          if (route !== "month-view") setSelectedDateKey(todayDateKey);
         }
       }
       showToast(command.heading);
@@ -1422,6 +1427,7 @@ function MobileDesignApp() {
       }
       if (viewMode === "month") {
         setViewMode("day");
+        setSelectedDateKey(todayDateKey);
         return true;
       }
       if (activeTab === "critical") {
@@ -1434,11 +1440,11 @@ function MobileDesignApp() {
     return () => {
       if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
     };
-  }, [overlay, secondary, secondaryStack.length, viewMode, activeTab]);
+  }, [overlay, secondary, secondaryStack.length, viewMode, activeTab, todayDateKey]);
 
   const renderScreen = () => {
     if (activeTab === "critical") return <CriticalScreen tasks={currentCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} onOpenReminders={() => setSecondary("critical-reminders")} />;
-    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={selectDate} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
+    return <TodayScreen tasks={displayedDailyTasks} deadlineTasks={displayedDeadlineTasks} onToggle={toggleDaily} onEdit={openDaily} onDeleteDaily={(task) => requestDelete(task, "daily")} onToggleCritical={toggleCriticalCheck} onOpenCritical={openCritical} onDeleteCritical={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} viewMode={viewMode} onOpenView={() => setOverlay("view")} selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={selectDate} getDateLoad={getDateTaskLoad} onOpenDayArchive={() => { setArchiveActive("china"); setArchiveIndex(0); setOverlay("day-archive"); }} />;
   };
 
   const renderSecondaryScreen = (route) => {
@@ -1455,8 +1461,8 @@ function MobileDesignApp() {
   const renderDevice = (variant) => (
     <PhoneFrame variant={variant}>
       {renderScreen()}
-      <BottomNav activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setViewMode("day"); setSecondaryStack([]); }} onVoice={startVoice} />
-      {overlay === "view" ? <ViewMenu onClose={closeOverlay} onSelect={(mode) => { setViewMode(mode); closeOverlay(); }} /> : null}
+      <BottomNav activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setViewMode("day"); if (tab === "today") setSelectedDateKey(todayDateKey); setSecondaryStack([]); }} onVoice={startVoice} />
+      {overlay === "view" ? <ViewMenu onClose={closeOverlay} onSelect={(mode) => { setViewMode(mode); if (mode === "day") setSelectedDateKey(todayDateKey); closeOverlay(); }} /> : null}
       {overlay === "more" ? <MoreSheet onClose={closeOverlay} onOpen={openMore} themeMode={themeMode} onThemeChange={setThemeMode} /> : null}
       {secondaryStack.map((route, index) => (
         <Sheet depth={index + 1} onClose={closeSecondary} label={`${route} 面板`} key={`${index}-${route}`}>

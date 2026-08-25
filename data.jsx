@@ -185,6 +185,18 @@ window.taskOccursOnDate = function taskOccursOnDate(task, dateKey, fallbackDateK
   return days.includes(weekday);
 };
 
+window.countScheduledTasksOnDate = function countScheduledTasksOnDate(dailyTasks = [], criticalTasks = [], dateKey, fallbackDateKey = window.APP_DATA?.today?.dateKey) {
+  const dailyLoad = dailyTasks.filter((task) => window.taskOccursOnDate(task, dateKey, fallbackDateKey)).length;
+  const target = parseCalendarDateKey(dateKey);
+  const deadlineLoad = criticalTasks.filter((task) => {
+    if (!task?.deadline || !Number.isFinite(task.daysLeft)) return false;
+    const anchor = parseCalendarDateKey(task.anchorDateKey || fallbackDateKey);
+    const elapsedDays = Math.round((target.getTime() - anchor.getTime()) / 86400000);
+    return task.daysLeft - elapsedDays === 0;
+  }).length;
+  return dailyLoad + deadlineLoad;
+};
+
 function parseCalendarDateKey(dateKey) {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(year, month - 1, day, 12);
@@ -214,8 +226,7 @@ window.getWeekDates = function getWeekDates(dateKey) {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
     const key = calendarDateKey(date);
-    const seeded = window.APP_DATA?.week?.find((item) => item.dateKey === key);
-    return { ...window.getDateMeta(key), load: seeded?.load ?? ((date.getDate() + index) % 4) };
+    return window.getDateMeta(key);
   });
 };
 
@@ -231,11 +242,9 @@ window.getMonthDates = function getMonthDates(dateKey) {
     const date = new Date(gridStart);
     date.setDate(gridStart.getDate() + index);
     const key = calendarDateKey(date);
-    const seeded = window.APP_DATA?.week?.find((item) => item.dateKey === key);
     return {
       ...window.getDateMeta(key),
       muted: date.getMonth() !== monthIndex,
-      load: seeded?.load ?? ((date.getDate() + index) % 4),
     };
   });
 };
@@ -272,7 +281,6 @@ window.APP_DATA = {
     dateKey: item.dateKey,
     today: item.dateKey === STARTUP_DATE_KEY,
     active: item.dateKey === STARTUP_DATE_KEY,
-    load: item.load,
   })),
   dailyTasks: [
     { id: "demo-daily", demo: true, activeFrom: STARTUP_DATE_KEY, time: "09:00", title: "演示：每天喝水", note: "向左滑动可编辑或删除", repeat: "每天", repeatDays: [1, 2, 3, 4, 5, 6, 7], reminder: "到点提醒", done: false },

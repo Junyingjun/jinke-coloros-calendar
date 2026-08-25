@@ -214,17 +214,18 @@ function CriticalReminderPlanPicker({ task, onChange }) {
   );
 }
 
-function WeekStrip({ selectedDateKey, todayDateKey, onSelectDate }) {
+function WeekStrip({ selectedDateKey, todayDateKey, onSelectDate, getDateLoad }) {
   return (
     <div className="week-strip" aria-label="本周">
       {getWeekDates(selectedDateKey).map((item) => {
         const isToday = item.dateKey === todayDateKey;
         const isSelected = item.dateKey === selectedDateKey;
+        const load = Math.max(0, Number(getDateLoad?.(item.dateKey)) || 0);
         return (
         <button className={`day-cell ${isToday ? "today" : ""} ${isSelected && !isToday ? "selected" : ""}`} aria-current={isToday ? "date" : undefined} aria-pressed={isSelected} onClick={() => onSelectDate(item.dateKey)} key={item.dateKey}>
           <span className="day-name">{item.day}</span>
           <span className="day-number">{item.date}</span>
-          <span className="load-dots">{Array.from({ length: Math.min(item.load, 3) }).map((_, index) => <span key={index} />)}</span>
+          <span className="load-dots">{Array.from({ length: Math.min(load, 3) }).map((_, index) => <span key={index} />)}</span>
         </button>
         );
       })}
@@ -232,7 +233,7 @@ function WeekStrip({ selectedDateKey, todayDateKey, onSelectDate }) {
   );
 }
 
-function MonthPeekPanel({ selectedDateKey, todayDateKey, onSelectDate }) {
+function MonthPeekPanel({ selectedDateKey, todayDateKey, onSelectDate, getDateLoad }) {
   const selected = getDateMeta(selectedDateKey);
   const monthDays = getMonthDates(selectedDateKey);
   return (
@@ -247,10 +248,11 @@ function MonthPeekPanel({ selectedDateKey, todayDateKey, onSelectDate }) {
         {monthDays.map((item) => {
           const today = item.dateKey === todayDateKey;
           const isSelected = item.dateKey === selectedDateKey;
+          const load = Math.max(0, Number(getDateLoad?.(item.dateKey)) || 0);
           return (
             <button
               type="button"
-              className={`month-day ${item.muted ? "muted" : ""} ${today ? "today" : ""} ${isSelected && !today ? "selected" : ""} ${item.load ? "busy" : ""}`}
+              className={`month-day ${item.muted ? "muted" : ""} ${today ? "today" : ""} ${isSelected && !today ? "selected" : ""} ${load ? "busy" : ""}`}
               aria-label={`${item.year}年${item.month}月${item.date}日`}
               aria-current={today ? "date" : undefined}
               aria-pressed={isSelected}
@@ -281,7 +283,7 @@ function ViewMenu({ onSelect, onClose }) {
   );
 }
 
-function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, onToggleCritical, onOpenCritical, onDeleteCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, onOpenDayArchive }) {
+function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, onToggleCritical, onOpenCritical, onDeleteCritical, onMenu, viewMode, onOpenView, selectedDateKey, todayDateKey, onSelectDate, getDateLoad, onOpenDayArchive }) {
   const done = tasks.filter((task) => task.done).length;
   const percent = Math.round((done / Math.max(tasks.length, 1)) * 100);
   const selectedDay = getDateMeta(selectedDateKey);
@@ -307,7 +309,7 @@ function TodayScreen({ tasks, deadlineTasks, onToggle, onEdit, onDeleteDaily, on
               </div>
               <div className="page-meta">{done}/{tasks.length} 已完成</div>
             </div>
-            {viewMode === "month" ? <MonthPeekPanel selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={onSelectDate} /> : <WeekStrip selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={onSelectDate} />}
+            {viewMode === "month" ? <MonthPeekPanel selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={onSelectDate} getDateLoad={getDateLoad} /> : <WeekStrip selectedDateKey={selectedDateKey} todayDateKey={todayDateKey} onSelectDate={onSelectDate} getDateLoad={getDateLoad} />}
             <div className="progress-line" aria-label={`${dateLabel}完成 ${percent}%`}>
               <div className="progress-track"><div className="progress-fill" style={{ width: `${percent}%` }} /></div>
               <span className="progress-copy">{percent}%</span>
@@ -897,7 +899,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.15";
+const JINKE_FALLBACK_VERSION = "1.0.16";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

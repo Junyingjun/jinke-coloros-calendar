@@ -21,6 +21,7 @@
 - 长列表滚动严格裁切在屏幕内，顶部和底部以透明度渐变隐藏
 - 每日完成记录以“任务 ID＋日期”唯一保存，反复勾选不会生成重复统计
 - 周日期条可直接切换：今天固定红色，选中的其他日期使用白色高亮；日期标题、进度和勾选记录同步切换
+- 周历小点和月历红点只表示真实存在的日常任务或当天截止 DDL，删除任务后即时同步消失
 - 每个日期标题都显示真实的中国历法标记：节日／节气优先，普通日期回退到农历与七十二候，不虚构“纪念日”
 - 日期旁的无底无边透明微型按钮打开“今天是什么日子”，可切换中国、全球节日、历史事件和人物纪念；人物条目内部标注诞辰／逝世
 - 全球日期档案联网读取 Wikimedia On This Day 中文数据，按当前分类懒加载并缓存至本机；普通屏与展开屏复用同一个请求，断网仍保留中国历法标记
@@ -64,7 +65,7 @@
 - 包名：`com.junyingjun.jinke`
 - 最低 Android 9（API 28），目标 Android 16（API 36）
 - 构建：`scripts/build-android.ps1`
-- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.15.apk`
+- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.16.apk`
 - 更新源：`https://api.github.com/repos/Junyingjun/jinke-coloros-calendar/releases/latest`
 
 首次从 GitHub 更新时，Android 会要求授予“安装未知应用”权限；下载完成后仍由系统安装器显示最终确认，这是 Android 对侧载更新的安全要求。发布签名保存在本机工作区之外，不进入 Git 仓库；后续版本必须沿用同一签名才能覆盖安装。
