@@ -34,6 +34,9 @@ assert.match(engine, /Log\.i\(LOG_TAG, "Offline microphone recognition started"\
 assert.match(engine, /LISTEN_TIMEOUT_MS = 30000/, "offline listening must leave enough time for a follow-up phrase");
 assert.match(engine, /committedText = appendSegment\(committedText, text\)/, "pause-separated recognition segments must accumulate instead of replacing each other");
 assert.match(engine, /if \(!latestText\.isBlank\(\)\)[\s\S]*finish\(latestText\)/, "a late audio error must preserve an already recognized transcript");
+assert.match(engine, /synchronized void cancel\(\)[\s\S]*cleanupSession\(\)/, "canceling voice input must release the microphone without delivering a command");
+assert.match(activity, /cancelSpeechRecognition[\s\S]*offlineSpeechEngine\.cancel\(\)/, "the web voice sheet must be able to cancel native recognition");
+assert.match(activity, /showSoftKeyboard[\s\S]*InputMethodManager\.SHOW_IMPLICIT/, "the assistant must expose the active input method for high-accuracy dictation");
 assert.match(engine, /copyAssetTree[\s\S]*MODEL_ASSET_DIR/, "bundled model must be copied into private storage before loading");
 assert.match(activity, /getSystemCapabilities/, "native bridge must expose live permission and component states");
 assert.match(activity, /ACTION_REQUEST_SCHEDULE_EXACT_ALARM/, "exact-alarm settings must be actionable");

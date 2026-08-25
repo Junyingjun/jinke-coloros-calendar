@@ -459,7 +459,8 @@ function Waveform() {
   return <div className="waveform" aria-hidden="true">{[11, 20, 26, 16, 24, 18, 9].map((height, index) => <span key={index} style={{ height }} />)}</div>;
 }
 
-function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTaskChange, onTranscript, onStop, onUseExample, onConfirm, onClose, speechAvailable, speechStatus }) {
+function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTaskChange, onTranscript, onStop, onUseInputMethod, onConfirm, onClose, speechAvailable, speechStatus }) {
+  const composerRef = React.useRef(null);
   const text = transcript.trim();
   const editableTask = draftTask || parsedCommand.task;
   const updateDraft = (field, value) => onDraftTaskChange({ ...(draftTask || parsedCommand.task), [field]: value });
@@ -477,6 +478,13 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
     }
   };
   const canConfirm = parsedCommand.valid && (parsedCommand.intent !== "create" || Boolean(editableTask?.title?.trim()));
+  const openInputMethod = () => {
+    onUseInputMethod?.();
+    window.setTimeout(() => {
+      composerRef.current?.focus({ preventScroll: true });
+      try { window.JinkeAndroid?.showSoftKeyboard?.(); } catch {}
+    }, 40);
+  };
   const statusText = {
     starting: "正在启动离线语音…",
     "requesting-permission": "等待麦克风授权…",
@@ -496,9 +504,12 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
             <button className="voice-orbit pressable" onClick={onStop} aria-label="停止并处理"><Waveform /></button>
             <div className="voice-transcript">{text || statusText}</div>
           </div>
-          <input className="composer-input" value={transcript} onChange={(event) => onTranscript(event.target.value)} placeholder="输入操作或安排" aria-label={speechAvailable ? "输入操作或安排" : "语音不可用，请输入操作或安排"} />
+          <div className="composer-shell">
+            <input ref={composerRef} className="composer-input" value={transcript} onChange={(event) => onTranscript(event.target.value)} placeholder="输入操作或安排" aria-label={speechAvailable ? "输入操作或安排" : "语音不可用，请输入操作或安排"} />
+            <button className="composer-ime-button pressable" type="button" onClick={openInputMethod} aria-label="使用当前输入法语音">输入法</button>
+          </div>
           <div className="button-row">
-            <button className="secondary-button pressable" onClick={onUseExample}>使用示例</button>
+            <button className="secondary-button pressable" onClick={onClose}>取消</button>
             <button className="primary-button pressable" onClick={onStop}>停止并处理</button>
           </div>
         </>
@@ -776,7 +787,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.9";
+const JINKE_FALLBACK_VERSION = "1.0.10";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

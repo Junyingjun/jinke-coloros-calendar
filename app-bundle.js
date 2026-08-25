@@ -1724,11 +1724,12 @@ function VoiceComposer(_ref15) {
     onDraftTaskChange = _ref15.onDraftTaskChange,
     onTranscript = _ref15.onTranscript,
     onStop = _ref15.onStop,
-    onUseExample = _ref15.onUseExample,
+    onUseInputMethod = _ref15.onUseInputMethod,
     onConfirm = _ref15.onConfirm,
     onClose = _ref15.onClose,
     speechAvailable = _ref15.speechAvailable,
     speechStatus = _ref15.speechStatus;
+  var composerRef = React.useRef(null);
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
@@ -1769,6 +1770,19 @@ function VoiceComposer(_ref15) {
     }
   };
   var canConfirm = parsedCommand.valid && (parsedCommand.intent !== "create" || Boolean(editableTask === null || editableTask === void 0 || (_editableTask$title = editableTask.title) === null || _editableTask$title === void 0 ? void 0 : _editableTask$title.trim()));
+  var openInputMethod = function openInputMethod() {
+    onUseInputMethod === null || onUseInputMethod === void 0 || onUseInputMethod();
+    window.setTimeout(function () {
+      var _composerRef$current;
+      (_composerRef$current = composerRef.current) === null || _composerRef$current === void 0 || _composerRef$current.focus({
+        preventScroll: true
+      });
+      try {
+        var _window$JinkeAndroid, _window$JinkeAndroid$;
+        (_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.showSoftKeyboard) === null || _window$JinkeAndroid$ === void 0 || _window$JinkeAndroid$.call(_window$JinkeAndroid);
+      } catch (_unused3) {}
+    }, 40);
+  };
   var statusText = {
     starting: "正在启动离线语音…",
     "requesting-permission": "等待麦克风授权…",
@@ -1794,7 +1808,10 @@ function VoiceComposer(_ref15) {
     "aria-label": "\u505C\u6B62\u5E76\u5904\u7406"
   }, React.createElement(Waveform, null)), React.createElement("div", {
     className: "voice-transcript"
-  }, text || statusText)), React.createElement("input", {
+  }, text || statusText)), React.createElement("div", {
+    className: "composer-shell"
+  }, React.createElement("input", {
+    ref: composerRef,
     className: "composer-input",
     value: transcript,
     onChange: function onChange(event) {
@@ -1802,12 +1819,17 @@ function VoiceComposer(_ref15) {
     },
     placeholder: "\u8F93\u5165\u64CD\u4F5C\u6216\u5B89\u6392",
     "aria-label": speechAvailable ? "输入操作或安排" : "语音不可用，请输入操作或安排"
-  }), React.createElement("div", {
+  }), React.createElement("button", {
+    className: "composer-ime-button pressable",
+    type: "button",
+    onClick: openInputMethod,
+    "aria-label": "\u4F7F\u7528\u5F53\u524D\u8F93\u5165\u6CD5\u8BED\u97F3"
+  }, "\u8F93\u5165\u6CD5")), React.createElement("div", {
     className: "button-row"
   }, React.createElement("button", {
     className: "secondary-button pressable",
-    onClick: onUseExample
-  }, "\u4F7F\u7528\u793A\u4F8B"), React.createElement("button", {
+    onClick: onClose
+  }, "\u53D6\u6D88"), React.createElement("button", {
     className: "primary-button pressable",
     onClick: onStop
   }, "\u505C\u6B62\u5E76\u5904\u7406"))) : React.createElement(React.Fragment, null, parsedCommand.intent === "create" && editableTask !== null && editableTask !== void 0 && editableTask.span ? React.createElement("div", {
@@ -2536,7 +2558,7 @@ function CriticalReminderScreen(_ref29) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.9";
+var JINKE_FALLBACK_VERSION = "1.0.10";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -2556,9 +2578,9 @@ function VersionScreen(_ref30) {
   var onBack = _ref30.onBack;
   var currentVersion = function () {
     try {
-      var _window$JinkeAndroid, _window$JinkeAndroid$;
-      return ((_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.getAppVersion) === null || _window$JinkeAndroid$ === void 0 ? void 0 : _window$JinkeAndroid$.call(_window$JinkeAndroid)) || JINKE_FALLBACK_VERSION;
-    } catch (_unused3) {
+      var _window$JinkeAndroid2, _window$JinkeAndroid3;
+      return ((_window$JinkeAndroid2 = window.JinkeAndroid) === null || _window$JinkeAndroid2 === void 0 || (_window$JinkeAndroid3 = _window$JinkeAndroid2.getAppVersion) === null || _window$JinkeAndroid3 === void 0 ? void 0 : _window$JinkeAndroid3.call(_window$JinkeAndroid2)) || JINKE_FALLBACK_VERSION;
+    } catch (_unused4) {
       return JINKE_FALLBACK_VERSION;
     }
   }();
@@ -2609,9 +2631,9 @@ function VersionScreen(_ref30) {
   var installUpdate = function installUpdate() {
     if (!state.apkUrl) return;
     try {
-      var _window$JinkeAndroid2;
-      if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.installApk) window.JinkeAndroid.installApk(state.apkUrl);else window.open(state.apkUrl, "_blank", "noopener,noreferrer");
-    } catch (_unused4) {
+      var _window$JinkeAndroid4;
+      if ((_window$JinkeAndroid4 = window.JinkeAndroid) !== null && _window$JinkeAndroid4 !== void 0 && _window$JinkeAndroid4.installApk) window.JinkeAndroid.installApk(state.apkUrl);else window.open(state.apkUrl, "_blank", "noopener,noreferrer");
+    } catch (_unused5) {
       window.location.href = state.apkUrl;
     }
   };
@@ -2810,7 +2832,6 @@ var DEVICE_HEIGHT = 956;
 var SIMULATOR_GAP = 48;
 var SIMULATOR_WIDTH = PHONE_WIDTH + EXPANDED_WIDTH + SIMULATOR_GAP;
 var SIMULATOR_HEIGHT = DEVICE_HEIGHT + 34;
-var VOICE_EXAMPLE = "把健身改到晚上八点";
 function localDateKey() {
   var date = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : new Date();
   return "".concat(date.getFullYear(), "-").concat(String(date.getMonth() + 1).padStart(2, "0"), "-").concat(String(date.getDate()).padStart(2, "0"));
@@ -2938,16 +2959,18 @@ function parseNumber(value) {
 function parseTime(text) {
   var periodPattern = "(凌晨|早上|上午|中午|下午|傍晚|晚上)?";
   var numberPattern = "([零〇一二三四五六七八九十两\\d]{1,3})";
+  var halfBoundary = "(?=$|[，,。；;！？!?、]|上床|睡觉|睡眠|休息|起床|出发|回来|回家|看书|学习|健身|吃饭|开会|上课|下班)";
   var colon = text.match(new RegExp("".concat(periodPattern, "\\s*(\\d{1,2})\\s*[:\uFF1A]\\s*(\\d{2})")));
+  var spokenHalf = text.match(new RegExp("".concat(periodPattern, "\\s*").concat(numberPattern, "\\s*[\u70B9\u65F6\u7535]\\s*(?:\u534A|[\u529E\u4F34\u73ED\u7248\u822C]").concat(halfBoundary, ")(?:\u949F)?")));
   var spoken = text.match(new RegExp("".concat(periodPattern, "\\s*").concat(numberPattern, "\\s*[\u70B9\u65F6\u7535](?:\u949F)?\\s*(\u534A|[\u96F6\u3007\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u4E24\\d]{1,3}\u5206?)?")));
-  var match = colon || spoken;
+  var match = colon || spokenHalf || spoken;
   if (!match) return {
     value: "待定",
     source: ""
   };
   var period = match[1] || "";
   var hour = parseNumber(match[2]);
-  var minute = colon ? Number(match[3]) : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
+  var minute = colon ? Number(match[3]) : spokenHalf ? 30 : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
   if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
   if (period === "晚上") hour = hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
   if (period === "中午" && hour < 11) hour += 12;
@@ -3048,11 +3071,12 @@ function parseRepeat(text) {
   };
 }
 function parseDeadline(text) {
-  if (/无\s*(?:ddl|截止)|没有\s*(?:ddl|截止日期|期限)/i.test(text)) return {
+  var explicitNone = text.match(/(?:无|没有)\s*(?:ddl|deadline|截止(?:日期)?|期限)/i);
+  if (explicitNone) return {
     deadline: null,
     daysLeft: null,
-    source: "",
-    kind: "none"
+    source: explicitNone[0],
+    kind: "explicit-none"
   };
   var relative = text.match(/(今天|明天|后天)(?:截止|到期)?/);
   if (relative) {
@@ -3204,7 +3228,7 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
   [].concat(_toConsumableArray(removableParts), [durationSource]).filter(Boolean).forEach(function (part) {
     title = title.replace(part, " ");
   });
-  title = title.replace(/没有\s*(?:ddl|截止日期|期限)|无\s*(?:ddl|截止)/ig, " ").replace(/(?:帮我|给我|请)?(?:创建|添加|新增|安排|记下|记一下|提醒我)\s*(?:一个|一条)?/g, " ").replace(/(?:重要|关键|特殊)(?:任务|事项|事件)?|(?:任务|事项|日程)[:：]?/g, " ").replace(/(?:什么时候|何时|哪天|几点|到时候|那个时候|有空的时候|等有空(?:的)?时候)/g, " ").replace(/(?:的)?时候/g, " ").replace(/(?:之前|以前)?(?:截止|到期)/g, " ").replace(/[，,。；;！？!?]+/g, " ").replace(/^\s*(?:我想要?|我要|我需要|我打算|我计划|我准备要?|我希望|麻烦|然后|就是|你帮我|可以帮我)\s*/g, " ").replace(/(?:大概|大约|差不多|可能|最好)\s*/g, " ").replace(/(?:计划|安排|设定|设置|定|放)\s*(?:在|到|为)\s*/g, " ").replace(/^\s*(?:在|于)\s*/g, " ").replace(/\s*(?:一下|一会儿|一会)\s*/g, "").replace(/去(?=考|办|看|买|取|拿|做|参加|提交|领取|预约|体检|健身|开会|上课)/g, "").replace(/(?:的|啊|呀|吧|呢|嘛|啦|咯|呗)+\s*$/g, "").replace(/\s+/g, " ").trim();
+  title = title.replace(/没有\s*(?:ddl|截止日期|期限)|无\s*(?:ddl|截止)/ig, " ").replace(/(?:帮我|给我|请)?(?:创建|添加|新增|安排|记下|记一下|提醒我)\s*(?:一个|一条)?/g, " ").replace(/(?:重要|关键|特殊)(?:任务|事项|事件)?|(?:任务|事项|日程)[:：]?/g, " ").replace(/^\s*(?:的\s*)+/, "").replace(/(?:什么时候|何时|哪天|几点|到时候|那个时候|有空的时候|等有空(?:的)?时候)/g, " ").replace(/(?:的)?时候/g, " ").replace(/(?:之前|以前)?(?:截止|到期)/g, " ").replace(/[，,。；;！？!?]+/g, " ").replace(/^\s*(?:我想要?|我要|我需要|我打算|我计划|我准备要?|我希望|麻烦|然后|就是|你帮我|可以帮我)\s*/g, " ").replace(/(?:大概|大约|差不多|可能|最好)\s*/g, " ").replace(/(?:计划|安排|设定|设置|定|放)\s*(?:在|到|为)\s*/g, " ").replace(/^\s*(?:在|于)\s*/g, " ").replace(/\s*(?:一下|一会儿|一会)\s*/g, "").replace(/去(?=考|办|看|买|取|拿|做|参加|提交|领取|预约|体检|健身|开会|上课)/g, "").replace(/(?:的|啊|呀|吧|呢|嘛|啦|咯|呗)+\s*$/g, "").replace(/\s+/g, " ").trim();
   var action = TASK_ACTION_WORDS.find(function (word) {
     return title.includes(word);
   }) || "";
@@ -3248,7 +3272,7 @@ function parseVoiceTask(rawText) {
   var withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   var durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   var duration = durationMatch ? "".concat(parseNumber(durationMatch[1]), " ").concat(durationMatch[2]) : "";
-  var isCritical = Boolean(span) || !repeat.source && (/(重要|关键|特殊|ddl|截止|到期)/i.test(text) || deadline.kind === "absolute");
+  var isCritical = Boolean(span) || deadline.kind === "explicit-none" || !repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|到期)/i.test(text) || deadline.kind === "absolute");
   var spanSources = span ? [span.start.source, span.end.source] : [];
   var semantics = extractTaskSemantics(text, [reminderMatch === null || reminderMatch === void 0 ? void 0 : reminderMatch[0], time.source, timeRange === null || timeRange === void 0 || (_timeRange$end = timeRange.end) === null || _timeRange$end === void 0 ? void 0 : _timeRange$end.source, repeat.source, deadline.source].concat(spanSources), durationMatch === null || durationMatch === void 0 ? void 0 : durationMatch[0]);
   var noteParts = [];
@@ -4208,11 +4232,24 @@ function MobileDesignApp() {
       return setVoicePhase("review");
     }, 100);
   };
-  var useVoiceExample = function useVoiceExample() {
-    setTranscript(VOICE_EXAMPLE);
-    window.setTimeout(function () {
-      return setVoicePhase("review");
-    }, 120);
+  var useInputMethodVoice = function useInputMethodVoice() {
+    var _window$JinkeAndroid7, _window$JinkeAndroid8;
+    if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.cancelSpeechRecognition) {
+      try {
+        window.JinkeAndroid.cancelSpeechRecognition();
+      } catch (_unused23) {}
+    } else if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.stopSpeechRecognition) {
+      try {
+        window.JinkeAndroid.stopSpeechRecognition();
+      } catch (_unused24) {}
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (_unused25) {}
+      recognitionRef.current = null;
+    }
+    setSpeechStatus("idle");
   };
   var confirmVoiceCommand = function confirmVoiceCommand(commandOverride) {
     var command = commandOverride || parsedVoiceCommand;
@@ -4478,16 +4515,20 @@ function MobileDesignApp() {
     setOverlay(null);
   };
   var closeOverlay = function closeOverlay() {
-    var _window$JinkeAndroid7;
-    if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.stopSpeechRecognition) {
+    var _window$JinkeAndroid9, _window$JinkeAndroid10;
+    if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.cancelSpeechRecognition) {
+      try {
+        window.JinkeAndroid.cancelSpeechRecognition();
+      } catch (_unused26) {}
+    } else if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused23) {}
+      } catch (_unused27) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused24) {}
+      } catch (_unused28) {}
       recognitionRef.current = null;
     }
     setOverlay(null);
@@ -4496,6 +4537,9 @@ function MobileDesignApp() {
     setSelectedCritical(null);
     setCriticalDraft(null);
     setRenewDays(7);
+    setTranscript("");
+    setVoicePhase("listening");
+    setSpeechStatus("idle");
     setVoiceDraft(null);
     setDeleteTarget(null);
   };
@@ -4547,9 +4591,9 @@ function MobileDesignApp() {
       capabilities: nativeCapabilities,
       onOpenCapability: function onOpenCapability(key) {
         try {
-          var _window$JinkeAndroid8, _window$JinkeAndroid9;
-          (_window$JinkeAndroid8 = window.JinkeAndroid) === null || _window$JinkeAndroid8 === void 0 || (_window$JinkeAndroid9 = _window$JinkeAndroid8.openCapabilitySettings) === null || _window$JinkeAndroid9 === void 0 || _window$JinkeAndroid9.call(_window$JinkeAndroid8, key);
-        } catch (_unused25) {}
+          var _window$JinkeAndroid11, _window$JinkeAndroid12;
+          (_window$JinkeAndroid11 = window.JinkeAndroid) === null || _window$JinkeAndroid11 === void 0 || (_window$JinkeAndroid12 = _window$JinkeAndroid11.openCapabilitySettings) === null || _window$JinkeAndroid12 === void 0 || _window$JinkeAndroid12.call(_window$JinkeAndroid11, key);
+        } catch (_unused29) {}
       },
       onBack: function onBack() {
         return setSecondary(null);
@@ -4654,7 +4698,7 @@ function MobileDesignApp() {
       onDraftTaskChange: setVoiceDraft,
       onTranscript: setTranscript,
       onStop: stopVoice,
-      onUseExample: useVoiceExample,
+      onUseInputMethod: useInputMethodVoice,
       onConfirm: confirmVoiceCommand,
       onClose: closeOverlay,
       speechAvailable: speechAvailable,

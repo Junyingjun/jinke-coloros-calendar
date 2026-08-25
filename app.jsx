@@ -30,8 +30,6 @@ const DEVICE_HEIGHT = 956;
 const SIMULATOR_GAP = 48;
 const SIMULATOR_WIDTH = PHONE_WIDTH + EXPANDED_WIDTH + SIMULATOR_GAP;
 const SIMULATOR_HEIGHT = DEVICE_HEIGHT + 34;
-const VOICE_EXAMPLE = "把健身改到晚上八点";
-
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -135,14 +133,16 @@ function parseNumber(value) {
 function parseTime(text) {
   const periodPattern = "(凌晨|早上|上午|中午|下午|傍晚|晚上)?";
   const numberPattern = "([零〇一二三四五六七八九十两\\d]{1,3})";
+  const halfBoundary = "(?=$|[，,。；;！？!?、]|上床|睡觉|睡眠|休息|起床|出发|回来|回家|看书|学习|健身|吃饭|开会|上课|下班)";
   const colon = text.match(new RegExp(`${periodPattern}\\s*(\\d{1,2})\\s*[:：]\\s*(\\d{2})`));
+  const spokenHalf = text.match(new RegExp(`${periodPattern}\\s*${numberPattern}\\s*[点时电]\\s*(?:半|[办伴班版般]${halfBoundary})(?:钟)?`));
   const spoken = text.match(new RegExp(`${periodPattern}\\s*${numberPattern}\\s*[点时电](?:钟)?\\s*(半|[零〇一二三四五六七八九十两\\d]{1,3}分?)?`));
-  const match = colon || spoken;
+  const match = colon || spokenHalf || spoken;
   if (!match) return { value: "待定", source: "" };
 
   const period = match[1] || "";
   let hour = parseNumber(match[2]);
-  let minute = colon ? Number(match[3]) : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
+  let minute = colon ? Number(match[3]) : spokenHalf ? 30 : match[3] === "半" ? 30 : parseNumber((match[3] || "").replace("分", "")) || 0;
   if (["下午", "傍晚"].includes(period) && hour < 12) hour += 12;
   if (period === "晚上") hour = hour === 12 ? 24 : hour < 12 ? hour + 12 : hour;
   if (period === "中午" && hour < 11) hour += 12;
@@ -200,7 +200,8 @@ function parseRepeat(text) {
 }
 
 function parseDeadline(text) {
-  if (/无\s*(?:ddl|截止)|没有\s*(?:ddl|截止日期|期限)/i.test(text)) return { deadline: null, daysLeft: null, source: "", kind: "none" };
+  const explicitNone = text.match(/(?:无|没有)\s*(?:ddl|deadline|截止(?:日期)?|期限)/i);
+  if (explicitNone) return { deadline: null, daysLeft: null, source: explicitNone[0], kind: "explicit-none" };
   const relative = text.match(/(今天|明天|后天)(?:截止|到期)?/);
   if (relative) {
     const daysLeft = relative[1] === "今天" ? 0 : relative[1] === "明天" ? 1 : 2;
@@ -307,6 +308,7 @@ function extractTaskSemantics(rawText, removableParts, durationSource) {
     .replace(/没有\s*(?:ddl|截止日期|期限)|无\s*(?:ddl|截止)/ig, " ")
     .replace(/(?:帮我|给我|请)?(?:创建|添加|新增|安排|记下|记一下|提醒我)\s*(?:一个|一条)?/g, " ")
     .replace(/(?:重要|关键|特殊)(?:任务|事项|事件)?|(?:任务|事项|日程)[:：]?/g, " ")
+    .replace(/^\s*(?:的\s*)+/, "")
     .replace(/(?:什么时候|何时|哪天|几点|到时候|那个时候|有空的时候|等有空(?:的)?时候)/g, " ")
     .replace(/(?:的)?时候/g, " ")
     .replace(/(?:之前|以前)?(?:截止|到期)/g, " ")
@@ -354,7 +356,7 @@ function parseVoiceTask(rawText) {
   const withoutReminder = reminderMatch ? text.replace(reminderMatch[0], "") : text;
   const durationMatch = withoutReminder.match(/([零〇一二三四五六七八九十两\d]{1,3})\s*(分钟|小时)/);
   const duration = durationMatch ? `${parseNumber(durationMatch[1])} ${durationMatch[2]}` : "";
-  const isCritical = Boolean(span) || (!repeat.source && (/(重要|关键|特殊|ddl|截止|到期)/i.test(text) || deadline.kind === "absolute"));
+  const isCritical = Boolean(span) || deadline.kind === "explicit-none" || (!repeat.source && (/(重要|关键|特殊|ddl|deadline|截止|到期)/i.test(text) || deadline.kind === "absolute"));
 
   const spanSources = span ? [span.start.source, span.end.source] : [];
   const semantics = extractTaskSemantics(text, [reminderMatch?.[0], time.source, timeRange?.end?.source, repeat.source, deadline.source, ...spanSources], durationMatch?.[0]);
@@ -1011,9 +1013,17 @@ function MobileDesignApp() {
     window.setTimeout(() => setVoicePhase("review"), 100);
   };
 
-  const useVoiceExample = () => {
-    setTranscript(VOICE_EXAMPLE);
-    window.setTimeout(() => setVoicePhase("review"), 120);
+  const useInputMethodVoice = () => {
+    if (window.JinkeAndroid?.cancelSpeechRecognition) {
+      try { window.JinkeAndroid.cancelSpeechRecognition(); } catch {}
+    } else if (window.JinkeAndroid?.stopSpeechRecognition) {
+      try { window.JinkeAndroid.stopSpeechRecognition(); } catch {}
+    }
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+    setSpeechStatus("idle");
   };
 
   const confirmVoiceCommand = (commandOverride) => {
@@ -1218,7 +1228,9 @@ function MobileDesignApp() {
   };
 
   const closeOverlay = () => {
-    if (window.JinkeAndroid?.stopSpeechRecognition) {
+    if (window.JinkeAndroid?.cancelSpeechRecognition) {
+      try { window.JinkeAndroid.cancelSpeechRecognition(); } catch {}
+    } else if (window.JinkeAndroid?.stopSpeechRecognition) {
       try { window.JinkeAndroid.stopSpeechRecognition(); } catch {}
     }
     if (recognitionRef.current) {
@@ -1231,6 +1243,9 @@ function MobileDesignApp() {
     setSelectedCritical(null);
     setCriticalDraft(null);
     setRenewDays(7);
+    setTranscript("");
+    setVoicePhase("listening");
+    setSpeechStatus("idle");
     setVoiceDraft(null);
     setDeleteTarget(null);
   };
@@ -1279,7 +1294,7 @@ function MobileDesignApp() {
       {!secondary ? <BottomNav activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setViewMode("day"); }} onVoice={startVoice} /> : null}
       {overlay === "view" ? <ViewMenu onClose={closeOverlay} onSelect={(mode) => { setViewMode(mode); setOverlay(null); }} /> : null}
       {overlay === "more" ? <MoreSheet onClose={closeOverlay} onOpen={openMore} themeMode={themeMode} onThemeChange={setThemeMode} /> : null}
-      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseExample={useVoiceExample} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} /> : null}
+      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} /> : null}
       {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} /> : null}
       {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onComplete={completeCritical} onRenew={renewCritical} onSave={saveCritical} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}

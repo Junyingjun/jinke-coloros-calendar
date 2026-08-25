@@ -21,6 +21,7 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
@@ -414,6 +415,23 @@ public class MainActivity extends Activity {
         public void stopSpeechRecognition() {
             runOnUiThread(() -> {
                 if (offlineSpeechEngine != null) offlineSpeechEngine.stop();
+            });
+        }
+
+        @JavascriptInterface
+        public void cancelSpeechRecognition() {
+            runOnUiThread(() -> {
+                openSpeechAfterPermission = false;
+                if (offlineSpeechEngine != null) offlineSpeechEngine.cancel();
+            });
+        }
+
+        @JavascriptInterface
+        public void showSoftKeyboard() {
+            runOnUiThread(() -> {
+                webView.requestFocus(View.FOCUS_DOWN);
+                InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (keyboard != null) keyboard.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT);
             });
         }
 

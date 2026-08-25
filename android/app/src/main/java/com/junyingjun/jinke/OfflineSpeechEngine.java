@@ -107,6 +107,13 @@ final class OfflineSpeechEngine implements RecognitionListener {
         finish(latestText);
     }
 
+    synchronized void cancel() {
+        startAfterLoading = false;
+        resultDelivered = true;
+        cleanupSession();
+        Log.i(LOG_TAG, "Offline microphone recognition canceled");
+    }
+
     private synchronized void startListening() {
         if (closed || model == null || speechService != null) return;
         committedText = "";

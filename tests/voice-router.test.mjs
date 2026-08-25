@@ -102,6 +102,11 @@ assert.deepEqual(Array.from(route("周一到周五每天十一点点外卖").tas
 assert.equal(route("每天九点提前30小时提醒我写日志").task.reminder, "提前23小时55分钟", "daily voice reminders must stay inside 24 hours on the five-minute grid");
 assert.equal(route("每天十一点三分写日志").task.time, "11:05", "voice minutes must snap to the five-minute grid");
 assert.equal(route("每天十一点十二分写日志").task.time, "11:10", "voice minutes must use the nearest five-minute value");
+assert.equal(route("每天晚上十一点半上床看书").task.time, "23:30", "standard half-hour speech must resolve to thirty minutes");
+assert.equal(route("每天晚上十一点半上床看书").task.title, "上床看书", "the half-hour phrase must not leak into the title");
+assert.equal(route("每天晚上十一点办，上床看书").task.time, "23:30", "common 半/办 recognition confusion must resolve to thirty minutes");
+assert.equal(route("每天晚上十一点办，上床看书").task.title, "上床看书", "a fuzzy half-hour token must be removed from the title");
+assert.equal(route("每天早上七点伴起床").task.time, "07:30", "common 半/伴 recognition confusion must resolve to thirty minutes");
 assert.equal(route("每天晚上十二点睡觉").task.time, "24:00", "evening twelve must remain the selected day's 24:00 boundary");
 assert.equal(route("每天12 点睡觉").task.time, "24:00", "spaced twelve o'clock sleep speech must infer the end-of-day boundary");
 assert.equal(route("每天12电睡觉").task.time, "24:00", "common 点/电 recognition confusion must not leak into the title");
@@ -117,6 +122,9 @@ assert.equal(route("九月一号去北京，九月五号回来").task.span.title
 assert.equal(route("九月一号去北京，九月五号回来").task.span.start.deadline, "9月1日");
 assert.equal(route("九月一号去北京，九月五号回来").task.span.end.deadline, "9月5日");
 assert.equal(route("九月一号去北京，待五天回来").task.span.end.daysLeft - route("九月一号去北京，待五天回来").task.span.start.daysLeft, 5);
+assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.type, "critical", "an explicit no-deadline request must create a critical task");
+assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.deadline, null);
+assert.equal(route("创建一个无deadline的任务，修桑顿皮卡德相机").task.title, "修桑顿皮卡德相机", "the explicit no-deadline phrase must not leak into the title");
 
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-28", "2026-08-24"), true, "workday tasks must show on Friday");
 assert.equal(context.window.taskOccursOnDate({ repeat: "工作日" }, "2026-08-29", "2026-08-24"), false, "workday tasks must not leak into Saturday");
@@ -208,6 +216,12 @@ assert.ok(appSource.indexOf("window.JinkeAndroid?.startSpeechRecognition") < app
 assert.doesNotMatch(activitySource, /RecognizerIntent|ACTION_RECOGNIZE_SPEECH/, "native speech must not depend on an optional system recognition service");
 assert.match(appSource, /JINKE_NATIVE_SPEECH_PARTIAL/, "offline partial recognition must update the assistant transcript");
 assert.match(appSource, /JINKE_NATIVE_SPEECH_STATUS/, "offline model and permission states must be visible in the assistant");
+assert.doesNotMatch(screensSource, /使用示例/, "the listening sheet must offer cancellation instead of injecting a demo command");
+assert.match(screensSource, /onClick=\{onClose\}>取消<\/button>[\s\S]*停止并处理/, "cancel must be available beside stop-and-process");
+assert.match(appSource, /cancelSpeechRecognition/, "canceling the voice sheet must discard the native recognition session");
+assert.match(screensSource, /使用当前输入法语音[\s\S]*输入法/, "the assistant must expose the current keyboard's higher-accuracy dictation path");
+assert.match(activitySource, /showSoftKeyboard[\s\S]*InputMethodManager\.SHOW_IMPLICIT/, "the APK must be able to reveal the active Doubao or WeChat keyboard");
+assert.match(appSource, /useInputMethodVoice[\s\S]*cancelSpeechRecognition[\s\S]*recognitionRef\.current\.abort/, "switching to input-method dictation must release the offline microphone first");
 assert.doesNotMatch(appSource, /parseVoiceCommand\(transcript \|\| VOICE_EXAMPLE/, "an empty recognition result must never silently execute the demo command");
 assert.match(appSource, /commandResult\("invalid", "没有识别到内容"/, "empty recognition must produce an explicit retry state");
 assert.match(appSource, /task\.span[\s\S]*spanRole:\s*"start"[\s\S]*spanRole:\s*"end"/, "multi-day voice ranges must create linked departure and return DDL records");

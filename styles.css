@@ -291,7 +291,10 @@ button:disabled { cursor: default; }
 .field-row { min-height: 46px; padding: 0 12px; border-radius: 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); }
 .field-label { color: var(--ink-3); font-size: 12px; }
 .field-value { font-size: 13px; font-weight: 650; }
-.composer-input { width: 100%; min-height: 48px; margin-top: 12px; padding: 0 14px; border-radius: 15px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.composer-shell { position: relative; margin-top: 12px; }
+.composer-input { width: 100%; min-height: 48px; padding: 0 76px 0 14px; border-radius: 15px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.composer-ime-button { position: absolute; top: 6px; right: 6px; min-width: 60px; min-height: 36px; padding: 0 10px; border-radius: 11px; background: var(--surface-muted); color: var(--ink-2); font-size: 12px; font-weight: 650; }
+.composer-ime-button:active { transform: scale(.95); color: var(--accent); }
 .button-row { display: flex; gap: 10px; margin-top: 18px; }
 .primary-button, .secondary-button { min-height: 52px; flex: 1; border-radius: 17px; padding: 0 16px; font-size: 14px; font-weight: 700; transition: transform 170ms var(--ease-out), opacity 170ms var(--ease-out); }
 .primary-button:active, .secondary-button:active { transform: scale(.97); opacity: .86; }
