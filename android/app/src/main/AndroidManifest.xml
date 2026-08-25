@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <queries>
         <intent>
@@ -31,6 +32,7 @@
             android:name=".MainActivity"
             android:configChanges="density|fontScale|keyboard|keyboardHidden|layoutDirection|locale|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
+            android:launchMode="singleTop"
             android:resizeableActivity="true"
             android:screenOrientation="unspecified">
             <intent-filter>
@@ -39,6 +41,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ReminderAlertActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.Jinke.ReminderAlert"
+            android:turnScreenOn="true" />
+
+        <receiver android:name=".DailyAlarmReceiver" android:exported="false" />
         <receiver android:name=".DdlAlarmReceiver" android:exported="false" />
         <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
             <intent-filter>

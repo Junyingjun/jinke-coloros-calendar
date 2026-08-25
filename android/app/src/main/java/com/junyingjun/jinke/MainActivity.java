@@ -41,6 +41,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private OfflineSpeechEngine offlineSpeechEngine;
     private boolean openSpeechAfterPermission;
+    private boolean webAppReady;
+    private boolean pendingOpenToday;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface", "ObsoleteSdkInt"})
     @Override
@@ -54,8 +56,12 @@ public class MainActivity extends Activity {
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
         NotificationSupport.createChannels(this);
+        DdlScheduler.schedule(this);
+        DailyScheduler.schedule(this);
         cleanupInstalledUpdateApk();
         requestNotificationPermissionIfNeeded();
+        pendingOpenToday = getIntent() != null
+                && getIntent().getBooleanExtra(NotificationSupport.EXTRA_OPEN_TODAY, false);
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(8, 7, 6));
@@ -71,7 +77,14 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                webAppReady = true;
+                deliverOpenToday();
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
@@ -218,6 +231,8 @@ public class MainActivity extends Activity {
             payload.put("microphone", microphone);
             payload.put("notifications", notifications);
             payload.put("exactAlarm", exactAlarm);
+            payload.put("fullScreenIntent", Build.VERSION.SDK_INT < 34
+                    || (notificationManager != null && notificationManager.canUseFullScreenIntent()));
             payload.put("batteryUnrestricted", batteryUnrestricted);
             payload.put("backgroundConfigured", backgroundConfigured);
             payload.put("installUpdates", installUpdates);
@@ -271,6 +286,11 @@ public class MainActivity extends Activity {
         }
         if ("exactAlarm".equals(capability) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        if ("fullScreenIntent".equals(capability) && Build.VERSION.SDK_INT >= 34) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
                     Uri.parse("package:" + getPackageName())));
             return;
         }
@@ -358,6 +378,24 @@ public class MainActivity extends Activity {
         );
     }
 
+    private void deliverOpenToday() {
+        if (!pendingOpenToday || !webAppReady || webView == null) return;
+        pendingOpenToday = false;
+        webView.evaluateJavascript(
+                "window.JINKE_OPEN_TODAY && window.JINKE_OPEN_TODAY();",
+                null);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.getBooleanExtra(NotificationSupport.EXTRA_OPEN_TODAY, false)) {
+            pendingOpenToday = true;
+            if (webView != null) webView.post(this::deliverOpenToday);
+        }
+    }
+
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -371,6 +409,7 @@ public class MainActivity extends Activity {
             deliverWindowLayout();
             deliverSystemCapabilities();
             deliverSystemTimeChanged();
+            deliverOpenToday();
         });
     }
 
@@ -455,6 +494,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void syncDdlReminders(String tasksJson, String time, int multiple, int finalDays) {
             DdlScheduler.saveAndSchedule(MainActivity.this, tasksJson, time, multiple, finalDays);
+        }
+
+        @JavascriptInterface
+        public void syncDailyReminders(String tasksJson) {
+            DailyScheduler.saveAndSchedule(MainActivity.this, tasksJson);
         }
 
         @JavascriptInterface

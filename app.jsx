@@ -343,6 +343,15 @@ function formatDailyReminder(totalMinutes) {
   return `提前${hours ? `${hours}小时` : ""}${minutes ? `${minutes}分钟` : ""}`;
 }
 
+function dailyReminderLeadMinutes(value) {
+  const text = String(value || "到点提醒").replace(/\s+/g, "");
+  if (text === "不提醒") return null;
+  if (text === "到点提醒") return 0;
+  const hours = Number(text.match(/提前(\d+)小时/)?.[1] || 0);
+  const minutes = Number(text.match(/(\d+)分钟/)?.[1] || 0);
+  return Math.min(1435, Math.max(0, hours * 60 + minutes));
+}
+
 function parseVoiceTask(rawText) {
   const text = normalizeSpeechText(rawText);
   const span = parseTaskSpan(text);
@@ -867,6 +876,34 @@ function MobileDesignApp() {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch {}
   }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
+
+  useEffect(() => {
+    if (!window.JinkeAndroid?.syncDailyReminders) return;
+    const payload = dailyTasks.map((task) => {
+      const reminderLeadMinutes = dailyReminderLeadMinutes(task.reminder);
+      const completionPrefix = `${task.id}:`;
+      const completedDateKeys = Object.entries(dailyCompletionByDate)
+        .filter(([key, completed]) => completed && key.startsWith(completionPrefix))
+        .map(([key]) => key.slice(completionPrefix.length));
+      return {
+        id: task.id,
+        title: task.title,
+        time: task.time,
+        repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
+        scheduledDateKey: task.scheduledDateKey || "",
+        activeFrom: task.activeFrom || todayDateKey,
+        activeUntil: task.activeUntil || "",
+        reminderEnabled: reminderLeadMinutes !== null,
+        reminderLeadMinutes: reminderLeadMinutes || 0,
+        completionDateKey: todayDateKey,
+        completed: Boolean(dailyCompletionByDate[`${task.id}:${todayDateKey}`]),
+        completedDateKeys,
+      };
+    });
+    try {
+      window.JinkeAndroid.syncDailyReminders(JSON.stringify(payload));
+    } catch {}
+  }, [dailyTasks, dailyCompletionByDate, todayDateKey]);
 
   useEffect(() => () => {
     if (recognitionRef.current) recognitionRef.current.abort();
@@ -1435,6 +1472,22 @@ function MobileDesignApp() {
       if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
     };
   }, [overlay, secondary, secondaryStack.length, viewMode, activeTab, todayDateKey]);
+
+  useEffect(() => {
+    const openTodayFromNotification = () => {
+      setOverlay(null);
+      setSecondaryStack([]);
+      setActiveTab("today");
+      setViewMode("day");
+      const currentDateKey = localDateKey();
+      setTodayDateKey(currentDateKey);
+      setSelectedDateKey(currentDateKey);
+    };
+    window.JINKE_OPEN_TODAY = openTodayFromNotification;
+    return () => {
+      if (window.JINKE_OPEN_TODAY === openTodayFromNotification) delete window.JINKE_OPEN_TODAY;
+    };
+  }, []);
 
   const renderScreen = () => {
     if (activeTab === "critical") return <CriticalScreen tasks={currentCriticalTasks} onToggle={toggleCriticalCheck} onOpen={openCritical} onDelete={(task) => requestDelete(task, "critical")} onMenu={() => { setSecondaryStack([]); setOverlay("more"); }} onOpenReminders={() => setSecondary("critical-reminders")} />;

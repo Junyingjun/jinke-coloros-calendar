@@ -7,4 +7,12 @@
         <item name="android:statusBarColor">#171512</item>
         <item name="android:windowBackground">#080706</item>
     </style>
+    <style name="Theme.Jinke.ReminderAlert" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorAccent">#FF6048</item>
+    </style>
 </resources>

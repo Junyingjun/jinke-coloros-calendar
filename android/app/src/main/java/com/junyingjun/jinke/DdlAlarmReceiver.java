@@ -3,7 +3,6 @@ package com.junyingjun.jinke;
 import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -47,20 +46,37 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
 
         if (!eligible.isEmpty() && canNotify(context)) {
             int minuteOfDay = Integer.parseInt(triggerTime.substring(0, 2)) * 60 + Integer.parseInt(triggerTime.substring(3));
-            Intent openIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-            PendingIntent contentIntent = PendingIntent.getActivity(context, 8500 + minuteOfDay, openIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            String title = "关键事项 · " + eligible.size() + " 项";
+            String message = String.join("\n", eligible);
+            android.app.PendingIntent openToday = NotificationSupport.openTodayPendingIntent(
+                    context,
+                    8500 + minuteOfDay,
+                    "com.junyingjun.jinke.OPEN_DDL." + triggerTime);
             Notification.InboxStyle style = new Notification.InboxStyle();
             for (String line : eligible) style.addLine(line);
             Notification notification = new Notification.Builder(context, NotificationSupport.DDL_CHANNEL)
                     .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle("关键事项 · " + eligible.size() + " 项")
+                    .setContentTitle(title)
                     .setContentText(eligible.get(0))
                     .setStyle(style)
-                    .setContentIntent(contentIntent)
+                    .setContentIntent(openToday)
+                    .setFullScreenIntent(NotificationSupport.fullScreenPendingIntent(
+                            context,
+                            9000 + minuteOfDay,
+                            "com.junyingjun.jinke.ALERT_DDL." + triggerTime,
+                            title,
+                            message), true)
                     .setAutoCancel(true)
+                    .addAction(new Notification.Action.Builder(R.drawable.ic_notification, "打开今刻", openToday).build())
                     .setCategory(Notification.CATEGORY_REMINDER)
+                    .setShowWhen(true)
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setPriority(Notification.PRIORITY_MAX)
+                    .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE | Notification.DEFAULT_LIGHTS)
                     .build();
-            context.getSystemService(NotificationManager.class).notify(7000 + minuteOfDay, notification);
+            NotificationSupport.wakeForReminder(context);
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
+            if (manager != null) manager.notify(7000 + minuteOfDay, notification);
         }
         DdlScheduler.schedule(context);
     }

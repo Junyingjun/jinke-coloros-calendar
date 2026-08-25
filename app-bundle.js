@@ -3164,9 +3164,15 @@ function PermissionsScreen(_ref30) {
   }, {
     key: "exactAlarm",
     title: "精确闹钟",
-    note: "按设定时间触发 DDL 提醒",
+    note: "按设定时间触发日常与 DDL 提醒",
     status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.exactAlarm),
     ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.exactAlarm
+  }, {
+    key: "fullScreenIntent",
+    title: "锁屏提醒",
+    note: "息屏时亮屏并显示任务",
+    status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.fullScreenIntent),
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.fullScreenIntent
   }, {
     key: "background",
     title: "ColorOS 后台运行",
@@ -3194,7 +3200,7 @@ function PermissionsScreen(_ref30) {
   }, {
     key: null,
     title: "开机恢复提醒",
-    note: "重启后重新安排 DDL 闹钟",
+    note: "重启后重新安排全部任务闹钟",
     status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.bootRestore, "已内置", "组件缺失"),
     ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.bootRestore
   }];
@@ -3348,7 +3354,7 @@ function CriticalReminderScreen(_ref31) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.0.17";
+var JINKE_FALLBACK_VERSION = "1.0.18";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -4049,6 +4055,15 @@ function formatDailyReminder(totalMinutes) {
   var hours = Math.floor(safe / 60);
   var minutes = safe % 60;
   return "\u63D0\u524D".concat(hours ? "".concat(hours, "\u5C0F\u65F6") : "").concat(minutes ? "".concat(minutes, "\u5206\u949F") : "");
+}
+function dailyReminderLeadMinutes(value) {
+  var _text$match, _text$match2;
+  var text = String(value || "到点提醒").replace(/\s+/g, "");
+  if (text === "不提醒") return null;
+  if (text === "到点提醒") return 0;
+  var hours = Number(((_text$match = text.match(/提前(\d+)小时/)) === null || _text$match === void 0 ? void 0 : _text$match[1]) || 0);
+  var minutes = Number(((_text$match2 = text.match(/(\d+)分钟/)) === null || _text$match2 === void 0 ? void 0 : _text$match2[1]) || 0);
+  return Math.min(1435, Math.max(0, hours * 60 + minutes));
 }
 function parseVoiceTask(rawText) {
   var _timeRange$end;
@@ -4845,6 +4860,41 @@ function MobileDesignApp() {
     } catch (_unused18) {}
   }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
+    var _window$JinkeAndroid5;
+    if (!((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.syncDailyReminders)) return;
+    var payload = dailyTasks.map(function (task) {
+      var reminderLeadMinutes = dailyReminderLeadMinutes(task.reminder);
+      var completionPrefix = "".concat(task.id, ":");
+      var completedDateKeys = Object.entries(dailyCompletionByDate).filter(function (_ref7) {
+        var _ref8 = _slicedToArray(_ref7, 2),
+          key = _ref8[0],
+          completed = _ref8[1];
+        return completed && key.startsWith(completionPrefix);
+      }).map(function (_ref9) {
+        var _ref10 = _slicedToArray(_ref9, 1),
+          key = _ref10[0];
+        return key.slice(completionPrefix.length);
+      });
+      return {
+        id: task.id,
+        title: task.title,
+        time: task.time,
+        repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
+        scheduledDateKey: task.scheduledDateKey || "",
+        activeFrom: task.activeFrom || todayDateKey,
+        activeUntil: task.activeUntil || "",
+        reminderEnabled: reminderLeadMinutes !== null,
+        reminderLeadMinutes: reminderLeadMinutes || 0,
+        completionDateKey: todayDateKey,
+        completed: Boolean(dailyCompletionByDate["".concat(task.id, ":").concat(todayDateKey)]),
+        completedDateKeys: completedDateKeys
+      };
+    });
+    try {
+      window.JinkeAndroid.syncDailyReminders(JSON.stringify(payload));
+    } catch (_unused19) {}
+  }, [dailyTasks, dailyCompletionByDate, todayDateKey]);
+  useEffect(function () {
     return function () {
       if (recognitionRef.current) recognitionRef.current.abort();
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -4934,9 +4984,9 @@ function MobileDesignApp() {
           });
         });
         setDailyCompletionByDate(function (current) {
-          return Object.fromEntries(Object.entries(current).filter(function (_ref7) {
-            var _ref8 = _slicedToArray(_ref7, 1),
-              key = _ref8[0];
+          return Object.fromEntries(Object.entries(current).filter(function (_ref11) {
+            var _ref12 = _slicedToArray(_ref11, 1),
+              key = _ref12[0];
             var separator = key.indexOf(":");
             var taskId = separator < 0 ? key : key.slice(0, separator);
             var dateKey = separator < 0 ? "" : key.slice(separator + 1);
@@ -4950,9 +5000,9 @@ function MobileDesignApp() {
           });
         });
         setDailyCompletionByDate(function (current) {
-          return Object.fromEntries(Object.entries(current).filter(function (_ref9) {
-            var _ref10 = _slicedToArray(_ref9, 1),
-              key = _ref10[0];
+          return Object.fromEntries(Object.entries(current).filter(function (_ref13) {
+            var _ref14 = _slicedToArray(_ref13, 1),
+              key = _ref14[0];
             return key.split(":")[0] !== task.id;
           }));
         });
@@ -5054,7 +5104,7 @@ function MobileDesignApp() {
     showToast("DDL \u5DF2\u7EED\u671F ".concat(days, " \u5929"));
   };
   var startVoice = function startVoice() {
-    var _window$JinkeAndroid5;
+    var _window$JinkeAndroid6;
     voiceInputModeRef.current = "offline";
     setTranscript("");
     setVoiceDraft(null);
@@ -5062,7 +5112,7 @@ function MobileDesignApp() {
     setSpeechStatus("starting");
     speechCandidatesRef.current = [];
     setOverlay("voice");
-    if ((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.startSpeechRecognition) {
+    if ((_window$JinkeAndroid6 = window.JinkeAndroid) !== null && _window$JinkeAndroid6 !== void 0 && _window$JinkeAndroid6.startSpeechRecognition) {
       window.JINKE_NATIVE_SPEECH_STATUS = function (status) {
         setSpeechStatus(String(status || "idle"));
         setSpeechAvailable(status !== "error" && status !== "permission-denied");
@@ -5075,7 +5125,7 @@ function MobileDesignApp() {
         try {
           var candidates = typeof payload === "string" ? JSON.parse(payload) : payload;
           speechCandidatesRef.current = Array.isArray(candidates) ? candidates : [];
-        } catch (_unused19) {
+        } catch (_unused20) {
           speechCandidatesRef.current = [];
         }
       };
@@ -5094,7 +5144,7 @@ function MobileDesignApp() {
       try {
         window.JinkeAndroid.startSpeechRecognition();
         setSpeechAvailable(true);
-      } catch (_unused20) {
+      } catch (_unused21) {
         setSpeechAvailable(false);
       }
       return;
@@ -5121,12 +5171,12 @@ function MobileDesignApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setSpeechAvailable(true);
-    } catch (_unused21) {
+    } catch (_unused22) {
       setSpeechAvailable(false);
     }
   };
   var stopVoice = function stopVoice() {
-    var _window$JinkeAndroid6;
+    var _window$JinkeAndroid7;
     if (voiceInputModeRef.current === "input-method") {
       setSpeechStatus("idle");
       window.setTimeout(function () {
@@ -5134,11 +5184,11 @@ function MobileDesignApp() {
       }, 50);
       return;
     }
-    if ((_window$JinkeAndroid6 = window.JinkeAndroid) !== null && _window$JinkeAndroid6 !== void 0 && _window$JinkeAndroid6.stopSpeechRecognition) {
+    if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.stopSpeechRecognition) {
       setSpeechStatus("processing");
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused22) {
+      } catch (_unused23) {
         setSpeechAvailable(false);
       }
       return;
@@ -5146,7 +5196,7 @@ function MobileDesignApp() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_unused23) {}
+      } catch (_unused24) {}
       recognitionRef.current = null;
     }
     window.setTimeout(function () {
@@ -5154,22 +5204,22 @@ function MobileDesignApp() {
     }, 100);
   };
   var useInputMethodVoice = function useInputMethodVoice() {
-    var _window$JinkeAndroid7, _window$JinkeAndroid8;
+    var _window$JinkeAndroid8, _window$JinkeAndroid9;
     if (voiceInputModeRef.current === "input-method") return;
     voiceInputModeRef.current = "input-method";
-    if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.cancelSpeechRecognition) {
+    if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
-      } catch (_unused24) {}
-    } else if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.stopSpeechRecognition) {
+      } catch (_unused25) {}
+    } else if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused25) {}
+      } catch (_unused26) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused26) {}
+      } catch (_unused27) {}
       recognitionRef.current = null;
     }
     setSpeechStatus("idle");
@@ -5456,21 +5506,21 @@ function MobileDesignApp() {
     closeOverlay();
   };
   var closeOverlay = function closeOverlay(afterClose) {
-    var _window$JinkeAndroid9, _window$JinkeAndroid10;
+    var _window$JinkeAndroid10, _window$JinkeAndroid11;
     if (overlayClosingRef.current) return;
-    if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.cancelSpeechRecognition) {
+    if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
-      } catch (_unused27) {}
-    } else if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.stopSpeechRecognition) {
+      } catch (_unused28) {}
+    } else if ((_window$JinkeAndroid11 = window.JinkeAndroid) !== null && _window$JinkeAndroid11 !== void 0 && _window$JinkeAndroid11.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused28) {}
+      } catch (_unused29) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused29) {}
+      } catch (_unused30) {}
       recognitionRef.current = null;
     }
     var finish = function finish() {
@@ -5563,6 +5613,21 @@ function MobileDesignApp() {
       if (window.JINKE_NATIVE_BACK === handleNativeBack) delete window.JINKE_NATIVE_BACK;
     };
   }, [overlay, secondary, secondaryStack.length, viewMode, activeTab, todayDateKey]);
+  useEffect(function () {
+    var openTodayFromNotification = function openTodayFromNotification() {
+      setOverlay(null);
+      setSecondaryStack([]);
+      setActiveTab("today");
+      setViewMode("day");
+      var currentDateKey = localDateKey();
+      setTodayDateKey(currentDateKey);
+      setSelectedDateKey(currentDateKey);
+    };
+    window.JINKE_OPEN_TODAY = openTodayFromNotification;
+    return function () {
+      if (window.JINKE_OPEN_TODAY === openTodayFromNotification) delete window.JINKE_OPEN_TODAY;
+    };
+  }, []);
   var renderScreen = function renderScreen() {
     if (activeTab === "critical") return React.createElement(CriticalScreen, {
       tasks: currentCriticalTasks,
@@ -5636,9 +5701,9 @@ function MobileDesignApp() {
       capabilities: nativeCapabilities,
       onOpenCapability: function onOpenCapability(key) {
         try {
-          var _window$JinkeAndroid11, _window$JinkeAndroid12;
-          (_window$JinkeAndroid11 = window.JinkeAndroid) === null || _window$JinkeAndroid11 === void 0 || (_window$JinkeAndroid12 = _window$JinkeAndroid11.openCapabilitySettings) === null || _window$JinkeAndroid12 === void 0 || _window$JinkeAndroid12.call(_window$JinkeAndroid11, key);
-        } catch (_unused30) {}
+          var _window$JinkeAndroid12, _window$JinkeAndroid13;
+          (_window$JinkeAndroid12 = window.JinkeAndroid) === null || _window$JinkeAndroid12 === void 0 || (_window$JinkeAndroid13 = _window$JinkeAndroid12.openCapabilitySettings) === null || _window$JinkeAndroid13 === void 0 || _window$JinkeAndroid13.call(_window$JinkeAndroid12, key);
+        } catch (_unused31) {}
       },
       onBack: closeSecondary
     });

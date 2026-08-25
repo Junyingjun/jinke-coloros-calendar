@@ -42,7 +42,8 @@
 - 完成后进入历史记录
 - 月度完成率排名和年度完成率排名
 - 年度提前完成 DDL 的 Top 10 排名
-- Android 原生 DDL 通知调度、开机／时区变化后重建提醒与通知权限请求
+- Android 原生日常与 DDL 通知调度：高重要性声音／震动提醒、公开锁屏内容、息屏唤醒提醒页，以及开机／校时／时区变化后重建闹钟
+- 点击通知或锁屏提醒只会打开“今日”主页，不会修改任务完成状态；所有完成记录只能由用户在应用内手动勾选
 - 设置上方提供“版本更新”，连接 GitHub Releases；发现新版后可在应用内下载，并交给 Android 系统安装器确认安装
 - reduced-motion 动效降级
 
@@ -65,7 +66,7 @@
 - 包名：`com.junyingjun.jinke`
 - 最低 Android 9（API 28），目标 Android 16（API 36）
 - 构建：`scripts/build-android.ps1`
-- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.17.apk`
+- Release APK：GitHub Releases 中的 `jinke-coloros-v1.0.18.apk`
 - 更新源：`https://api.github.com/repos/Junyingjun/jinke-coloros-calendar/releases/latest`
 
 首次从 GitHub 更新时，Android 会要求授予“安装未知应用”权限；下载完成后仍由系统安装器显示最终确认，这是 Android 对侧载更新的安全要求。发布签名保存在本机工作区之外，不进入 Git 仓库；后续版本必须沿用同一签名才能覆盖安装。
@@ -81,7 +82,7 @@
 - `PRODUCT.md` / `DESIGN.md`：产品与设计系统
 - `.impeccable/design.json`：机器可读设计扩展
 - `assets/`：应用图标和透明标记
-- `android/`：原生 WebView、DDL AlarmManager、通知、语音识别与 GitHub APK 更新桥接
+- `android/`：原生 WebView、日常／DDL AlarmManager、锁屏通知、语音识别与 GitHub APK 更新桥接
 - `scripts/`：签名构建与线上 Release 验证脚本
 
 ## 语音技术方向

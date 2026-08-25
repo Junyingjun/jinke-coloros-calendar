@@ -826,12 +826,13 @@ function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
     { key: "microphone", title: "麦克风", note: "语音识别与助手指令", status: state(capabilities?.microphone, "已授权", "未授权"), ok: capabilities?.microphone },
     { key: null, title: "离线中文识别", note: "Vosk 中文模型随 APK 内置", status: known ? (capabilities?.offlineSpeechReady ? "已加载" : capabilities?.offlineSpeechBundled ? "已内置" : "组件缺失") : "APK 内置", ok: capabilities?.offlineSpeechBundled },
     { key: "notifications", title: "通知", note: "锁屏和通知中心提醒", status: state(capabilities?.notifications), ok: capabilities?.notifications },
-    { key: "exactAlarm", title: "精确闹钟", note: "按设定时间触发 DDL 提醒", status: state(capabilities?.exactAlarm), ok: capabilities?.exactAlarm },
+    { key: "exactAlarm", title: "精确闹钟", note: "按设定时间触发日常与 DDL 提醒", status: state(capabilities?.exactAlarm), ok: capabilities?.exactAlarm },
+    { key: "fullScreenIntent", title: "锁屏提醒", note: "息屏时亮屏并显示任务", status: state(capabilities?.fullScreenIntent), ok: capabilities?.fullScreenIntent },
     { key: "background", title: "ColorOS 后台运行", note: "自启动和后台活动由 ColorOS 管理", status: capabilities?.backgroundConfigured ? "已配置" : "点击管理", ok: true },
     { key: "battery", title: "电池优化", note: "后台提醒不被系统休眠", status: state(capabilities?.batteryUnrestricted, "不限制", "受限制"), ok: capabilities?.batteryUnrestricted },
     { key: "installUpdates", title: "安装更新", note: "从 GitHub 安装新版 APK", status: state(capabilities?.installUpdates, "已允许", "未允许"), ok: capabilities?.installUpdates },
     { key: null, title: "联网", note: "节日资料和版本检测", status: state(capabilities?.network, "可用", "当前离线"), ok: capabilities?.network },
-    { key: null, title: "开机恢复提醒", note: "重启后重新安排 DDL 闹钟", status: state(capabilities?.bootRestore, "已内置", "组件缺失"), ok: capabilities?.bootRestore },
+    { key: null, title: "开机恢复提醒", note: "重启后重新安排全部任务闹钟", status: state(capabilities?.bootRestore, "已内置", "组件缺失"), ok: capabilities?.bootRestore },
   ];
   return (
     <main className="screen secondary">
@@ -902,7 +903,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.0.17";
+const JINKE_FALLBACK_VERSION = "1.0.18";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
