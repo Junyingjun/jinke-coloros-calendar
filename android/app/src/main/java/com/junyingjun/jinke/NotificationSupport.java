@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 
@@ -144,6 +145,22 @@ final class NotificationSupport {
     }
 
     private static MediaPlayer createPlayer(Context context, String soundId) {
+        if (soundId != null && soundId.startsWith("alarm:")) {
+            try {
+                Uri alarmUri = Uri.parse(soundId.substring("alarm:".length()));
+                AudioAttributes alarmAudio = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+                MediaPlayer player = new MediaPlayer();
+                player.setAudioAttributes(alarmAudio);
+                player.setDataSource(context, alarmUri);
+                player.prepare();
+                return player;
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
         int resource = rawResource(soundId);
         AudioAttributes notificationAudio = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)

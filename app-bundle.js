@@ -1468,26 +1468,64 @@ function SegmentedChoice(_ref) {
     }, optionLabel);
   }));
 }
-function ReminderSoundPicker(_ref4) {
+function SoundChoice(_ref4) {
+  var sound = _ref4.sound,
+    selected = _ref4.selected,
+    _ref4$disabled = _ref4.disabled,
+    disabled = _ref4$disabled === void 0 ? false : _ref4$disabled,
+    onSelect = _ref4.onSelect,
+    onPreview = _ref4.onPreview;
+  var sourceLabel = sound.source === "system-alarm" ? "系统闹铃" : sound.source === "local" ? "本地音频" : "内置提示音";
+  return React.createElement("div", {
+    className: "sound-choice ".concat(selected ? "selected" : "")
+  }, React.createElement("button", {
+    type: "button",
+    className: "sound-choice-main",
+    disabled: disabled,
+    onClick: onSelect
+  }, React.createElement("span", null, sound.name), React.createElement("small", null, sourceLabel)), React.createElement("button", {
+    type: "button",
+    className: "sound-preview",
+    disabled: disabled,
+    "aria-label": "\u8BD5\u542C".concat(sound.name),
+    onClick: onPreview
+  }, "\u8BD5\u542C"));
+}
+function ReminderSoundPicker(_ref5) {
   var _sounds$find;
-  var _ref4$task = _ref4.task,
-    task = _ref4$task === void 0 ? {} : _ref4$task,
-    _ref4$sounds = _ref4.sounds,
-    sounds = _ref4$sounds === void 0 ? [] : _ref4$sounds,
-    _ref4$defaultAlertMod = _ref4.defaultAlertMode,
-    defaultAlertMode = _ref4$defaultAlertMod === void 0 ? "sound" : _ref4$defaultAlertMod,
-    _ref4$defaultSoundId = _ref4.defaultSoundId,
-    defaultSoundId = _ref4$defaultSoundId === void 0 ? "chime" : _ref4$defaultSoundId,
-    onChange = _ref4.onChange,
-    onPreview = _ref4.onPreview,
-    onImport = _ref4.onImport;
+  var _ref5$task = _ref5.task,
+    task = _ref5$task === void 0 ? {} : _ref5$task,
+    _ref5$sounds = _ref5.sounds,
+    sounds = _ref5$sounds === void 0 ? [] : _ref5$sounds,
+    _ref5$defaultAlertMod = _ref5.defaultAlertMode,
+    defaultAlertMode = _ref5$defaultAlertMod === void 0 ? "sound" : _ref5$defaultAlertMod,
+    _ref5$defaultSoundId = _ref5.defaultSoundId,
+    defaultSoundId = _ref5$defaultSoundId === void 0 ? "chime" : _ref5$defaultSoundId,
+    onChange = _ref5.onChange,
+    _onPreview = _ref5.onPreview,
+    onImport = _ref5.onImport,
+    onPickSystemAlarm = _ref5.onPickSystemAlarm;
   var alertMode = task.alertMode || "inherit";
   var soundId = task.soundId || "inherit";
   var effectiveMode = alertMode === "inherit" ? defaultAlertMode : alertMode;
-  var effectiveSoundId = soundId === "inherit" ? defaultSoundId : soundId;
   var defaultModeLabel = defaultAlertMode === "silent" ? "默认静音" : "默认响铃";
+  var builtInSounds = sounds.filter(function (sound) {
+    return sound.source === "built-in";
+  });
+  var systemAlarmSounds = sounds.filter(function (sound) {
+    return sound.source === "system-alarm";
+  });
+  var localSounds = sounds.filter(function (sound) {
+    return sound.source === "local";
+  });
   var update = function update(changes) {
     return onChange(_objectSpread(_objectSpread({}, task), changes));
+  };
+  var selectSound = function selectSound(id) {
+    return update({
+      soundId: id,
+      alertMode: alertMode === "silent" ? "sound" : alertMode
+    });
   };
   return React.createElement("div", {
     className: "task-sound-picker",
@@ -1507,8 +1545,10 @@ function ReminderSoundPicker(_ref4) {
   }), effectiveMode === "sound" ? React.createElement(React.Fragment, null, React.createElement("div", {
     className: "sound-picker-head sound-picker-subhead"
   }, React.createElement("span", null, "\u63D0\u9192\u97F3\u6548"), React.createElement("strong", null, soundId === "inherit" ? "使用默认" : "单独设置")), React.createElement("div", {
-    className: "sound-choice-list"
+    className: "sound-library-section"
   }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u9ED8\u8BA4"), React.createElement("div", {
     className: "sound-choice ".concat(soundId === "inherit" ? "selected" : "")
   }, React.createElement("button", {
     type: "button",
@@ -1525,45 +1565,84 @@ function ReminderSoundPicker(_ref4) {
     className: "sound-preview",
     "aria-label": "\u8BD5\u542C\u9ED8\u8BA4\u97F3\u6548",
     onClick: function onClick() {
-      return onPreview(defaultSoundId);
+      return _onPreview(defaultSoundId);
     }
-  }, "\u8BD5\u542C")), sounds.map(function (sound) {
-    return React.createElement("div", {
-      className: "sound-choice ".concat(soundId === sound.id ? "selected" : ""),
+  }, "\u8BD5\u542C"))), React.createElement("div", {
+    className: "sound-library-section"
+  }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u63D0\u793A\u97F3"), React.createElement("div", {
+    className: "sound-choice-list"
+  }, builtInSounds.map(function (sound) {
+    return React.createElement(SoundChoice, {
+      sound: sound,
+      selected: soundId === sound.id,
+      onSelect: function onSelect() {
+        return selectSound(sound.id);
+      },
+      onPreview: function onPreview() {
+        return _onPreview(sound.id);
+      },
       key: sound.id
-    }, React.createElement("button", {
-      type: "button",
-      className: "sound-choice-main",
-      onClick: function onClick() {
-        return update({
-          soundId: sound.id
-        });
-      }
-    }, React.createElement("span", null, sound.name), React.createElement("small", null, sound.source === "local" ? "本地" : "内置")), React.createElement("button", {
-      type: "button",
-      className: "sound-preview",
-      "aria-label": "\u8BD5\u542C".concat(sound.name),
-      onClick: function onClick() {
-        return onPreview(sound.id);
-      }
-    }, "\u8BD5\u542C"));
-  })), React.createElement("button", {
+    });
+  }))), React.createElement("div", {
+    className: "sound-library-section system-alarm-library"
+  }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u95F9\u94C3\u5E93"), React.createElement("button", {
+    type: "button",
+    className: "sound-library-entry pressable",
+    onClick: function onClick() {
+      return onPickSystemAlarm(function (id) {
+        return selectSound(id);
+      }, soundId);
+    }
+  }, React.createElement("span", null, React.createElement("strong", null, "\u624B\u673A\u7CFB\u7EDF\u95F9\u94C3"), React.createElement("small", null, "\u4F7F\u7528 ColorOS \u95F9\u949F\u97F3\u91CF\uFF0C\u9002\u5408\u8D77\u5E8A\u63D0\u9192")), React.createElement("b", null, "\u8FDB\u5165\u9009\u62E9")), systemAlarmSounds.length ? React.createElement("div", {
+    className: "sound-choice-list"
+  }, systemAlarmSounds.map(function (sound) {
+    return React.createElement(SoundChoice, {
+      sound: sound,
+      selected: soundId === sound.id,
+      onSelect: function onSelect() {
+        return selectSound(sound.id);
+      },
+      onPreview: function onPreview() {
+        return _onPreview(sound.id);
+      },
+      key: sound.id
+    });
+  })) : null), React.createElement("div", {
+    className: "sound-library-section"
+  }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u672C\u5730\u97F3\u9891"), localSounds.length ? React.createElement("div", {
+    className: "sound-choice-list"
+  }, localSounds.map(function (sound) {
+    return React.createElement(SoundChoice, {
+      sound: sound,
+      selected: soundId === sound.id,
+      onSelect: function onSelect() {
+        return selectSound(sound.id);
+      },
+      onPreview: function onPreview() {
+        return _onPreview(sound.id);
+      },
+      key: sound.id
+    });
+  })) : null, React.createElement("button", {
     type: "button",
     className: "sound-import-button pressable",
     onClick: function onClick() {
       return onImport(function (id) {
-        return update({
-          soundId: id,
-          alertMode: alertMode === "silent" ? "sound" : alertMode
-        });
+        return selectSound(id);
       });
     }
-  }, "\uFF0B \u5BFC\u5165\u672C\u5730\u97F3\u6548")) : null);
+  }, "\uFF0B \u5BFC\u5165\u672C\u5730\u97F3\u6548"))) : null);
 }
-function WeekdayPicker(_ref5) {
-  var value = _ref5.value,
-    repeatDays = _ref5.repeatDays,
-    onChange = _ref5.onChange;
+function WeekdayPicker(_ref6) {
+  var value = _ref6.value,
+    repeatDays = _ref6.repeatDays,
+    onChange = _ref6.onChange;
   var selectedDays = repeatDaysFromValue(value, repeatDays);
   var toggleDay = function toggleDay(day) {
     var next = selectedDays.includes(day) ? selectedDays.filter(function (item) {
@@ -1593,20 +1672,20 @@ function WeekdayPicker(_ref5) {
     }, label);
   })));
 }
-function Stepper(_ref6) {
-  var label = _ref6.label,
-    value = _ref6.value,
-    min = _ref6.min,
-    max = _ref6.max,
-    _ref6$step = _ref6.step,
-    step = _ref6$step === void 0 ? 1 : _ref6$step,
-    _ref6$wrap = _ref6.wrap,
-    wrap = _ref6$wrap === void 0 ? false : _ref6$wrap,
-    onChange = _ref6.onChange,
-    _ref6$format = _ref6.format,
-    format = _ref6$format === void 0 ? function (item) {
+function Stepper(_ref7) {
+  var label = _ref7.label,
+    value = _ref7.value,
+    min = _ref7.min,
+    max = _ref7.max,
+    _ref7$step = _ref7.step,
+    step = _ref7$step === void 0 ? 1 : _ref7$step,
+    _ref7$wrap = _ref7.wrap,
+    wrap = _ref7$wrap === void 0 ? false : _ref7$wrap,
+    onChange = _ref7.onChange,
+    _ref7$format = _ref7.format,
+    format = _ref7$format === void 0 ? function (item) {
       return item;
-    } : _ref6$format;
+    } : _ref7$format;
   var safeValue = Math.min(max, Math.max(min, Number(value) || 0));
   var decrease = function decrease() {
     return onChange(wrap && safeValue <= min ? max : Math.max(min, safeValue - step));
@@ -1642,14 +1721,14 @@ function parseClock(value) {
     minute: minute
   };
 }
-function TimePicker(_ref7) {
-  var label = _ref7.label,
-    value = _ref7.value,
-    onChange = _ref7.onChange,
-    _ref7$allowUnset = _ref7.allowUnset,
-    allowUnset = _ref7$allowUnset === void 0 ? true : _ref7$allowUnset,
-    _ref7$maxHour = _ref7.maxHour,
-    maxHour = _ref7$maxHour === void 0 ? 24 : _ref7$maxHour;
+function TimePicker(_ref8) {
+  var label = _ref8.label,
+    value = _ref8.value,
+    onChange = _ref8.onChange,
+    _ref8$allowUnset = _ref8.allowUnset,
+    allowUnset = _ref8$allowUnset === void 0 ? true : _ref8$allowUnset,
+    _ref8$maxHour = _ref8.maxHour,
+    maxHour = _ref8$maxHour === void 0 ? 24 : _ref8$maxHour;
   var enabled = Boolean(value && value !== "待定");
   var clock = parseClock(value);
   var update = function update(hour, minute) {
@@ -1716,9 +1795,9 @@ function reminderFromMinutes(totalMinutes) {
   var minutes = safe % 60;
   return "\u63D0\u524D".concat(hours ? "".concat(hours, "\u5C0F\u65F6") : "").concat(minutes ? "".concat(minutes, "\u5206\u949F") : "");
 }
-function ReminderPicker(_ref8) {
-  var value = _ref8.value,
-    onChange = _ref8.onChange;
+function ReminderPicker(_ref9) {
+  var value = _ref9.value,
+    onChange = _ref9.onChange;
   var total = reminderToMinutes(value);
   var enabled = total !== null;
   var safe = total || 0;
@@ -1784,13 +1863,13 @@ function dateInputToDeadline(value) {
   if (!value) return null;
   return value;
 }
-function DatePicker(_ref9) {
-  var value = _ref9.value,
-    onChange = _ref9.onChange,
-    _ref9$label = _ref9.label,
-    label = _ref9$label === void 0 ? "截止日期" : _ref9$label,
-    _ref9$allowPast = _ref9.allowPast,
-    allowPast = _ref9$allowPast === void 0 ? false : _ref9$allowPast;
+function DatePicker(_ref10) {
+  var value = _ref10.value,
+    onChange = _ref10.onChange,
+    _ref10$label = _ref10.label,
+    label = _ref10$label === void 0 ? "截止日期" : _ref10$label,
+    _ref10$allowPast = _ref10.allowPast,
+    allowPast = _ref10$allowPast === void 0 ? false : _ref10$allowPast;
   var today = new Date();
   var iso = deadlineToDateInput(value) || "".concat(today.getFullYear(), "-").concat(String(today.getMonth() + 1).padStart(2, "0"), "-").concat(String(today.getDate()).padStart(2, "0"));
   var _iso$split$map = iso.split("-").map(Number),
@@ -1851,9 +1930,9 @@ function DatePicker(_ref9) {
     className: "picker-empty"
   }, "\u672A\u8BBE\u7F6E"));
 }
-function CompletionDatePicker(_ref10) {
-  var value = _ref10.value,
-    onChange = _ref10.onChange;
+function CompletionDatePicker(_ref11) {
+  var value = _ref11.value,
+    onChange = _ref11.onChange;
   var today = new Date();
   var todayKey = "".concat(today.getFullYear(), "-").concat(String(today.getMonth() + 1).padStart(2, "0"), "-").concat(String(today.getDate()).padStart(2, "0"));
   var iso = /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : todayKey;
@@ -1920,9 +1999,9 @@ function deadlineDaysFromToday(deadline) {
   var end = new Date(year, month - 1, day, 12);
   return Math.max(1, Math.round((end - start) / 86400000));
 }
-function DeadlineLeadPicker(_ref11) {
-  var value = _ref11.value,
-    onChange = _ref11.onChange;
+function DeadlineLeadPicker(_ref12) {
+  var value = _ref12.value,
+    onChange = _ref12.onChange;
   var safe = Math.min(1435, Math.max(0, Math.round((Number(value) || 0) / 5) * 5));
   var hours = Math.floor(safe / 60);
   var minutes = safe % 60;
@@ -1957,9 +2036,9 @@ function DeadlineLeadPicker(_ref11) {
     }
   }))));
 }
-function CriticalReminderPlanPicker(_ref12) {
-  var task = _ref12.task,
-    onChange = _ref12.onChange;
+function CriticalReminderPlanPicker(_ref13) {
+  var task = _ref13.task,
+    onChange = _ref13.onChange;
   var plan = normalizeCriticalReminderPlan(task);
   var enabled = Boolean(task.deadline && plan.reminderEnabled);
   var finalDaysMax = deadlineDaysFromToday(task.deadline);
@@ -2059,11 +2138,11 @@ function CriticalReminderPlanPicker(_ref12) {
     reminderFinalDays: plan.reminderMode === "final-days" ? boundedFinalDays : plan.reminderFinalDays
   })))) : null);
 }
-function WeekStrip(_ref13) {
-  var selectedDateKey = _ref13.selectedDateKey,
-    todayDateKey = _ref13.todayDateKey,
-    onSelectDate = _ref13.onSelectDate,
-    getDateLoad = _ref13.getDateLoad;
+function WeekStrip(_ref14) {
+  var selectedDateKey = _ref14.selectedDateKey,
+    todayDateKey = _ref14.todayDateKey,
+    onSelectDate = _ref14.onSelectDate,
+    getDateLoad = _ref14.getDateLoad;
   return React.createElement("div", {
     className: "week-strip",
     "aria-label": "\u672C\u5468"
@@ -2094,11 +2173,11 @@ function WeekStrip(_ref13) {
     })));
   }));
 }
-function MonthPeekPanel(_ref14) {
-  var selectedDateKey = _ref14.selectedDateKey,
-    todayDateKey = _ref14.todayDateKey,
-    onSelectDate = _ref14.onSelectDate,
-    getDateLoad = _ref14.getDateLoad;
+function MonthPeekPanel(_ref15) {
+  var selectedDateKey = _ref15.selectedDateKey,
+    todayDateKey = _ref15.todayDateKey,
+    onSelectDate = _ref15.onSelectDate,
+    getDateLoad = _ref15.getDateLoad;
   var selected = getDateMeta(selectedDateKey);
   var monthDays = getMonthDates(selectedDateKey);
   return React.createElement("div", {
@@ -2159,9 +2238,9 @@ function MonthPeekPanel(_ref14) {
     }
   }, "\u4ECA\u5929"));
 }
-function ViewMenu(_ref15) {
-  var onSelect = _ref15.onSelect,
-    onClose = _ref15.onClose;
+function ViewMenu(_ref16) {
+  var onSelect = _ref16.onSelect,
+    onClose = _ref16.onClose;
   return React.createElement(Sheet, {
     onClose: onClose,
     label: "\u68C0\u89C6\u65B9\u5F0F"
@@ -2195,23 +2274,23 @@ function ViewMenu(_ref15) {
     }));
   })));
 }
-function TodayScreen(_ref16) {
-  var tasks = _ref16.tasks,
-    deadlineTasks = _ref16.deadlineTasks,
-    onToggle = _ref16.onToggle,
-    onEdit = _ref16.onEdit,
-    onDeleteDaily = _ref16.onDeleteDaily,
-    onToggleCritical = _ref16.onToggleCritical,
-    onOpenCritical = _ref16.onOpenCritical,
-    onDeleteCritical = _ref16.onDeleteCritical,
-    onMenu = _ref16.onMenu,
-    viewMode = _ref16.viewMode,
-    onOpenView = _ref16.onOpenView,
-    selectedDateKey = _ref16.selectedDateKey,
-    todayDateKey = _ref16.todayDateKey,
-    onSelectDate = _ref16.onSelectDate,
-    getDateLoad = _ref16.getDateLoad,
-    onOpenDayArchive = _ref16.onOpenDayArchive;
+function TodayScreen(_ref17) {
+  var tasks = _ref17.tasks,
+    deadlineTasks = _ref17.deadlineTasks,
+    onToggle = _ref17.onToggle,
+    onEdit = _ref17.onEdit,
+    onDeleteDaily = _ref17.onDeleteDaily,
+    onToggleCritical = _ref17.onToggleCritical,
+    onOpenCritical = _ref17.onOpenCritical,
+    onDeleteCritical = _ref17.onDeleteCritical,
+    onMenu = _ref17.onMenu,
+    viewMode = _ref17.viewMode,
+    onOpenView = _ref17.onOpenView,
+    selectedDateKey = _ref17.selectedDateKey,
+    todayDateKey = _ref17.todayDateKey,
+    onSelectDate = _ref17.onSelectDate,
+    getDateLoad = _ref17.getDateLoad,
+    onOpenDayArchive = _ref17.onOpenDayArchive;
   var done = tasks.filter(function (task) {
     return task.done;
   }).length;
@@ -2435,13 +2514,13 @@ function loadArchiveCategory(category, month, day) {
   ON_THIS_DAY_REQUESTS.set(key, request);
   return request;
 }
-function CalendarDaySheet(_ref17) {
-  var dateKey = _ref17.dateKey,
-    onClose = _ref17.onClose,
-    active = _ref17.active,
-    index = _ref17.index,
-    onActiveChange = _ref17.onActiveChange,
-    onIndexChange = _ref17.onIndexChange;
+function CalendarDaySheet(_ref18) {
+  var dateKey = _ref18.dateKey,
+    onClose = _ref18.onClose,
+    active = _ref18.active,
+    index = _ref18.index,
+    onActiveChange = _ref18.onActiveChange,
+    onIndexChange = _ref18.onIndexChange;
   var _React$useState = React.useState({
       holidays: [],
       events: [],
@@ -2567,13 +2646,13 @@ function CalendarDaySheet(_ref17) {
     size: 16
   }), "\u6362\u4E00\u6761")));
 }
-function CriticalScreen(_ref18) {
-  var tasks = _ref18.tasks,
-    onToggle = _ref18.onToggle,
-    onOpen = _ref18.onOpen,
-    onDelete = _ref18.onDelete,
-    onMenu = _ref18.onMenu,
-    onOpenReminders = _ref18.onOpenReminders;
+function CriticalScreen(_ref19) {
+  var tasks = _ref19.tasks,
+    onToggle = _ref19.onToggle,
+    onOpen = _ref19.onOpen,
+    onDelete = _ref19.onDelete,
+    onMenu = _ref19.onMenu,
+    onOpenReminders = _ref19.onOpenReminders;
   var withDDL = tasks.filter(function (task) {
     return task.deadline;
   });
@@ -2659,25 +2738,26 @@ function Waveform() {
     });
   }));
 }
-function VoiceComposer(_ref19) {
+function VoiceComposer(_ref20) {
   var _editableTask$title;
-  var phase = _ref19.phase,
-    transcript = _ref19.transcript,
-    parsedCommand = _ref19.parsedCommand,
-    draftTask = _ref19.draftTask,
-    onDraftTaskChange = _ref19.onDraftTaskChange,
-    onTranscript = _ref19.onTranscript,
-    onStop = _ref19.onStop,
-    onUseInputMethod = _ref19.onUseInputMethod,
-    onConfirm = _ref19.onConfirm,
-    onClose = _ref19.onClose,
-    speechAvailable = _ref19.speechAvailable,
-    speechStatus = _ref19.speechStatus,
-    sounds = _ref19.sounds,
-    defaultAlertMode = _ref19.defaultAlertMode,
-    defaultSoundId = _ref19.defaultSoundId,
-    onPreviewSound = _ref19.onPreviewSound,
-    onImportSound = _ref19.onImportSound;
+  var phase = _ref20.phase,
+    transcript = _ref20.transcript,
+    parsedCommand = _ref20.parsedCommand,
+    draftTask = _ref20.draftTask,
+    onDraftTaskChange = _ref20.onDraftTaskChange,
+    onTranscript = _ref20.onTranscript,
+    onStop = _ref20.onStop,
+    onUseInputMethod = _ref20.onUseInputMethod,
+    onConfirm = _ref20.onConfirm,
+    onClose = _ref20.onClose,
+    speechAvailable = _ref20.speechAvailable,
+    speechStatus = _ref20.speechStatus,
+    sounds = _ref20.sounds,
+    defaultAlertMode = _ref20.defaultAlertMode,
+    defaultSoundId = _ref20.defaultSoundId,
+    onPreviewSound = _ref20.onPreviewSound,
+    onImportSound = _ref20.onImportSound,
+    onPickSystemAlarm = _ref20.onPickSystemAlarm;
   var text = transcript.trim();
   var editableTask = draftTask || parsedCommand.task;
   var updateDraft = function updateDraft(field, value) {
@@ -2882,7 +2962,8 @@ function VoiceComposer(_ref19) {
     defaultSoundId: defaultSoundId,
     onChange: onDraftTaskChange,
     onPreview: onPreviewSound,
-    onImport: onImportSound
+    onImport: onImportSound,
+    onPickSystemAlarm: onPickSystemAlarm
   })), React.createElement("label", {
     className: "edit-field stacked"
   }, React.createElement("span", {
@@ -2900,10 +2981,10 @@ function VoiceComposer(_ref19) {
     className: "parsed-title"
   }, parsedCommand.heading), React.createElement("div", {
     className: "field-list"
-  }, parsedCommand.rows.map(function (_ref20, index) {
-    var _ref21 = _slicedToArray(_ref20, 2),
-      label = _ref21[0],
-      value = _ref21[1];
+  }, parsedCommand.rows.map(function (_ref21, index) {
+    var _ref22 = _slicedToArray(_ref21, 2),
+      label = _ref22[0],
+      value = _ref22[1];
     return React.createElement("div", {
       className: "field-row",
       key: "".concat(label, "-").concat(index)
@@ -2926,17 +3007,18 @@ function VoiceComposer(_ref19) {
     disabled: !canConfirm
   }, parsedCommand.confirmLabel))));
 }
-function DailyEditSheet(_ref22) {
-  var task = _ref22.task,
-    draft = _ref22.draft,
-    onDraftChange = _ref22.onDraftChange,
-    onSave = _ref22.onSave,
-    onClose = _ref22.onClose,
-    sounds = _ref22.sounds,
-    defaultAlertMode = _ref22.defaultAlertMode,
-    defaultSoundId = _ref22.defaultSoundId,
-    onPreviewSound = _ref22.onPreviewSound,
-    onImportSound = _ref22.onImportSound;
+function DailyEditSheet(_ref23) {
+  var task = _ref23.task,
+    draft = _ref23.draft,
+    onDraftChange = _ref23.onDraftChange,
+    onSave = _ref23.onSave,
+    onClose = _ref23.onClose,
+    sounds = _ref23.sounds,
+    defaultAlertMode = _ref23.defaultAlertMode,
+    defaultSoundId = _ref23.defaultSoundId,
+    onPreviewSound = _ref23.onPreviewSound,
+    onImportSound = _ref23.onImportSound,
+    onPickSystemAlarm = _ref23.onPickSystemAlarm;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -3000,7 +3082,8 @@ function DailyEditSheet(_ref22) {
     defaultSoundId: defaultSoundId,
     onChange: onDraftChange,
     onPreview: onPreviewSound,
-    onImport: onImportSound
+    onImport: onImportSound,
+    onPickSystemAlarm: onPickSystemAlarm
   })), React.createElement("label", {
     className: "edit-field stacked"
   }, React.createElement("span", {
@@ -3027,11 +3110,11 @@ function DailyEditSheet(_ref22) {
     disabled: !draft.title.trim()
   }, "\u4FDD\u5B58\u4FEE\u6539")));
 }
-function MoreSheet(_ref23) {
-  var onClose = _ref23.onClose,
-    onOpen = _ref23.onOpen,
-    themeMode = _ref23.themeMode,
-    onThemeChange = _ref23.onThemeChange;
+function MoreSheet(_ref24) {
+  var onClose = _ref24.onClose,
+    onOpen = _ref24.onOpen,
+    themeMode = _ref24.themeMode,
+    onThemeChange = _ref24.onThemeChange;
   var rows = [["history", "历史记录", "history"], ["month", "月度复盘", "chart"], ["year", "年度复盘", "year"], ["permissions", "通知与权限", "bell"], ["voice", "语音模型", "spark"], ["version", "版本更新", "update"], ["settings", "设置", "settings"]];
   return React.createElement(Sheet, {
     onClose: onClose,
@@ -3040,10 +3123,10 @@ function MoreSheet(_ref23) {
     className: "theme-switch theme-switch-first",
     role: "group",
     "aria-label": "\u5916\u89C2"
-  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref24) {
-    var _ref25 = _slicedToArray(_ref24, 2),
-      mode = _ref25[0],
-      label = _ref25[1];
+  }, [['dark', '暗色'], ['system', '系统'], ['light', '亮色']].map(function (_ref25) {
+    var _ref26 = _slicedToArray(_ref25, 2),
+      mode = _ref26[0],
+      label = _ref26[1];
     return React.createElement("button", {
       className: "theme-option ".concat(themeMode === mode ? "active" : ""),
       "aria-pressed": themeMode === mode,
@@ -3054,11 +3137,11 @@ function MoreSheet(_ref23) {
     }, label);
   })), React.createElement("div", {
     className: "menu-list"
-  }, rows.map(function (_ref26) {
-    var _ref27 = _slicedToArray(_ref26, 3),
-      id = _ref27[0],
-      title = _ref27[1],
-      icon = _ref27[2];
+  }, rows.map(function (_ref27) {
+    var _ref28 = _slicedToArray(_ref27, 3),
+      id = _ref28[0],
+      title = _ref28[1],
+      icon = _ref28[2];
     return React.createElement("button", {
       className: "menu-row",
       key: id,
@@ -3078,21 +3161,22 @@ function MoreSheet(_ref23) {
     }));
   })));
 }
-function CriticalDetailSheet(_ref28) {
+function CriticalDetailSheet(_ref29) {
   var _draft$progress;
-  var task = _ref28.task,
-    draft = _ref28.draft,
-    renewDays = _ref28.renewDays,
-    onRenewDaysChange = _ref28.onRenewDaysChange,
-    onDraftChange = _ref28.onDraftChange,
-    onClose = _ref28.onClose,
-    onRenew = _ref28.onRenew,
-    onSave = _ref28.onSave,
-    sounds = _ref28.sounds,
-    defaultAlertMode = _ref28.defaultAlertMode,
-    defaultSoundId = _ref28.defaultSoundId,
-    onPreviewSound = _ref28.onPreviewSound,
-    onImportSound = _ref28.onImportSound;
+  var task = _ref29.task,
+    draft = _ref29.draft,
+    renewDays = _ref29.renewDays,
+    onRenewDaysChange = _ref29.onRenewDaysChange,
+    onDraftChange = _ref29.onDraftChange,
+    onClose = _ref29.onClose,
+    onRenew = _ref29.onRenew,
+    onSave = _ref29.onSave,
+    sounds = _ref29.sounds,
+    defaultAlertMode = _ref29.defaultAlertMode,
+    defaultSoundId = _ref29.defaultSoundId,
+    onPreviewSound = _ref29.onPreviewSound,
+    onImportSound = _ref29.onImportSound,
+    onPickSystemAlarm = _ref29.onPickSystemAlarm;
   if (!task || !draft) return null;
   var update = function update(field, value) {
     return onDraftChange(_objectSpread(_objectSpread({}, draft), {}, _defineProperty({}, field, value)));
@@ -3163,7 +3247,8 @@ function CriticalDetailSheet(_ref28) {
     defaultSoundId: defaultSoundId,
     onChange: onDraftChange,
     onPreview: onPreviewSound,
-    onImport: onImportSound
+    onImport: onImportSound,
+    onPickSystemAlarm: onPickSystemAlarm
   })), React.createElement("div", {
     className: "edit-field stacked custom-control-field"
   }, React.createElement("span", {
@@ -3221,9 +3306,9 @@ function CriticalDetailSheet(_ref28) {
     }
   }, "\u786E\u8BA4\u7EED\u671F"))) : null);
 }
-function HistoryScreen(_ref29) {
-  var items = _ref29.items,
-    onBack = _ref29.onBack;
+function HistoryScreen(_ref30) {
+  var items = _ref30.items,
+    onBack = _ref30.onBack;
   return React.createElement("main", {
     className: "screen secondary"
   }, React.createElement(BackHeader, {
@@ -3318,16 +3403,16 @@ function buildReport(type, dailyTasks, dailyCompletionByDate, history, todayDate
     ddlRanking: ddlRanking
   };
 }
-function ReportScreen(_ref30) {
-  var type = _ref30.type,
-    _ref30$dailyTasks = _ref30.dailyTasks,
-    dailyTasks = _ref30$dailyTasks === void 0 ? [] : _ref30$dailyTasks,
-    _ref30$dailyCompletio = _ref30.dailyCompletionByDate,
-    dailyCompletionByDate = _ref30$dailyCompletio === void 0 ? {} : _ref30$dailyCompletio,
-    _ref30$history = _ref30.history,
-    history = _ref30$history === void 0 ? [] : _ref30$history,
-    todayDateKey = _ref30.todayDateKey,
-    onBack = _ref30.onBack;
+function ReportScreen(_ref31) {
+  var type = _ref31.type,
+    _ref31$dailyTasks = _ref31.dailyTasks,
+    dailyTasks = _ref31$dailyTasks === void 0 ? [] : _ref31$dailyTasks,
+    _ref31$dailyCompletio = _ref31.dailyCompletionByDate,
+    dailyCompletionByDate = _ref31$dailyCompletio === void 0 ? {} : _ref31$dailyCompletio,
+    _ref31$history = _ref31.history,
+    history = _ref31$history === void 0 ? [] : _ref31$history,
+    todayDateKey = _ref31.todayDateKey,
+    onBack = _ref31.onBack;
   var monthly = type === "month";
   var report = buildReport(type, dailyTasks, dailyCompletionByDate, history, todayDateKey || APP_DATA.today.dateKey);
   var hasData = report.ranking.length > 0 || report.ddlRanking.length > 0;
@@ -3364,11 +3449,11 @@ function ReportScreen(_ref30) {
     className: "empty-guide report-empty"
   }, "\u5B8C\u6210\u4EFB\u52A1\u540E\uFF0C\u8FD9\u91CC\u4F1A\u751F\u6210\u771F\u5B9E\u590D\u76D8"));
 }
-function DeleteConfirmSheet(_ref31) {
-  var target = _ref31.target,
-    selectedDateKey = _ref31.selectedDateKey,
-    onClose = _ref31.onClose,
-    onConfirm = _ref31.onConfirm;
+function DeleteConfirmSheet(_ref32) {
+  var target = _ref32.target,
+    selectedDateKey = _ref32.selectedDateKey,
+    onClose = _ref32.onClose,
+    onConfirm = _ref32.onConfirm;
   if (!(target !== null && target !== void 0 && target.task)) return null;
   var isDaily = target.kind === "daily";
   var selectedMeta = selectedDateKey ? getDateMeta(selectedDateKey) : null;
@@ -3409,10 +3494,10 @@ function DeleteConfirmSheet(_ref31) {
     }
   }, "\u5220\u9664")));
 }
-function PermissionsScreen(_ref32) {
-  var capabilities = _ref32.capabilities,
-    onOpenCapability = _ref32.onOpenCapability,
-    onBack = _ref32.onBack;
+function PermissionsScreen(_ref33) {
+  var capabilities = _ref33.capabilities,
+    onOpenCapability = _ref33.onOpenCapability,
+    onBack = _ref33.onBack;
   var known = Boolean(capabilities);
   var state = function state(value) {
     var yes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "已开启";
@@ -3523,16 +3608,30 @@ function PermissionsScreen(_ref32) {
     }, content);
   })));
 }
-function SettingsScreen(_ref33) {
-  var alertMode = _ref33.alertMode,
-    defaultSoundId = _ref33.defaultSoundId,
-    sounds = _ref33.sounds,
-    onAlertModeChange = _ref33.onAlertModeChange,
-    onDefaultSoundChange = _ref33.onDefaultSoundChange,
-    onPreviewSound = _ref33.onPreviewSound,
-    onImportSound = _ref33.onImportSound,
-    onOpenPermissions = _ref33.onOpenPermissions,
-    onBack = _ref33.onBack;
+function SettingsScreen(_ref34) {
+  var alertMode = _ref34.alertMode,
+    defaultSoundId = _ref34.defaultSoundId,
+    sounds = _ref34.sounds,
+    onAlertModeChange = _ref34.onAlertModeChange,
+    onDefaultSoundChange = _ref34.onDefaultSoundChange,
+    onPreviewSound = _ref34.onPreviewSound,
+    onImportSound = _ref34.onImportSound,
+    onPickSystemAlarm = _ref34.onPickSystemAlarm,
+    onOpenPermissions = _ref34.onOpenPermissions,
+    onBack = _ref34.onBack;
+  var builtInSounds = sounds.filter(function (sound) {
+    return sound.source === "built-in";
+  });
+  var systemAlarmSounds = sounds.filter(function (sound) {
+    return sound.source === "system-alarm";
+  });
+  var localSounds = sounds.filter(function (sound) {
+    return sound.source === "local";
+  });
+  var selectSound = function selectSound(id) {
+    onDefaultSoundChange(id);
+    if (alertMode === "silent") onAlertModeChange("sound");
+  };
   return React.createElement("main", {
     className: "screen secondary settings-screen"
   }, React.createElement(BackHeader, {
@@ -3552,37 +3651,75 @@ function SettingsScreen(_ref33) {
   }, React.createElement("div", {
     className: "settings-section-title"
   }, "\u9ED8\u8BA4\u97F3\u6548"), React.createElement("div", {
-    className: "sound-choice-list settings-sound-list"
-  }, sounds.map(function (sound) {
-    return React.createElement("div", {
-      className: "sound-choice ".concat(defaultSoundId === sound.id ? "selected" : ""),
-      key: sound.id
-    }, React.createElement("button", {
-      type: "button",
-      className: "sound-choice-main",
+    className: "sound-library-section settings-sound-list"
+  }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u63D0\u793A\u97F3"), React.createElement("div", {
+    className: "sound-choice-list"
+  }, builtInSounds.map(function (sound) {
+    return React.createElement(SoundChoice, {
+      sound: sound,
+      selected: defaultSoundId === sound.id,
       disabled: alertMode === "silent",
-      onClick: function onClick() {
+      onSelect: function onSelect() {
         return onDefaultSoundChange(sound.id);
-      }
-    }, React.createElement("span", null, sound.name), React.createElement("small", null, sound.source === "local" ? "本地" : "内置")), React.createElement("button", {
-      type: "button",
-      className: "sound-preview",
-      disabled: alertMode === "silent",
-      "aria-label": "\u8BD5\u542C".concat(sound.name),
-      onClick: function onClick() {
+      },
+      onPreview: function onPreview() {
         return onPreviewSound(sound.id);
-      }
-    }, "\u8BD5\u542C"));
-  })), React.createElement("button", {
+      },
+      key: sound.id
+    });
+  }))), React.createElement("div", {
+    className: "sound-library-section system-alarm-library"
+  }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u95F9\u94C3\u5E93"), React.createElement("button", {
+    type: "button",
+    className: "sound-library-entry pressable",
+    onClick: function onClick() {
+      return onPickSystemAlarm(selectSound, defaultSoundId);
+    }
+  }, React.createElement("span", null, React.createElement("strong", null, "\u624B\u673A\u7CFB\u7EDF\u95F9\u94C3"), React.createElement("small", null, "\u8C03\u7528 ColorOS \u95F9\u94C3\u5E93\u4E0E\u95F9\u949F\u97F3\u91CF")), React.createElement("b", null, "\u8FDB\u5165\u9009\u62E9")), systemAlarmSounds.length ? React.createElement("div", {
+    className: "sound-choice-list"
+  }, systemAlarmSounds.map(function (sound) {
+    return React.createElement(SoundChoice, {
+      sound: sound,
+      selected: defaultSoundId === sound.id,
+      disabled: alertMode === "silent",
+      onSelect: function onSelect() {
+        return onDefaultSoundChange(sound.id);
+      },
+      onPreview: function onPreview() {
+        return onPreviewSound(sound.id);
+      },
+      key: sound.id
+    });
+  })) : null), React.createElement("div", {
+    className: "sound-library-section"
+  }, React.createElement("div", {
+    className: "sound-library-title"
+  }, "\u672C\u5730\u97F3\u9891"), localSounds.length ? React.createElement("div", {
+    className: "sound-choice-list"
+  }, localSounds.map(function (sound) {
+    return React.createElement(SoundChoice, {
+      sound: sound,
+      selected: defaultSoundId === sound.id,
+      disabled: alertMode === "silent",
+      onSelect: function onSelect() {
+        return onDefaultSoundChange(sound.id);
+      },
+      onPreview: function onPreview() {
+        return onPreviewSound(sound.id);
+      },
+      key: sound.id
+    });
+  })) : null, React.createElement("button", {
     type: "button",
     className: "sound-import-button pressable",
     onClick: function onClick() {
-      return onImportSound(function (id) {
-        onDefaultSoundChange(id);
-        if (alertMode === "silent") onAlertModeChange("sound");
-      });
+      return onImportSound(selectSound);
     }
-  }, "\uFF0B \u5BFC\u5165\u672C\u5730\u97F3\u6548")), React.createElement("button", {
+  }, "\uFF0B \u5BFC\u5165\u672C\u5730\u97F3\u6548"))), React.createElement("button", {
     className: "permission-link pressable settings-permission-link",
     type: "button",
     onClick: onOpenPermissions
@@ -3593,16 +3730,16 @@ function SettingsScreen(_ref33) {
     size: 17
   })));
 }
-function CriticalReminderScreen(_ref34) {
-  var tasks = _ref34.tasks,
-    reminderTime = _ref34.reminderTime,
-    onReminderTimeChange = _ref34.onReminderTimeChange,
-    reminderMultiple = _ref34.reminderMultiple,
-    onReminderMultipleChange = _ref34.onReminderMultipleChange,
-    reminderFinalDays = _ref34.reminderFinalDays,
-    onReminderFinalDaysChange = _ref34.onReminderFinalDaysChange,
-    onOpenPermissions = _ref34.onOpenPermissions,
-    onBack = _ref34.onBack;
+function CriticalReminderScreen(_ref35) {
+  var tasks = _ref35.tasks,
+    reminderTime = _ref35.reminderTime,
+    onReminderTimeChange = _ref35.onReminderTimeChange,
+    reminderMultiple = _ref35.reminderMultiple,
+    onReminderMultipleChange = _ref35.onReminderMultipleChange,
+    reminderFinalDays = _ref35.reminderFinalDays,
+    onReminderFinalDaysChange = _ref35.onReminderFinalDaysChange,
+    onOpenPermissions = _ref35.onOpenPermissions,
+    onBack = _ref35.onBack;
   var reminderTasks = tasks.filter(function (task) {
     return task.deadline && shouldRemindCritical(task.daysLeft, task);
   });
@@ -3700,7 +3837,7 @@ function CriticalReminderScreen(_ref34) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.1.0";
+var JINKE_FALLBACK_VERSION = "1.1.1";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3716,8 +3853,8 @@ function compareVersions(left, right) {
   }
   return 0;
 }
-function VersionScreen(_ref35) {
-  var onBack = _ref35.onBack;
+function VersionScreen(_ref36) {
+  var onBack = _ref36.onBack;
   var currentVersion = function () {
     try {
       var _window$JinkeAndroid, _window$JinkeAndroid$;
@@ -3815,9 +3952,9 @@ function VersionScreen(_ref35) {
     size: 15
   })));
 }
-function VoiceSettingsScreen(_ref36) {
-  var capabilities = _ref36.capabilities,
-    onBack = _ref36.onBack;
+function VoiceSettingsScreen(_ref37) {
+  var capabilities = _ref37.capabilities,
+    onBack = _ref37.onBack;
   var modelStatus = capabilities ? capabilities.offlineSpeechReady ? "已加载" : capabilities.offlineSpeechBundled ? "已内置" : "组件缺失" : "APK 内置";
   return React.createElement("main", {
     className: "screen secondary"
@@ -5324,17 +5461,18 @@ function MobileDesignApp() {
       try {
         var sound = typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!(sound !== null && sound !== void 0 && sound.id) || !(sound !== null && sound !== void 0 && sound.name)) return;
+        var normalizedSound = _objectSpread(_objectSpread({}, sound), {}, {
+          source: sound.source || "local"
+        });
         setCustomSounds(function (current) {
           return [].concat(_toConsumableArray(current.filter(function (item) {
             return item.id !== sound.id;
-          })), [_objectSpread(_objectSpread({}, sound), {}, {
-            source: "local"
-          })]);
+          })), [normalizedSound]);
         });
         var callback = soundImportCallbackRef.current;
         soundImportCallbackRef.current = null;
         callback === null || callback === void 0 || callback(sound.id);
-        showToast("\u5DF2\u5BFC\u5165\uFF1A".concat(sound.name));
+        showToast(normalizedSound.source === "system-alarm" ? "\u5DF2\u9009\u62E9\u95F9\u94C3\uFF1A".concat(sound.name) : "\u5DF2\u5BFC\u5165\uFF1A".concat(sound.name));
       } catch (_unused18) {
         showToast("音效导入失败");
       }
@@ -5521,6 +5659,19 @@ function MobileDesignApp() {
       showToast("\u5DF2\u5BFC\u5165\uFF1A".concat(sound.name));
     };
     input.click();
+  };
+  var pickSystemAlarmSound = function pickSystemAlarmSound(onSelected) {
+    var _window$JinkeAndroid8;
+    var currentSoundId = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "";
+    soundImportCallbackRef.current = onSelected || null;
+    if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.pickSystemAlarmSound) {
+      try {
+        window.JinkeAndroid.pickSystemAlarmSound(currentSoundId !== null && currentSoundId !== void 0 && currentSoundId.startsWith("alarm:") ? currentSoundId : "");
+        return;
+      } catch (_unused26) {}
+    }
+    soundImportCallbackRef.current = null;
+    showToast("系统闹铃库仅在手机 App 中可用");
   };
   var changeDdlReminderTime = function changeDdlReminderTime(time) {
     var nextTime = /^\d{2}:\d{2}$/.test(time) ? time : "10:00";
@@ -5748,7 +5899,7 @@ function MobileDesignApp() {
     showToast("DDL \u5DF2\u7EED\u671F ".concat(days, " \u5929"));
   };
   var startVoice = function startVoice() {
-    var _window$JinkeAndroid8;
+    var _window$JinkeAndroid9;
     voiceInputModeRef.current = "offline";
     setTranscript("");
     setVoiceDraft(null);
@@ -5756,7 +5907,7 @@ function MobileDesignApp() {
     setSpeechStatus("starting");
     speechCandidatesRef.current = [];
     setOverlay("voice");
-    if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.startSpeechRecognition) {
+    if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.startSpeechRecognition) {
       window.JINKE_NATIVE_SPEECH_STATUS = function (status) {
         setSpeechStatus(String(status || "idle"));
         setSpeechAvailable(status !== "error" && status !== "permission-denied");
@@ -5769,7 +5920,7 @@ function MobileDesignApp() {
         try {
           var candidates = typeof payload === "string" ? JSON.parse(payload) : payload;
           speechCandidatesRef.current = Array.isArray(candidates) ? candidates : [];
-        } catch (_unused26) {
+        } catch (_unused27) {
           speechCandidatesRef.current = [];
         }
       };
@@ -5788,7 +5939,7 @@ function MobileDesignApp() {
       try {
         window.JinkeAndroid.startSpeechRecognition();
         setSpeechAvailable(true);
-      } catch (_unused27) {
+      } catch (_unused28) {
         setSpeechAvailable(false);
       }
       return;
@@ -5815,12 +5966,12 @@ function MobileDesignApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setSpeechAvailable(true);
-    } catch (_unused28) {
+    } catch (_unused29) {
       setSpeechAvailable(false);
     }
   };
   var stopVoice = function stopVoice() {
-    var _window$JinkeAndroid9;
+    var _window$JinkeAndroid10;
     if (voiceInputModeRef.current === "input-method") {
       setSpeechStatus("idle");
       window.setTimeout(function () {
@@ -5828,11 +5979,11 @@ function MobileDesignApp() {
       }, 50);
       return;
     }
-    if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.stopSpeechRecognition) {
+    if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.stopSpeechRecognition) {
       setSpeechStatus("processing");
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused29) {
+      } catch (_unused30) {
         setSpeechAvailable(false);
       }
       return;
@@ -5840,7 +5991,7 @@ function MobileDesignApp() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_unused30) {}
+      } catch (_unused31) {}
       recognitionRef.current = null;
     }
     window.setTimeout(function () {
@@ -5848,22 +5999,22 @@ function MobileDesignApp() {
     }, 100);
   };
   var useInputMethodVoice = function useInputMethodVoice() {
-    var _window$JinkeAndroid10, _window$JinkeAndroid11;
+    var _window$JinkeAndroid11, _window$JinkeAndroid12;
     if (voiceInputModeRef.current === "input-method") return;
     voiceInputModeRef.current = "input-method";
-    if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.cancelSpeechRecognition) {
+    if ((_window$JinkeAndroid11 = window.JinkeAndroid) !== null && _window$JinkeAndroid11 !== void 0 && _window$JinkeAndroid11.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
-      } catch (_unused31) {}
-    } else if ((_window$JinkeAndroid11 = window.JinkeAndroid) !== null && _window$JinkeAndroid11 !== void 0 && _window$JinkeAndroid11.stopSpeechRecognition) {
+      } catch (_unused32) {}
+    } else if ((_window$JinkeAndroid12 = window.JinkeAndroid) !== null && _window$JinkeAndroid12 !== void 0 && _window$JinkeAndroid12.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused32) {}
+      } catch (_unused33) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused33) {}
+      } catch (_unused34) {}
       recognitionRef.current = null;
     }
     setSpeechStatus("idle");
@@ -6140,21 +6291,21 @@ function MobileDesignApp() {
     closeOverlay();
   };
   var closeOverlay = function closeOverlay(afterClose) {
-    var _window$JinkeAndroid12, _window$JinkeAndroid13;
+    var _window$JinkeAndroid13, _window$JinkeAndroid14;
     if (overlayClosingRef.current) return;
-    if ((_window$JinkeAndroid12 = window.JinkeAndroid) !== null && _window$JinkeAndroid12 !== void 0 && _window$JinkeAndroid12.cancelSpeechRecognition) {
+    if ((_window$JinkeAndroid13 = window.JinkeAndroid) !== null && _window$JinkeAndroid13 !== void 0 && _window$JinkeAndroid13.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
-      } catch (_unused34) {}
-    } else if ((_window$JinkeAndroid13 = window.JinkeAndroid) !== null && _window$JinkeAndroid13 !== void 0 && _window$JinkeAndroid13.stopSpeechRecognition) {
+      } catch (_unused35) {}
+    } else if ((_window$JinkeAndroid14 = window.JinkeAndroid) !== null && _window$JinkeAndroid14 !== void 0 && _window$JinkeAndroid14.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
-      } catch (_unused35) {}
+      } catch (_unused36) {}
     }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (_unused36) {}
+      } catch (_unused37) {}
       recognitionRef.current = null;
     }
     var finish = function finish() {
@@ -6335,9 +6486,9 @@ function MobileDesignApp() {
       capabilities: nativeCapabilities,
       onOpenCapability: function onOpenCapability(key) {
         try {
-          var _window$JinkeAndroid14, _window$JinkeAndroid15;
-          (_window$JinkeAndroid14 = window.JinkeAndroid) === null || _window$JinkeAndroid14 === void 0 || (_window$JinkeAndroid15 = _window$JinkeAndroid14.openCapabilitySettings) === null || _window$JinkeAndroid15 === void 0 || _window$JinkeAndroid15.call(_window$JinkeAndroid14, key);
-        } catch (_unused37) {}
+          var _window$JinkeAndroid15, _window$JinkeAndroid16;
+          (_window$JinkeAndroid15 = window.JinkeAndroid) === null || _window$JinkeAndroid15 === void 0 || (_window$JinkeAndroid16 = _window$JinkeAndroid15.openCapabilitySettings) === null || _window$JinkeAndroid16 === void 0 || _window$JinkeAndroid16.call(_window$JinkeAndroid15, key);
+        } catch (_unused38) {}
       },
       onBack: closeSecondary
     });
@@ -6355,6 +6506,7 @@ function MobileDesignApp() {
       },
       onPreviewSound: previewReminderSound,
       onImportSound: importReminderSound,
+      onPickSystemAlarm: pickSystemAlarmSound,
       onOpenPermissions: function onOpenPermissions() {
         return pushSecondary("permissions");
       },
@@ -6430,7 +6582,8 @@ function MobileDesignApp() {
       defaultAlertMode: defaultAlertMode,
       defaultSoundId: defaultSoundId,
       onPreviewSound: previewReminderSound,
-      onImportSound: importReminderSound
+      onImportSound: importReminderSound,
+      onPickSystemAlarm: pickSystemAlarmSound
     }) : null, overlay === "daily-edit" ? React.createElement(DailyEditSheet, {
       task: selectedDaily,
       draft: dailyDraft,
@@ -6441,7 +6594,8 @@ function MobileDesignApp() {
       defaultAlertMode: defaultAlertMode,
       defaultSoundId: defaultSoundId,
       onPreviewSound: previewReminderSound,
-      onImportSound: importReminderSound
+      onImportSound: importReminderSound,
+      onPickSystemAlarm: pickSystemAlarmSound
     }) : null, overlay === "critical-detail" ? React.createElement(CriticalDetailSheet, {
       task: selectedCritical,
       draft: criticalDraft,
@@ -6455,7 +6609,8 @@ function MobileDesignApp() {
       defaultAlertMode: defaultAlertMode,
       defaultSoundId: defaultSoundId,
       onPreviewSound: previewReminderSound,
-      onImportSound: importReminderSound
+      onImportSound: importReminderSound,
+      onPickSystemAlarm: pickSystemAlarmSound
     }) : null, overlay === "day-archive" ? React.createElement(CalendarDaySheet, {
       dateKey: selectedDateKey,
       active: archiveActive,

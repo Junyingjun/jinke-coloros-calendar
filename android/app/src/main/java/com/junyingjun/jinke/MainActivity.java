@@ -12,6 +12,8 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -44,6 +46,7 @@ public class MainActivity extends Activity {
     private static final int REQUEST_NOTIFICATIONS = 9022;
     private static final int REQUEST_MICROPHONE = 9023;
     private static final int REQUEST_REMINDER_SOUND = 9024;
+    private static final int REQUEST_SYSTEM_ALARM_SOUND = 9025;
     private static final String SYSTEM_PREFS = "jinke-system-state";
     private static final String BACKGROUND_SETTINGS_OPENED = "background-settings-opened";
     private WebView webView;
@@ -197,9 +200,41 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, REQUEST_REMINDER_SOUND);
     }
 
+    private void pickSystemAlarmSound(String currentSoundId) {
+        Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择手机系统闹铃");
+        Uri existing = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (currentSoundId != null && currentSoundId.startsWith("alarm:")) {
+            try { existing = Uri.parse(currentSoundId.substring("alarm:".length())); } catch (Exception ignored) {}
+        }
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing);
+        startActivityForResult(intent, REQUEST_SYSTEM_ALARM_SOUND);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_SYSTEM_ALARM_SOUND) {
+            if (resultCode != RESULT_OK || data == null) return;
+            Uri source = data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+            if (source == null) return;
+            try {
+                Ringtone ringtone = RingtoneManager.getRingtone(this, source);
+                String title = ringtone == null ? "系统闹铃" : ringtone.getTitle(this);
+                JSONObject payload = new JSONObject();
+                payload.put("id", "alarm:" + source);
+                payload.put("name", title == null || title.trim().isEmpty() ? "系统闹铃" : title.trim());
+                payload.put("source", "system-alarm");
+                payload.put("uri", source.toString());
+                deliverImportedSound(payload.toString());
+            } catch (Exception ignored) {
+                Toast.makeText(this, "无法读取该系统闹铃，请重新选择", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (requestCode != REQUEST_REMINDER_SOUND || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri source = data.getData();
         try {
@@ -576,6 +611,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void pickReminderSound() {
             runOnUiThread(MainActivity.this::pickReminderSound);
+        }
+
+        @JavascriptInterface
+        public void pickSystemAlarmSound(String currentSoundId) {
+            runOnUiThread(() -> MainActivity.this.pickSystemAlarmSound(currentSoundId));
         }
 
         @JavascriptInterface

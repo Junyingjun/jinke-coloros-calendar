@@ -951,11 +951,12 @@ function MobileDesignApp() {
       try {
         const sound = typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!sound?.id || !sound?.name) return;
-        setCustomSounds((current) => [...current.filter((item) => item.id !== sound.id), { ...sound, source: "local" }]);
+        const normalizedSound = { ...sound, source: sound.source || "local" };
+        setCustomSounds((current) => [...current.filter((item) => item.id !== sound.id), normalizedSound]);
         const callback = soundImportCallbackRef.current;
         soundImportCallbackRef.current = null;
         callback?.(sound.id);
-        showToast(`已导入：${sound.name}`);
+        showToast(normalizedSound.source === "system-alarm" ? `已选择闹铃：${sound.name}` : `已导入：${sound.name}`);
       } catch {
         showToast("音效导入失败");
       }
@@ -1107,6 +1108,18 @@ function MobileDesignApp() {
       showToast(`已导入：${sound.name}`);
     };
     input.click();
+  };
+
+  const pickSystemAlarmSound = (onSelected, currentSoundId = "") => {
+    soundImportCallbackRef.current = onSelected || null;
+    if (window.JinkeAndroid?.pickSystemAlarmSound) {
+      try {
+        window.JinkeAndroid.pickSystemAlarmSound(currentSoundId?.startsWith("alarm:") ? currentSoundId : "");
+        return;
+      } catch {}
+    }
+    soundImportCallbackRef.current = null;
+    showToast("系统闹铃库仅在手机 App 中可用");
   };
 
   const changeDdlReminderTime = (time) => {
@@ -1714,7 +1727,7 @@ function MobileDesignApp() {
     if (route === "month") return <ReportScreen type="month" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "year") return <ReportScreen type="year" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={closeSecondary} />;
-    if (route === "settings") return <SettingsScreen alertMode={defaultAlertMode} defaultSoundId={defaultSoundId} sounds={reminderSounds} onAlertModeChange={(mode) => { setDefaultAlertMode(mode); showToast(mode === "silent" ? "默认改为静音提醒" : "默认改为响铃提醒"); }} onDefaultSoundChange={(soundId) => { setDefaultSoundId(soundId); showToast("默认音效已更新"); }} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
+    if (route === "settings") return <SettingsScreen alertMode={defaultAlertMode} defaultSoundId={defaultSoundId} sounds={reminderSounds} onAlertModeChange={(mode) => { setDefaultAlertMode(mode); showToast(mode === "silent" ? "默认改为静音提醒" : "默认改为响铃提醒"); }} onDefaultSoundChange={(soundId) => { setDefaultSoundId(soundId); showToast("默认音效已更新"); }} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onPickSystemAlarm={pickSystemAlarmSound} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "critical-reminders") return <CriticalReminderScreen tasks={activeCriticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "version") return <VersionScreen onBack={closeSecondary} />;
     if (route === "voice") return <VoiceSettingsScreen capabilities={nativeCapabilities} onBack={closeSecondary} />;
@@ -1732,9 +1745,9 @@ function MobileDesignApp() {
           {renderSecondaryScreen(route)}
         </Sheet>
       ))}
-      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} /> : null}
-      {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} /> : null}
-      {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onRenew={renewCritical} onSave={saveCritical} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} /> : null}
+      {overlay === "voice" ? <VoiceComposer phase={voicePhase} transcript={transcript} parsedCommand={parsedVoiceCommand} draftTask={voiceDraft} onDraftTaskChange={setVoiceDraft} onTranscript={setTranscript} onStop={stopVoice} onUseInputMethod={useInputMethodVoice} onConfirm={confirmVoiceCommand} onClose={closeOverlay} speechAvailable={speechAvailable} speechStatus={speechStatus} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onPickSystemAlarm={pickSystemAlarmSound} /> : null}
+      {overlay === "daily-edit" ? <DailyEditSheet task={selectedDaily} draft={dailyDraft} onDraftChange={setDailyDraft} onSave={saveDaily} onClose={closeOverlay} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onPickSystemAlarm={pickSystemAlarmSound} /> : null}
+      {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onRenew={renewCritical} onSave={saveCritical} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onPickSystemAlarm={pickSystemAlarmSound} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}
       {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} selectedDateKey={selectedDateKey} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
       {toast ? <div className="sr-only" role="status" aria-live="polite">{toast}</div> : null}

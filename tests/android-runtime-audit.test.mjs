@@ -17,6 +17,7 @@ const dailyReceiver = read("android/app/src/main/java/com/junyingjun/jinke/Daily
 const notificationSupport = read("android/app/src/main/java/com/junyingjun/jinke/NotificationSupport.java");
 const reminderAlert = read("android/app/src/main/java/com/junyingjun/jinke/ReminderAlertActivity.java");
 const webApp = read("app.jsx");
+const screens = read("screens.jsx");
 const modelRoot = path.join(root, "android/app/src/main/assets/vosk-model-small-cn-0.22");
 
 for (const permission of [
@@ -81,6 +82,11 @@ for (const resource of ["jinke_chime", "jinke_bell", "jinke_glass", "jinke_pop",
 }
 assert.match(notificationSupport, /getFilesDir\(\)[\s\S]*SOUND_DIRECTORY/, "imported sounds must resolve from app-private local storage");
 assert.match(activity, /ACTION_OPEN_DOCUMENT[\s\S]*audio\/\*[\s\S]*REQUEST_REMINDER_SOUND/, "local reminder sounds must use Android's system audio picker");
+assert.match(activity, /ACTION_RINGTONE_PICKER[\s\S]*TYPE_ALARM[\s\S]*REQUEST_SYSTEM_ALARM_SOUND/, "system alarm sounds must use Android's native alarm ringtone picker");
+assert.match(activity, /pickSystemAlarmSound[\s\S]*EXTRA_RINGTONE_EXISTING_URI/, "the WebView bridge must open the alarm library and preserve the current selection");
+assert.match(activity, /"source", "system-alarm"/, "selected system alarm metadata must return to the shared sound library");
+assert.match(notificationSupport, /startsWith\("alarm:"\)[\s\S]*USAGE_ALARM[\s\S]*setDataSource\(context, alarmUri\)/, "system alarm sounds must play through the device alarm audio channel");
+assert.match(screens, /闹铃库[\s\S]*手机系统闹铃[\s\S]*ColorOS/, "sound settings must expose the system alarm library as its own category");
 assert.match(activity, /JINKE_SOUND_IMPORTED/, "imported sound metadata must return to the WebView sound library");
 assert.match(dailyReceiver, /dailyChannel\(ringing\)[\s\S]*if \(ringing\) builder\.setVibrate[\s\S]*enqueueReminderSound/, "daily reminders must choose ring or silent delivery and play each selected sound");
 assert.match(ddlReceiver, /ddlChannel\(ringing\)[\s\S]*if \(ringing\) builder\.setVibrate[\s\S]*enqueueReminderSound/, "DDL reminders must choose ring or silent delivery and play each selected sound");

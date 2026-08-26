@@ -357,6 +357,8 @@ button:disabled { cursor: default; }
 .sound-picker-head { min-height: 30px; padding: 2px 4px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-3); font-size: 12px; }
 .sound-picker-head strong { color: var(--ink); font-size: 12px; font-weight: 720; }
 .sound-picker-subhead { margin-top: 6px; }
+.sound-library-section { width: 100%; display: grid; gap: 8px; }
+.sound-library-title { padding: 0 4px; color: var(--ink-3); font-size: 11px; font-weight: 700; letter-spacing: .03em; }
 .sound-choice-list { width: 100%; display: grid; gap: 8px; }
 .sound-choice { min-width: 0; min-height: 58px; display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface-muted); transition: transform 170ms var(--ease-out), border-color 170ms var(--ease-out), background 170ms var(--ease-out); }
 .sound-choice.selected { border-color: color-mix(in oklch, var(--accent) 72%, var(--line)); background: var(--accent-soft); }
@@ -369,6 +371,12 @@ button:disabled { cursor: default; }
 .sound-choice button:disabled { opacity: .4; pointer-events: none; }
 .sound-import-button { min-height: 50px; width: 100%; padding: 0 15px; border-radius: 16px; color: var(--ink); background: var(--surface-muted); font-size: 13px; font-weight: 700; transition: transform 170ms var(--ease-out), color 170ms var(--ease-out), background 170ms var(--ease-out); }
 .sound-import-button:active { transform: scale(.975); color: var(--accent); background: var(--surface-pressed); }
+.sound-library-entry { min-height: 64px; width: 100%; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--line)); border-radius: 18px; color: var(--ink); background: linear-gradient(135deg, var(--surface-muted), color-mix(in oklch, var(--accent-soft) 55%, var(--surface-muted))); text-align: left; transition: transform 170ms var(--ease-out), border-color 170ms var(--ease-out), background 170ms var(--ease-out); }
+.sound-library-entry:active { transform: scale(.978); border-color: color-mix(in oklch, var(--accent) 62%, var(--line)); background: var(--surface-pressed); }
+.sound-library-entry span { min-width: 0; display: grid; gap: 4px; }
+.sound-library-entry strong { color: var(--ink); font-size: 13px; font-weight: 740; }
+.sound-library-entry small { color: var(--ink-3); font-size: 10px; font-weight: 620; line-height: 1.35; }
+.sound-library-entry b { flex: 0 0 auto; color: var(--accent); font-size: 12px; font-weight: 740; }
 .settings-screen { display: flex; flex-direction: column; }
 .settings-section { margin-top: 18px; padding: 16px; display: grid; gap: 12px; border-radius: 22px; background: var(--surface-muted); border: 1px solid var(--line); }
 .settings-section-title { color: var(--ink); font-size: 14px; font-weight: 740; }

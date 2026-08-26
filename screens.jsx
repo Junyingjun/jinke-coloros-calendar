@@ -14,30 +14,53 @@ function SegmentedChoice({ label, value, options, onChange, compact = false }) {
   );
 }
 
-function ReminderSoundPicker({ task = {}, sounds = [], defaultAlertMode = "sound", defaultSoundId = "chime", onChange, onPreview, onImport }) {
+function SoundChoice({ sound, selected, disabled = false, onSelect, onPreview }) {
+  const sourceLabel = sound.source === "system-alarm" ? "系统闹铃" : sound.source === "local" ? "本地音频" : "内置提示音";
+  return (
+    <div className={`sound-choice ${selected ? "selected" : ""}`}>
+      <button type="button" className="sound-choice-main" disabled={disabled} onClick={onSelect}><span>{sound.name}</span><small>{sourceLabel}</small></button>
+      <button type="button" className="sound-preview" disabled={disabled} aria-label={`试听${sound.name}`} onClick={onPreview}>试听</button>
+    </div>
+  );
+}
+
+function ReminderSoundPicker({ task = {}, sounds = [], defaultAlertMode = "sound", defaultSoundId = "chime", onChange, onPreview, onImport, onPickSystemAlarm }) {
   const alertMode = task.alertMode || "inherit";
   const soundId = task.soundId || "inherit";
   const effectiveMode = alertMode === "inherit" ? defaultAlertMode : alertMode;
-  const effectiveSoundId = soundId === "inherit" ? defaultSoundId : soundId;
   const defaultModeLabel = defaultAlertMode === "silent" ? "默认静音" : "默认响铃";
+  const builtInSounds = sounds.filter((sound) => sound.source === "built-in");
+  const systemAlarmSounds = sounds.filter((sound) => sound.source === "system-alarm");
+  const localSounds = sounds.filter((sound) => sound.source === "local");
   const update = (changes) => onChange({ ...task, ...changes });
+  const selectSound = (id) => update({ soundId: id, alertMode: alertMode === "silent" ? "sound" : alertMode });
   return (
     <div className="task-sound-picker" aria-label="任务提醒声音">
       <div className="sound-picker-head"><span>提醒方式</span><strong>{effectiveMode === "silent" ? "静音" : "响铃"}</strong></div>
       <SegmentedChoice label="任务提醒方式" value={alertMode} options={[["inherit", defaultModeLabel], ["sound", "响铃"], ["silent", "静音"]]} onChange={(next) => update({ alertMode: next })} compact />
       {effectiveMode === "sound" ? <>
         <div className="sound-picker-head sound-picker-subhead"><span>提醒音效</span><strong>{soundId === "inherit" ? "使用默认" : "单独设置"}</strong></div>
-        <div className="sound-choice-list">
+        <div className="sound-library-section">
+          <div className="sound-library-title">默认</div>
           <div className={`sound-choice ${soundId === "inherit" ? "selected" : ""}`}>
             <button type="button" className="sound-choice-main" onClick={() => update({ soundId: "inherit" })}><span>默认音效</span><small>{sounds.find((sound) => sound.id === defaultSoundId)?.name || "今刻清音"}</small></button>
             <button type="button" className="sound-preview" aria-label="试听默认音效" onClick={() => onPreview(defaultSoundId)}>试听</button>
           </div>
-          {sounds.map((sound) => <div className={`sound-choice ${soundId === sound.id ? "selected" : ""}`} key={sound.id}>
-            <button type="button" className="sound-choice-main" onClick={() => update({ soundId: sound.id })}><span>{sound.name}</span><small>{sound.source === "local" ? "本地" : "内置"}</small></button>
-            <button type="button" className="sound-preview" aria-label={`试听${sound.name}`} onClick={() => onPreview(sound.id)}>试听</button>
-          </div>)}
         </div>
-        <button type="button" className="sound-import-button pressable" onClick={() => onImport((id) => update({ soundId: id, alertMode: alertMode === "silent" ? "sound" : alertMode }))}>＋ 导入本地音效</button>
+        <div className="sound-library-section">
+          <div className="sound-library-title">提示音</div>
+          <div className="sound-choice-list">{builtInSounds.map((sound) => <SoundChoice sound={sound} selected={soundId === sound.id} onSelect={() => selectSound(sound.id)} onPreview={() => onPreview(sound.id)} key={sound.id} />)}</div>
+        </div>
+        <div className="sound-library-section system-alarm-library">
+          <div className="sound-library-title">闹铃库</div>
+          <button type="button" className="sound-library-entry pressable" onClick={() => onPickSystemAlarm((id) => selectSound(id), soundId)}><span><strong>手机系统闹铃</strong><small>使用 ColorOS 闹钟音量，适合起床提醒</small></span><b>进入选择</b></button>
+          {systemAlarmSounds.length ? <div className="sound-choice-list">{systemAlarmSounds.map((sound) => <SoundChoice sound={sound} selected={soundId === sound.id} onSelect={() => selectSound(sound.id)} onPreview={() => onPreview(sound.id)} key={sound.id} />)}</div> : null}
+        </div>
+        <div className="sound-library-section">
+          <div className="sound-library-title">本地音频</div>
+          {localSounds.length ? <div className="sound-choice-list">{localSounds.map((sound) => <SoundChoice sound={sound} selected={soundId === sound.id} onSelect={() => selectSound(sound.id)} onPreview={() => onPreview(sound.id)} key={sound.id} />)}</div> : null}
+          <button type="button" className="sound-import-button pressable" onClick={() => onImport((id) => selectSound(id))}>＋ 导入本地音效</button>
+        </div>
       </> : null}
     </div>
   );
@@ -587,7 +610,7 @@ function Waveform() {
   return <div className="waveform" aria-hidden="true">{[11, 20, 26, 16, 24, 18, 9].map((height, index) => <span key={index} style={{ height }} />)}</div>;
 }
 
-function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTaskChange, onTranscript, onStop, onUseInputMethod, onConfirm, onClose, speechAvailable, speechStatus, sounds, defaultAlertMode, defaultSoundId, onPreviewSound, onImportSound }) {
+function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTaskChange, onTranscript, onStop, onUseInputMethod, onConfirm, onClose, speechAvailable, speechStatus, sounds, defaultAlertMode, defaultSoundId, onPreviewSound, onImportSound, onPickSystemAlarm }) {
   const text = transcript.trim();
   const editableTask = draftTask || parsedCommand.task;
   const updateDraft = (field, value) => onDraftTaskChange({ ...(draftTask || parsedCommand.task), [field]: value });
@@ -664,7 +687,7 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
                 </>
               )}
               {editableTask.type === "daily" ? <div className="edit-field stacked custom-control-field"><ReminderPicker value={editableTask.reminder || "到点提醒"} onChange={(reminder) => updateDraft("reminder", reminder)} /></div> : null}
-              <div className="edit-field stacked custom-control-field"><ReminderSoundPicker task={editableTask} sounds={sounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onChange={onDraftTaskChange} onPreview={onPreviewSound} onImport={onImportSound} /></div>
+              <div className="edit-field stacked custom-control-field"><ReminderSoundPicker task={editableTask} sounds={sounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onChange={onDraftTaskChange} onPreview={onPreviewSound} onImport={onImportSound} onPickSystemAlarm={onPickSystemAlarm} /></div>
               <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={editableTask.note || ""} onChange={(event) => updateDraft("note", event.target.value)} /></label>
             </div>
           ) : (
@@ -688,7 +711,7 @@ function VoiceComposer({ phase, transcript, parsedCommand, draftTask, onDraftTas
   );
 }
 
-function DailyEditSheet({ task, draft, onDraftChange, onSave, onClose, sounds, defaultAlertMode, defaultSoundId, onPreviewSound, onImportSound }) {
+function DailyEditSheet({ task, draft, onDraftChange, onSave, onClose, sounds, defaultAlertMode, defaultSoundId, onPreviewSound, onImportSound, onPickSystemAlarm }) {
   if (!task || !draft) return null;
   const update = (field, value) => onDraftChange({ ...draft, [field]: value });
   const updateRepeat = (repeatDays, repeat) => onDraftChange({ ...draft, repeatDays, repeat });
@@ -700,7 +723,7 @@ function DailyEditSheet({ task, draft, onDraftChange, onSave, onClose, sounds, d
         <div className="edit-field stacked custom-control-field"><TimePicker label="结束" value={draft.endTime || null} onChange={(time) => update("endTime", time || null)} /></div>
         <div className="edit-field stacked custom-control-field"><WeekdayPicker value={draft.repeat} repeatDays={draft.repeatDays} onChange={updateRepeat} /></div>
         <div className="edit-field stacked custom-control-field"><ReminderPicker value={draft.reminder} onChange={(reminder) => update("reminder", reminder)} /></div>
-        <div className="edit-field stacked custom-control-field"><ReminderSoundPicker task={draft} sounds={sounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onChange={onDraftChange} onPreview={onPreviewSound} onImport={onImportSound} /></div>
+        <div className="edit-field stacked custom-control-field"><ReminderSoundPicker task={draft} sounds={sounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onChange={onDraftChange} onPreview={onPreviewSound} onImport={onImportSound} onPickSystemAlarm={onPickSystemAlarm} /></div>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="3" value={draft.note} onChange={(event) => update("note", event.target.value)} /></label>
       </div>
       <div className="button-row">
@@ -741,7 +764,7 @@ function MoreSheet({ onClose, onOpen, themeMode, onThemeChange }) {
   );
 }
 
-function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraftChange, onClose, onRenew, onSave, sounds, defaultAlertMode, defaultSoundId, onPreviewSound, onImportSound }) {
+function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraftChange, onClose, onRenew, onSave, sounds, defaultAlertMode, defaultSoundId, onPreviewSound, onImportSound, onPickSystemAlarm }) {
   if (!task || !draft) return null;
   const update = (field, value) => onDraftChange({ ...draft, [field]: value });
   const updateDeadlineTime = (deadlineTime) => onDraftChange({ ...draft, deadlineTime: deadlineTime || null, time: deadlineTime || null });
@@ -762,7 +785,7 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
         <div className="edit-field stacked custom-control-field"><DatePicker value={draft.deadline} onChange={(deadline) => update("deadline", deadline)} allowPast={task.done} /></div>
         <div className="edit-field stacked custom-control-field"><TimePicker label="截止时刻" value={draft.deadlineTime || draft.time} onChange={updateDeadlineTime} /></div>
         <div className="edit-field stacked custom-control-field"><CriticalReminderPlanPicker task={draft} onChange={onDraftChange} /></div>
-        <div className="edit-field stacked custom-control-field"><ReminderSoundPicker task={draft} sounds={sounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onChange={onDraftChange} onPreview={onPreviewSound} onImport={onImportSound} /></div>
+        <div className="edit-field stacked custom-control-field"><ReminderSoundPicker task={draft} sounds={sounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onChange={onDraftChange} onPreview={onPreviewSound} onImport={onImportSound} onPickSystemAlarm={onPickSystemAlarm} /></div>
         <div className="edit-field stacked custom-control-field"><span className="edit-label">完成度</span><SegmentedChoice label="完成度" value={draft.progress ?? 0} options={[0, 25, 50, 75, 100].map((value) => [value, `${value}%`])} onChange={(progress) => update("progress", Number(progress))} compact /></div>
         <label className="edit-field stacked"><span className="edit-label">备注</span><textarea className="edit-input edit-textarea" rows="2" value={draft.note || ""} onChange={(event) => update("note", event.target.value)} /></label>
       </div>
@@ -917,7 +940,11 @@ function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
   );
 }
 
-function SettingsScreen({ alertMode, defaultSoundId, sounds, onAlertModeChange, onDefaultSoundChange, onPreviewSound, onImportSound, onOpenPermissions, onBack }) {
+function SettingsScreen({ alertMode, defaultSoundId, sounds, onAlertModeChange, onDefaultSoundChange, onPreviewSound, onImportSound, onPickSystemAlarm, onOpenPermissions, onBack }) {
+  const builtInSounds = sounds.filter((sound) => sound.source === "built-in");
+  const systemAlarmSounds = sounds.filter((sound) => sound.source === "system-alarm");
+  const localSounds = sounds.filter((sound) => sound.source === "local");
+  const selectSound = (id) => { onDefaultSoundChange(id); if (alertMode === "silent") onAlertModeChange("sound"); };
   return (
     <main className="screen secondary settings-screen">
       <BackHeader title="设置" onBack={onBack} />
@@ -927,13 +954,20 @@ function SettingsScreen({ alertMode, defaultSoundId, sounds, onAlertModeChange, 
       </section>
       <section className={`settings-section ${alertMode === "silent" ? "muted" : ""}`}>
         <div className="settings-section-title">默认音效</div>
-        <div className="sound-choice-list settings-sound-list">
-          {sounds.map((sound) => <div className={`sound-choice ${defaultSoundId === sound.id ? "selected" : ""}`} key={sound.id}>
-            <button type="button" className="sound-choice-main" disabled={alertMode === "silent"} onClick={() => onDefaultSoundChange(sound.id)}><span>{sound.name}</span><small>{sound.source === "local" ? "本地" : "内置"}</small></button>
-            <button type="button" className="sound-preview" disabled={alertMode === "silent"} aria-label={`试听${sound.name}`} onClick={() => onPreviewSound(sound.id)}>试听</button>
-          </div>)}
+        <div className="sound-library-section settings-sound-list">
+          <div className="sound-library-title">提示音</div>
+          <div className="sound-choice-list">{builtInSounds.map((sound) => <SoundChoice sound={sound} selected={defaultSoundId === sound.id} disabled={alertMode === "silent"} onSelect={() => onDefaultSoundChange(sound.id)} onPreview={() => onPreviewSound(sound.id)} key={sound.id} />)}</div>
         </div>
-        <button type="button" className="sound-import-button pressable" onClick={() => onImportSound((id) => { onDefaultSoundChange(id); if (alertMode === "silent") onAlertModeChange("sound"); })}>＋ 导入本地音效</button>
+        <div className="sound-library-section system-alarm-library">
+          <div className="sound-library-title">闹铃库</div>
+          <button type="button" className="sound-library-entry pressable" onClick={() => onPickSystemAlarm(selectSound, defaultSoundId)}><span><strong>手机系统闹铃</strong><small>调用 ColorOS 闹铃库与闹钟音量</small></span><b>进入选择</b></button>
+          {systemAlarmSounds.length ? <div className="sound-choice-list">{systemAlarmSounds.map((sound) => <SoundChoice sound={sound} selected={defaultSoundId === sound.id} disabled={alertMode === "silent"} onSelect={() => onDefaultSoundChange(sound.id)} onPreview={() => onPreviewSound(sound.id)} key={sound.id} />)}</div> : null}
+        </div>
+        <div className="sound-library-section">
+          <div className="sound-library-title">本地音频</div>
+          {localSounds.length ? <div className="sound-choice-list">{localSounds.map((sound) => <SoundChoice sound={sound} selected={defaultSoundId === sound.id} disabled={alertMode === "silent"} onSelect={() => onDefaultSoundChange(sound.id)} onPreview={() => onPreviewSound(sound.id)} key={sound.id} />)}</div> : null}
+          <button type="button" className="sound-import-button pressable" onClick={() => onImportSound(selectSound)}>＋ 导入本地音效</button>
+        </div>
       </section>
       <button className="permission-link pressable settings-permission-link" type="button" onClick={onOpenPermissions}>
         <span className="permission-title">通知、锁屏与后台权限</span>
@@ -994,7 +1028,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.1.0";
+const JINKE_FALLBACK_VERSION = "1.1.1";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

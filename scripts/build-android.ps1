@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $sourceApk = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $releaseDir = Join-Path $projectRoot "release"
-$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.1.0.apk"
+$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.1.1.apk"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 
@@ -66,5 +66,9 @@ if ((Get-Item -LiteralPath $releaseApk).Length -lt 80000000) { throw "APK size i
 foreach ($sound in @("jinke_chime.wav", "jinke_bell.wav", "jinke_glass.wav", "jinke_pop.wav", "jinke_soft.wav")) {
     if (-not (Test-Path (Join-Path $projectRoot "android\app\src\main\res\raw\$sound"))) { throw "Bundled reminder sound is missing: $sound" }
 }
-Write-Host "RUNTIME_AUDIT_OK=permissions+arm64-vosk+chinese-model+5-reminder-sounds"
+$mainActivitySource = Get-Content -LiteralPath (Join-Path $projectRoot "android\app\src\main\java\com\junyingjun\jinke\MainActivity.java") -Raw
+$notificationSource = Get-Content -LiteralPath (Join-Path $projectRoot "android\app\src\main\java\com\junyingjun\jinke\NotificationSupport.java") -Raw
+if ($mainActivitySource -notmatch "ACTION_RINGTONE_PICKER" -or $mainActivitySource -notmatch "TYPE_ALARM") { throw "Android system alarm picker is not wired." }
+if ($notificationSource -notmatch "USAGE_ALARM" -or $notificationSource -notmatch 'startsWith\("alarm:"\)') { throw "System alarm sounds are not routed through the alarm audio channel." }
+Write-Host "RUNTIME_AUDIT_OK=permissions+arm64-vosk+chinese-model+5-reminder-sounds+system-alarm-picker"
 Write-Host "APK_READY=$releaseApk"
