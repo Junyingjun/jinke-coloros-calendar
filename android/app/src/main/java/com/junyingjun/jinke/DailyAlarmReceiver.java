@@ -23,6 +23,10 @@ public class DailyAlarmReceiver extends BroadcastReceiver {
         NotificationSupport.createChannels(context);
         SharedPreferences prefs = context.getSharedPreferences(DailyScheduler.PREFS, Context.MODE_PRIVATE);
         String triggerTime = intent.getStringExtra(DailyScheduler.EXTRA_REMINDER_TIME);
+        // Re-arm first. ColorOS may reclaim this short-lived receiver process immediately
+        // after delivery, so tomorrow's alarm must not depend on notification/audio work.
+        DailyScheduler.schedule(context);
+        if (triggerTime == null || !triggerTime.matches("(?:[01]\\d|2[0-3]):[0-5]\\d")) return;
         List<String> eligible = new ArrayList<>();
         List<JSONObject> eligibleTasks = new ArrayList<>();
         try {
@@ -77,17 +81,19 @@ public class DailyAlarmReceiver extends BroadcastReceiver {
                     .setPriority(Notification.PRIORITY_MAX)
                     .setDefaults(Notification.DEFAULT_LIGHTS);
             if (ringing) builder.setVibrate(new long[]{0, 260, 120, 260});
-            Notification notification = builder.build();
             NotificationSupport.wakeForReminder(context);
+            Notification notification = builder.build();
             NotificationManager manager = context.getSystemService(NotificationManager.class);
-            if (manager != null) manager.notify(10000 + minuteOfDay, notification);
+            int notificationId = 10000 + minuteOfDay;
+            if (manager != null) manager.notify(notificationId, notification);
+            ArrayList<String> sounds = new ArrayList<>();
             for (JSONObject task : eligibleTasks) {
                 if (NotificationSupport.isRinging(task.optString("alertMode", "sound"))) {
-                    NotificationSupport.enqueueReminderSound(context, task.optString("soundId", "chime"));
+                    sounds.add(task.optString("soundId", "chime"));
                 }
             }
+            NotificationSupport.startReminderPlayback(context, notificationId, notification, sounds);
         }
-        DailyScheduler.schedule(context);
     }
 
     private boolean occursOn(JSONObject task, LocalDate logicalDate) {

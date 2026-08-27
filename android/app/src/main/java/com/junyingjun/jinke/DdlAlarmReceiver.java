@@ -23,6 +23,8 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
         NotificationSupport.createChannels(context);
         SharedPreferences prefs = context.getSharedPreferences(DdlScheduler.PREFS, Context.MODE_PRIVATE);
         String triggerTime = DdlScheduler.normalizeTime(intent.getStringExtra(DdlScheduler.EXTRA_REMINDER_TIME));
+        // Always persist the next wakeup before doing any heavier notification work.
+        DdlScheduler.schedule(context);
         int defaultMultiple = Math.max(1, prefs.getInt(DdlScheduler.KEY_MULTIPLE, 5));
         int defaultFinalDays = Math.max(0, prefs.getInt(DdlScheduler.KEY_FINAL_DAYS, 5));
         long elapsedDays = LocalDate.now().toEpochDay() - prefs.getLong(DdlScheduler.KEY_SYNC_DAY, LocalDate.now().toEpochDay());
@@ -83,17 +85,19 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
                     .setPriority(Notification.PRIORITY_MAX)
                     .setDefaults(Notification.DEFAULT_LIGHTS);
             if (ringing) builder.setVibrate(new long[]{0, 260, 120, 260});
-            Notification notification = builder.build();
             NotificationSupport.wakeForReminder(context);
+            Notification notification = builder.build();
             NotificationManager manager = context.getSystemService(NotificationManager.class);
-            if (manager != null) manager.notify(7000 + minuteOfDay, notification);
+            int notificationId = 7000 + minuteOfDay;
+            if (manager != null) manager.notify(notificationId, notification);
+            ArrayList<String> sounds = new ArrayList<>();
             for (JSONObject task : eligibleTasks) {
                 if (NotificationSupport.isRinging(task.optString("alertMode", "sound"))) {
-                    NotificationSupport.enqueueReminderSound(context, task.optString("soundId", "chime"));
+                    sounds.add(task.optString("soundId", "chime"));
                 }
             }
+            NotificationSupport.startReminderPlayback(context, notificationId, notification, sounds);
         }
-        DdlScheduler.schedule(context);
     }
 
     private boolean isEligible(int daysLeft, String mode, int multiple, int finalDays, int deadlineDayOffset) {

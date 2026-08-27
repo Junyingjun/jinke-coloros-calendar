@@ -5,7 +5,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Build;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -63,11 +62,7 @@ final class DailyScheduler {
         if (next.getTimeInMillis() <= System.currentTimeMillis()) next.add(Calendar.DAY_OF_YEAR, 1);
 
         PendingIntent pendingIntent = reminderIntent(context, time, PendingIntent.FLAG_UPDATE_CURRENT);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && manager.canScheduleExactAlarms()) {
-            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pendingIntent);
-        } else {
-            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pendingIntent);
-        }
+        AlarmSchedulingSupport.scheduleWakeup(manager, next.getTimeInMillis(), pendingIntent);
     }
 
     private static void cancelPreviouslyScheduled(Context context, AlarmManager manager, String savedTimes) {
@@ -86,6 +81,7 @@ final class DailyScheduler {
         int minutes = minutesFromClock(time);
         Intent intent = new Intent(context, DailyAlarmReceiver.class)
                 .setAction(ACTION_PREFIX + time.replace(":", ""))
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(EXTRA_REMINDER_TIME, time);
         return PendingIntent.getBroadcast(
                 context,

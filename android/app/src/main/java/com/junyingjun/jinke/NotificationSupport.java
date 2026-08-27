@@ -16,6 +16,8 @@ import android.os.PowerManager;
 import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.ArrayList;
+import java.util.List;
 
 final class NotificationSupport {
     // Reminder channels are deliberately soundless. Jinke plays the selected built-in or
@@ -113,6 +115,25 @@ final class NotificationSupport {
         }
     }
 
+    static void startReminderPlayback(
+            Context context, int notificationId, Notification notification, List<String> soundIds) {
+        if (soundIds == null || soundIds.isEmpty()) return;
+        Intent service = new Intent(context, ReminderPlaybackService.class)
+                .putExtra(ReminderPlaybackService.EXTRA_NOTIFICATION_ID, notificationId)
+                .putExtra(ReminderPlaybackService.EXTRA_NOTIFICATION, notification)
+                .putStringArrayListExtra(ReminderPlaybackService.EXTRA_SOUND_IDS, new ArrayList<>(soundIds));
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(service);
+            } else {
+                context.startService(service);
+            }
+        } catch (Exception backgroundStartDenied) {
+            // Retain a best-effort path on unusually restrictive OEM builds.
+            for (String soundId : soundIds) enqueueReminderSound(context, soundId);
+        }
+    }
+
     private static void playNext(Context context) {
         String soundId;
         synchronized (NotificationSupport.class) {
@@ -144,7 +165,7 @@ final class NotificationSupport {
         player.start();
     }
 
-    private static MediaPlayer createPlayer(Context context, String soundId) {
+    static MediaPlayer createPlayer(Context context, String soundId) {
         if (soundId != null && soundId.startsWith("alarm:")) {
             try {
                 Uri alarmUri = Uri.parse(soundId.substring("alarm:".length()));

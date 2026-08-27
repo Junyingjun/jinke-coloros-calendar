@@ -5,7 +5,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Build;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -44,6 +43,7 @@ final class DdlScheduler {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String fallbackTime = normalizeTime(prefs.getString(KEY_TIME, "10:00"));
         AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (manager == null) return;
         cancelPreviouslyScheduled(context, manager, prefs.getString(KEY_SCHEDULED_TIMES, ""));
 
         Set<String> times = new TreeSet<>();
@@ -72,11 +72,7 @@ final class DdlScheduler {
         if (next.getTimeInMillis() <= System.currentTimeMillis()) next.add(Calendar.DAY_OF_YEAR, 1);
 
         PendingIntent pendingIntent = reminderIntent(context, time, PendingIntent.FLAG_UPDATE_CURRENT);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && manager.canScheduleExactAlarms()) {
-            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pendingIntent);
-        } else {
-            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pendingIntent);
-        }
+        AlarmSchedulingSupport.scheduleWakeup(manager, next.getTimeInMillis(), pendingIntent);
     }
 
     private static void cancelPreviouslyScheduled(Context context, AlarmManager manager, String savedTimes) {
@@ -94,6 +90,7 @@ final class DdlScheduler {
         int minutes = Integer.parseInt(time.substring(0, 2)) * 60 + Integer.parseInt(time.substring(3));
         Intent intent = new Intent(context, DdlAlarmReceiver.class)
                 .setAction(ACTION_PREFIX + time.replace(":", ""))
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(EXTRA_REMINDER_TIME, time);
         return PendingIntent.getBroadcast(context, REQUEST_BASE + minutes, intent, lookupFlag | PendingIntent.FLAG_IMMUTABLE);
     }
