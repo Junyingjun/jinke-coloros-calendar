@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.DownloadManager;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -34,6 +35,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 import android.webkit.MimeTypeMap;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -70,7 +72,6 @@ public class MainActivity extends Activity {
         DdlScheduler.schedule(this);
         DailyScheduler.schedule(this);
         cleanupInstalledUpdateApk();
-        requestNotificationPermissionIfNeeded();
         pendingOpenToday = getIntent() != null
                 && getIntent().getBooleanExtra(NotificationSupport.EXTRA_OPEN_TODAY, false);
 
@@ -94,6 +95,8 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 webAppReady = true;
                 deliverOpenToday();
+                view.postDelayed(MainActivity.this::deliverReminderSyncRequest, 350L);
+                view.postDelayed(MainActivity.this::deliverReminderSyncRequest, 1200L);
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -120,6 +123,7 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new AndroidBridge(), "JinkeAndroid");
         setContentView(webView);
         webView.loadUrl("file:///android_asset/www/index.html");
+        webView.postDelayed(this::requestNotificationPermissionIfNeeded, 500L);
         offlineSpeechEngine = new OfflineSpeechEngine(this, new OfflineSpeechEngine.Callback() {
             @Override
             public void onStatus(String status) {
@@ -177,6 +181,14 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATIONS
+                && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            NotificationSupport.createChannels(this);
+            DdlScheduler.schedule(this);
+            DailyScheduler.schedule(this);
+            if (webView != null) webView.postDelayed(this::deliverReminderSyncRequest, 200L);
+        }
         if (requestCode == REQUEST_MICROPHONE) {
             boolean shouldOpenSpeech = openSpeechAfterPermission;
             openSpeechAfterPermission = false;
@@ -347,6 +359,12 @@ public class MainActivity extends Activity {
             payload.put("offlineSpeechBundled", true);
             payload.put("offlineSpeechReady", offlineSpeechEngine != null && offlineSpeechEngine.isReady());
             payload.put("bootRestore", true);
+            android.content.SharedPreferences dailyPrefs = getSharedPreferences(DailyScheduler.PREFS, MODE_PRIVATE);
+            android.content.SharedPreferences ddlPrefs = getSharedPreferences(DdlScheduler.PREFS, MODE_PRIVATE);
+            payload.put("dailyReminderCount", new JSONArray(dailyPrefs.getString(DailyScheduler.KEY_TASKS, "[]")).length());
+            payload.put("dailyAlarmTimes", dailyPrefs.getString(DailyScheduler.KEY_SCHEDULED_TIMES, ""));
+            payload.put("ddlReminderCount", new JSONArray(ddlPrefs.getString(DdlScheduler.KEY_TASKS, "[]")).length());
+            payload.put("ddlAlarmTimes", ddlPrefs.getString(DdlScheduler.KEY_SCHEDULED_TIMES, ""));
             return payload.toString();
         } catch (Exception ignored) {
             return "{}";
@@ -368,6 +386,48 @@ public class MainActivity extends Activity {
         String script = "window.JINKE_NATIVE_CAPABILITIES_CHANGED && window.JINKE_NATIVE_CAPABILITIES_CHANGED("
                 + JSONObject.quote(currentSystemCapabilities()) + ");";
         webView.evaluateJavascript(script, null);
+    }
+
+    private void deliverReminderSyncRequest() {
+        if (!webAppReady || webView == null) return;
+        webView.evaluateJavascript(
+                "window.JINKE_REQUEST_REMINDER_SYNC && window.JINKE_REQUEST_REMINDER_SYNC();",
+                null);
+    }
+
+    private void scheduleReminderTest() {
+        requestNotificationPermissionIfNeeded();
+        NotificationSupport.createChannels(this);
+        AlarmManager manager = getSystemService(AlarmManager.class);
+        if (manager == null) {
+            Toast.makeText(this, "系统闹钟服务不可用", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Intent intent = new Intent(this, ReminderTestReceiver.class)
+                .setAction(ReminderTestReceiver.ACTION)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                ReminderTestReceiver.REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        AlarmSchedulingSupport.scheduleWakeup(
+                this,
+                manager,
+                System.currentTimeMillis() + 8000L,
+                pendingIntent);
+        Toast.makeText(this, "测试提醒已登记，请在 8 秒内返回桌面", Toast.LENGTH_LONG).show();
+    }
+
+    private void openExternalUrl(String url) {
+        try {
+            Uri uri = Uri.parse(url == null ? "" : url);
+            String scheme = uri.getScheme();
+            if (!("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))) return;
+            startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception ignored) {
+            Toast.makeText(this, "无法打开来源链接", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void openCapabilitySettings(String capability) {
@@ -516,6 +576,7 @@ public class MainActivity extends Activity {
             deliverWindowLayout();
             deliverSystemCapabilities();
             deliverSystemTimeChanged();
+            deliverReminderSyncRequest();
             deliverOpenToday();
         });
     }
@@ -596,6 +657,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void openCapabilitySettings(String capability) {
             runOnUiThread(() -> MainActivity.this.openCapabilitySettings(capability));
+        }
+
+        @JavascriptInterface
+        public void scheduleReminderTest() {
+            runOnUiThread(MainActivity.this::scheduleReminderTest);
+        }
+
+        @JavascriptInterface
+        public void openExternalUrl(String url) {
+            runOnUiThread(() -> MainActivity.this.openExternalUrl(url));
         }
 
         @JavascriptInterface

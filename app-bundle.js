@@ -1518,6 +1518,9 @@ function ReminderSoundPicker(_ref5) {
   var localSounds = sounds.filter(function (sound) {
     return sound.source === "local";
   });
+  var defaultSoundName = ((_sounds$find = sounds.find(function (sound) {
+    return sound.id === defaultSoundId;
+  })) === null || _sounds$find === void 0 ? void 0 : _sounds$find.name) || "今刻清音";
   var update = function update(changes) {
     return onChange(_objectSpread(_objectSpread({}, task), changes));
   };
@@ -1542,7 +1545,10 @@ function ReminderSoundPicker(_ref5) {
       });
     },
     compact: true
-  }), effectiveMode === "sound" ? React.createElement(React.Fragment, null, React.createElement("div", {
+  }), alertMode === "inherit" && effectiveMode === "sound" ? React.createElement("div", {
+    className: "inherited-sound-summary",
+    "aria-label": "\u8DDF\u968F\u9ED8\u8BA4\u97F3\u6548\uFF1A".concat(defaultSoundName)
+  }, React.createElement("span", null, "\u8DDF\u968F\u9ED8\u8BA4\u97F3\u6548"), React.createElement("strong", null, defaultSoundName)) : null, alertMode === "sound" ? React.createElement(React.Fragment, null, React.createElement("div", {
     className: "sound-picker-head sound-picker-subhead"
   }, React.createElement("span", null, "\u63D0\u9192\u97F3\u6548"), React.createElement("strong", null, soundId === "inherit" ? "使用默认" : "单独设置")), React.createElement("div", {
     className: "sound-library-section"
@@ -1558,9 +1564,7 @@ function ReminderSoundPicker(_ref5) {
         soundId: "inherit"
       });
     }
-  }, React.createElement("span", null, "\u9ED8\u8BA4\u97F3\u6548"), React.createElement("small", null, ((_sounds$find = sounds.find(function (sound) {
-    return sound.id === defaultSoundId;
-  })) === null || _sounds$find === void 0 ? void 0 : _sounds$find.name) || "今刻清音")), React.createElement("button", {
+  }, React.createElement("span", null, "\u9ED8\u8BA4\u97F3\u6548"), React.createElement("small", null, defaultSoundName)), React.createElement("button", {
     type: "button",
     className: "sound-preview",
     "aria-label": "\u8BD5\u542C\u9ED8\u8BA4\u97F3\u6548",
@@ -2420,6 +2424,28 @@ var DAY_ARCHIVE_TABS = [{
 }];
 var ON_THIS_DAY_MEMORY = new Map();
 var ON_THIS_DAY_REQUESTS = new Map();
+function isLivingBirthItem(item) {
+  var year = Number(item === null || item === void 0 ? void 0 : item.year);
+  if (!Number.isFinite(year)) return false;
+  var pageText = JSON.stringify((item === null || item === void 0 ? void 0 : item.pages) || []);
+  var combined = "".concat((item === null || item === void 0 ? void 0 : item.text) || "", " ").concat(pageText);
+  if (/(逝世|去世|病逝|卒于|已故|死亡|遇难|被杀|殉职)/.test(combined)) return false;
+  if (/(?:19|20)\d{2}\s*[年]?\s*[—–－-]\s*(?:19|20)\d{2}/.test(combined)) return false;
+  return year >= new Date().getFullYear() - 110;
+}
+function sourceUrlForOnThisDayItem(item) {
+  var _sourcePage$content_u;
+  var pages = Array.isArray(item === null || item === void 0 ? void 0 : item.pages) ? item.pages : [];
+  var sourcePage = pages.find(function (page) {
+    var _page$titles, _page$content_urls;
+    var title = String((page === null || page === void 0 || (_page$titles = page.titles) === null || _page$titles === void 0 ? void 0 : _page$titles.normalized) || (page === null || page === void 0 ? void 0 : page.title) || "").trim();
+    return (page === null || page === void 0 || (_page$content_urls = page.content_urls) === null || _page$content_urls === void 0 || (_page$content_urls = _page$content_urls.desktop) === null || _page$content_urls === void 0 ? void 0 : _page$content_urls.page) && !/^\d{1,4}\s*年$/.test(title);
+  }) || pages.find(function (page) {
+    var _page$content_urls2;
+    return page === null || page === void 0 || (_page$content_urls2 = page.content_urls) === null || _page$content_urls2 === void 0 || (_page$content_urls2 = _page$content_urls2.desktop) === null || _page$content_urls2 === void 0 ? void 0 : _page$content_urls2.page;
+  });
+  return (sourcePage === null || sourcePage === void 0 || (_sourcePage$content_u = sourcePage.content_urls) === null || _sourcePage$content_u === void 0 || (_sourcePage$content_u = _sourcePage$content_u.desktop) === null || _sourcePage$content_u === void 0 ? void 0 : _sourcePage$content_u.page) || "";
+}
 function normalizeOnThisDayItems(items, source) {
   var kind = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : "";
   var seen = new Set();
@@ -2430,13 +2456,12 @@ function normalizeOnThisDayItems(items, source) {
     seen.add(key);
     return true;
   }).slice(0, 80).map(function (item) {
-    var _item$pages;
     return {
       text: item.text,
       year: Number.isFinite(item.year) ? item.year : null,
       source: source,
-      kind: kind,
-      url: ((_item$pages = item.pages) === null || _item$pages === void 0 || (_item$pages = _item$pages[0]) === null || _item$pages === void 0 || (_item$pages = _item$pages.content_urls) === null || _item$pages === void 0 || (_item$pages = _item$pages.desktop) === null || _item$pages === void 0 ? void 0 : _item$pages.page) || ""
+      kind: kind === "诞辰" && isLivingBirthItem(item) ? "生日" : kind,
+      url: sourceUrlForOnThisDayItem(item)
     };
   });
 }
@@ -2458,7 +2483,7 @@ function readArchiveCache(category, month, day) {
   if (ON_THIS_DAY_MEMORY.has(key)) return ON_THIS_DAY_MEMORY.get(key);
   try {
     var _legacy$data, _legacy$data2, _legacy$data3;
-    var cached = JSON.parse(localStorage.getItem("jinke-onthisday-v2-".concat(key)) || "null");
+    var cached = JSON.parse(localStorage.getItem("jinke-onthisday-v3-".concat(key)) || "null");
     if (Array.isArray(cached === null || cached === void 0 ? void 0 : cached.items)) {
       ON_THIS_DAY_MEMORY.set(key, cached.items);
       return cached.items;
@@ -2502,7 +2527,7 @@ function loadArchiveCategory(category, month, day) {
     var items = category === "people" ? mergePeopleItems((_responses$ = responses[0]) === null || _responses$ === void 0 ? void 0 : _responses$.births, (_responses$2 = responses[1]) === null || _responses$2 === void 0 ? void 0 : _responses$2.deaths) : normalizeOnThisDayItems((_responses$3 = responses[0]) === null || _responses$3 === void 0 ? void 0 : _responses$3[category], "Wikimedia \xB7 ".concat(category === "holidays" ? "全球节日" : "历史事件"));
     ON_THIS_DAY_MEMORY.set(key, items);
     try {
-      localStorage.setItem("jinke-onthisday-v2-".concat(key), JSON.stringify({
+      localStorage.setItem("jinke-onthisday-v3-".concat(key), JSON.stringify({
         savedAt: Date.now(),
         items: items
       }));
@@ -2582,6 +2607,12 @@ function CalendarDaySheet(_ref18) {
     onActiveChange(tab);
     onIndexChange(0);
   };
+  var openSource = function openSource(event, url) {
+    var _window$JinkeAndroid;
+    if (!url || !((_window$JinkeAndroid = window.JinkeAndroid) !== null && _window$JinkeAndroid !== void 0 && _window$JinkeAndroid.openExternalUrl)) return;
+    event.preventDefault();
+    window.JinkeAndroid.openExternalUrl(url);
+  };
   return React.createElement(Sheet, {
     onClose: onClose,
     labelledBy: "day-archive-title"
@@ -2625,8 +2656,11 @@ function CalendarDaySheet(_ref18) {
     className: "day-archive-source source-link",
     href: current.url,
     target: "_blank",
-    rel: "noreferrer"
-  }, current.source, React.createElement(Icon, {
+    rel: "noreferrer",
+    onClick: function onClick(event) {
+      return openSource(event, current.url);
+    }
+  }, current.source, React.createElement("span", null, "\u67E5\u770B\u539F\u6587"), React.createElement(Icon, {
     name: "chevronRight",
     size: 12
   })) : React.createElement("span", {
@@ -3497,6 +3531,7 @@ function DeleteConfirmSheet(_ref32) {
 function PermissionsScreen(_ref33) {
   var capabilities = _ref33.capabilities,
     onOpenCapability = _ref33.onOpenCapability,
+    onTestReminder = _ref33.onTestReminder,
     onBack = _ref33.onBack;
   var known = Boolean(capabilities);
   var state = function state(value) {
@@ -3528,6 +3563,18 @@ function PermissionsScreen(_ref33) {
     note: "按设定时间触发日常与 DDL 提醒",
     status: state(capabilities === null || capabilities === void 0 ? void 0 : capabilities.exactAlarm),
     ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.exactAlarm
+  }, {
+    key: null,
+    title: "日常提醒计划",
+    note: capabilities !== null && capabilities !== void 0 && capabilities.dailyAlarmTimes ? "\u5DF2\u767B\u8BB0 ".concat(capabilities.dailyAlarmTimes) : "尚无开启提醒的定时任务",
+    status: known ? "".concat(Number((capabilities === null || capabilities === void 0 ? void 0 : capabilities.dailyReminderCount) || 0), " \u9879") : "仅手机检测",
+    ok: Boolean(capabilities === null || capabilities === void 0 ? void 0 : capabilities.dailyAlarmTimes)
+  }, {
+    key: null,
+    title: "关键提醒计划",
+    note: capabilities !== null && capabilities !== void 0 && capabilities.ddlAlarmTimes ? "\u5DF2\u767B\u8BB0 ".concat(capabilities.ddlAlarmTimes) : "尚无到期提醒计划",
+    status: known ? "".concat(Number((capabilities === null || capabilities === void 0 ? void 0 : capabilities.ddlReminderCount) || 0), " \u9879") : "仅手机检测",
+    ok: Boolean(capabilities === null || capabilities === void 0 ? void 0 : capabilities.ddlAlarmTimes)
   }, {
     key: "fullScreenIntent",
     title: "锁屏提醒",
@@ -3606,7 +3653,13 @@ function PermissionsScreen(_ref33) {
       className: "permission-row",
       key: row.title
     }, content);
-  })));
+  })), React.createElement("button", {
+    className: "primary-button accent pressable reminder-test-button",
+    type: "button",
+    onClick: onTestReminder
+  }, "8 \u79D2\u540E\u6D4B\u8BD5\u63D0\u9192"), React.createElement("p", {
+    className: "reminder-test-note"
+  }, "\u70B9\u51FB\u540E\u53EF\u7ACB\u5373\u8FD4\u56DE\u684C\u9762\uFF1B\u6D4B\u8BD5\u63D0\u9192\u4E0E\u6B63\u5F0F\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u5957\u7CFB\u7EDF\u95F9\u949F\u3001\u901A\u77E5\u6E20\u9053\u548C\u63D0\u793A\u97F3\u3002"));
 }
 function SettingsScreen(_ref34) {
   var alertMode = _ref34.alertMode,
@@ -3752,17 +3805,44 @@ function CriticalReminderScreen(_ref35) {
     title: "\u5173\u952E\u63D0\u9192",
     onBack: onBack
   }), React.createElement("div", {
-    className: "reminder-time-card"
-  }, React.createElement("span", null, React.createElement("span", {
-    className: "reminder-setting-title"
-  }, "\u65B0\u4EFB\u52A1\u9ED8\u8BA4\u8BA1\u5212")), React.createElement(TimePicker, {
+    className: "reminder-default-card"
+  }, React.createElement("div", {
+    className: "reminder-default-head"
+  }, React.createElement("span", null, "\u65B0\u4EFB\u52A1\u9ED8\u8BA4\u8BA1\u5212"), React.createElement("strong", null, "\u667A\u80FD\u8282\u70B9")), React.createElement(TimePicker, {
     label: "\u9ED8\u8BA4\u63D0\u9192\u65F6\u523B",
     value: reminderTime,
     allowUnset: false,
     onChange: function onChange(time) {
       return onReminderTimeChange(time || "10:00");
     }
-  })), reminderTasks.length ? React.createElement("div", {
+  }), React.createElement("div", {
+    className: "reminder-rule-grid",
+    "aria-label": "\u65B0\u5173\u952E\u4EFB\u52A1\u9ED8\u8BA4\u63D0\u9192\u9891\u7387"
+  }, React.createElement("div", {
+    className: "reminder-rule-field"
+  }, React.createElement("span", {
+    className: "reminder-rule-label"
+  }, "\u500D\u6570\u8282\u70B9"), React.createElement("div", {
+    className: "reminder-rule-control"
+  }, React.createElement(Stepper, {
+    label: "\u9ED8\u8BA4\u95F4\u9694\u5929\u6570",
+    value: reminderMultiple,
+    min: 1,
+    max: 30,
+    onChange: onReminderMultipleChange
+  }), React.createElement("span", null, "\u5929\u4E00\u6B21"))), React.createElement("div", {
+    className: "reminder-rule-field"
+  }, React.createElement("span", {
+    className: "reminder-rule-label"
+  }, "\u4E34\u8FD1\u622A\u6B62"), React.createElement("div", {
+    className: "reminder-rule-control"
+  }, React.createElement(Stepper, {
+    label: "\u9ED8\u8BA4\u6700\u540E\u6BCF\u5929\u63D0\u9192\u5929\u6570",
+    value: reminderFinalDays,
+    min: 0,
+    max: 30,
+    onChange: onReminderFinalDaysChange
+  }), React.createElement("span", null, "\u5929\u5185\u6BCF\u5929"))))), reminderTasks.length ? React.createElement("div", {
     className: "notice-preview ddl-notice-preview"
   }, React.createElement("div", {
     className: "notice-app"
@@ -3780,34 +3860,7 @@ function CriticalReminderScreen(_ref35) {
   }, React.createElement(Icon, {
     name: "bell",
     size: 18
-  }), React.createElement("span", null, React.createElement("strong", null, "\u4ECA\u5929\u4E0D\u63D0\u9192"), React.createElement("small", null, "DDL \u4ECD\u4FDD\u7559\u5728\u4ECA\u65E5\u4E0E\u5173\u952E\u5217\u8868"))), React.createElement("div", {
-    className: "reminder-rule-grid",
-    "aria-label": "\u65B0\u5173\u952E\u4EFB\u52A1\u9ED8\u8BA4\u63D0\u9192\u9891\u7387"
-  }, React.createElement("div", {
-    className: "reminder-rule-field"
-  }, React.createElement("span", {
-    className: "reminder-rule-label"
-  }, "\u500D\u6570\u8282\u70B9"), React.createElement("span", {
-    className: "reminder-rule-value"
-  }, "\u6BCF ", React.createElement(Stepper, {
-    label: "\u9ED8\u8BA4\u95F4\u9694\u5929\u6570",
-    value: reminderMultiple,
-    min: 1,
-    max: 30,
-    onChange: onReminderMultipleChange
-  }), " \u5929")), React.createElement("div", {
-    className: "reminder-rule-field"
-  }, React.createElement("span", {
-    className: "reminder-rule-label"
-  }, "\u4E34\u8FD1\u622A\u6B62"), React.createElement("span", {
-    className: "reminder-rule-value"
-  }, "\u6700\u540E ", React.createElement(Stepper, {
-    label: "\u9ED8\u8BA4\u6700\u540E\u6BCF\u5929\u63D0\u9192\u5929\u6570",
-    value: reminderFinalDays,
-    min: 0,
-    max: 30,
-    onChange: onReminderFinalDaysChange
-  }), " \u5929"))), React.createElement(SectionHeader, {
+  }), React.createElement("span", null, React.createElement("strong", null, "\u4ECA\u5929\u4E0D\u63D0\u9192"), React.createElement("small", null, "DDL \u4ECD\u4FDD\u7559\u5728\u4ECA\u65E5\u4E0E\u5173\u952E\u5217\u8868"))), React.createElement(SectionHeader, {
     title: "\u4ECA\u5929\u4F1A\u63D0\u9192",
     note: "".concat(reminderTasks.length, " \u9879")
   }), React.createElement("div", {
@@ -3837,7 +3890,7 @@ function CriticalReminderScreen(_ref35) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.1.2";
+var JINKE_FALLBACK_VERSION = "1.1.3";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3857,8 +3910,8 @@ function VersionScreen(_ref36) {
   var onBack = _ref36.onBack;
   var currentVersion = function () {
     try {
-      var _window$JinkeAndroid, _window$JinkeAndroid$;
-      return ((_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.getAppVersion) === null || _window$JinkeAndroid$ === void 0 ? void 0 : _window$JinkeAndroid$.call(_window$JinkeAndroid)) || JINKE_FALLBACK_VERSION;
+      var _window$JinkeAndroid2, _window$JinkeAndroid3;
+      return ((_window$JinkeAndroid2 = window.JinkeAndroid) === null || _window$JinkeAndroid2 === void 0 || (_window$JinkeAndroid3 = _window$JinkeAndroid2.getAppVersion) === null || _window$JinkeAndroid3 === void 0 ? void 0 : _window$JinkeAndroid3.call(_window$JinkeAndroid2)) || JINKE_FALLBACK_VERSION;
     } catch (_unused3) {
       return JINKE_FALLBACK_VERSION;
     }
@@ -3910,8 +3963,8 @@ function VersionScreen(_ref36) {
   var installUpdate = function installUpdate() {
     if (!state.apkUrl) return;
     try {
-      var _window$JinkeAndroid2;
-      if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.installApk) window.JinkeAndroid.installApk(state.apkUrl);else window.open(state.apkUrl, "_blank", "noopener,noreferrer");
+      var _window$JinkeAndroid4;
+      if ((_window$JinkeAndroid4 = window.JinkeAndroid) !== null && _window$JinkeAndroid4 !== void 0 && _window$JinkeAndroid4.installApk) window.JinkeAndroid.installApk(state.apkUrl);else window.open(state.apkUrl, "_blank", "noopener,noreferrer");
     } catch (_unused4) {
       window.location.href = state.apkUrl;
     }
@@ -5154,7 +5207,13 @@ function MobileDesignApp() {
     selectedDateKey = _useState22[0],
     setSelectedDateKey = _useState22[1];
   var _useState23 = useState(function () {
-      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray);
+      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray).map(function (task) {
+        return _objectSpread(_objectSpread({}, task), {}, {
+          reminder: task.reminder || "到点提醒",
+          alertMode: task.alertMode || "inherit",
+          soundId: task.soundId || "inherit"
+        });
+      });
     }),
     _useState24 = _slicedToArray(_useState23, 2),
     dailyTasks = _useState24[0],
@@ -5308,6 +5367,10 @@ function MobileDesignApp() {
     _useState68 = _slicedToArray(_useState67, 2),
     nativeCapabilities = _useState68[0],
     setNativeCapabilities = _useState68[1];
+  var _useState69 = useState(0),
+    _useState70 = _slicedToArray(_useState69, 2),
+    nativeSyncRevision = _useState70[0],
+    setNativeSyncRevision = _useState70[1];
   var recognitionRef = useRef(null);
   var voiceInputModeRef = useRef("offline");
   var toastTimerRef = useRef(null);
@@ -5426,6 +5489,17 @@ function MobileDesignApp() {
     };
   }, []);
   useEffect(function () {
+    var requestSync = function requestSync() {
+      return setNativeSyncRevision(function (current) {
+        return current + 1;
+      });
+    };
+    window.JINKE_REQUEST_REMINDER_SYNC = requestSync;
+    return function () {
+      if (window.JINKE_REQUEST_REMINDER_SYNC === requestSync) delete window.JINKE_REQUEST_REMINDER_SYNC;
+    };
+  }, []);
+  useEffect(function () {
     try {
       localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks));
     } catch (_unused13) {}
@@ -5521,7 +5595,7 @@ function MobileDesignApp() {
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch (_unused22) {}
-  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays, defaultAlertMode, defaultSoundId]);
+  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays, defaultAlertMode, defaultSoundId, nativeSyncRevision]);
   useEffect(function () {
     var _window$JinkeAndroid5;
     if (!((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.syncDailyReminders)) return;
@@ -5558,7 +5632,7 @@ function MobileDesignApp() {
     try {
       window.JinkeAndroid.syncDailyReminders(JSON.stringify(payload));
     } catch (_unused23) {}
-  }, [dailyTasks, dailyCompletionByDate, todayDateKey, defaultAlertMode, defaultSoundId]);
+  }, [dailyTasks, dailyCompletionByDate, todayDateKey, defaultAlertMode, defaultSoundId, nativeSyncRevision]);
   useEffect(function () {
     return function () {
       if (recognitionRef.current) recognitionRef.current.abort();
@@ -5816,7 +5890,9 @@ function MobileDesignApp() {
   var saveDaily = function saveDaily(taskId, changes) {
     setDailyTasks(function (current) {
       return current.map(function (task) {
-        return task.id === taskId ? _objectSpread(_objectSpread({}, task), changes) : task;
+        return task.id === taskId ? _objectSpread(_objectSpread(_objectSpread({}, task), changes), {}, {
+          reminder: changes.reminder || task.reminder || "到点提醒"
+        }) : task;
       }).sort(function (a, b) {
         return a.time.localeCompare(b.time);
       });
@@ -6489,6 +6565,19 @@ function MobileDesignApp() {
           var _window$JinkeAndroid15, _window$JinkeAndroid16;
           (_window$JinkeAndroid15 = window.JinkeAndroid) === null || _window$JinkeAndroid15 === void 0 || (_window$JinkeAndroid16 = _window$JinkeAndroid15.openCapabilitySettings) === null || _window$JinkeAndroid16 === void 0 || _window$JinkeAndroid16.call(_window$JinkeAndroid15, key);
         } catch (_unused38) {}
+      },
+      onTestReminder: function onTestReminder() {
+        try {
+          var _window$JinkeAndroid17;
+          if (!((_window$JinkeAndroid17 = window.JinkeAndroid) !== null && _window$JinkeAndroid17 !== void 0 && _window$JinkeAndroid17.scheduleReminderTest)) {
+            showToast("测试提醒仅在手机安装版可用");
+            return;
+          }
+          window.JinkeAndroid.scheduleReminderTest();
+          showToast("测试提醒已登记，8 秒后触发");
+        } catch (_unused39) {
+          showToast("测试提醒登记失败");
+        }
       },
       onBack: closeSecondary
     });

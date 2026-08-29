@@ -756,7 +756,12 @@ function MobileDesignApp() {
   const [viewMode, setViewMode] = useState("day");
   const [todayDateKey, setTodayDateKey] = useState(() => localDateKey());
   const [selectedDateKey, setSelectedDateKey] = useState(() => localDateKey());
-  const [dailyTasks, setDailyTasks] = useState(() => readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray));
+  const [dailyTasks, setDailyTasks] = useState(() => readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray).map((task) => ({
+    ...task,
+    reminder: task.reminder || "到点提醒",
+    alertMode: task.alertMode || "inherit",
+    soundId: task.soundId || "inherit",
+  })));
   const [dailyCompletionByDate, setDailyCompletionByDate] = useState(() => readStoredJson(
     "jinke-daily-completions",
     Object.fromEntries(APP_DATA.dailyTasks.map((task) => [`${task.id}:${localDateKey()}`, Boolean(task.done)])),
@@ -820,6 +825,7 @@ function MobileDesignApp() {
   const [toast, setToast] = useState("");
   const [nativeWindow, setNativeWindow] = useState(() => getNativeWindowState());
   const [nativeCapabilities, setNativeCapabilities] = useState(() => getNativeCapabilities());
+  const [nativeSyncRevision, setNativeSyncRevision] = useState(0);
   const recognitionRef = useRef(null);
   const voiceInputModeRef = useRef("offline");
   const toastTimerRef = useRef(null);
@@ -923,6 +929,14 @@ function MobileDesignApp() {
   }, []);
 
   useEffect(() => {
+    const requestSync = () => setNativeSyncRevision((current) => current + 1);
+    window.JINKE_REQUEST_REMINDER_SYNC = requestSync;
+    return () => {
+      if (window.JINKE_REQUEST_REMINDER_SYNC === requestSync) delete window.JINKE_REQUEST_REMINDER_SYNC;
+    };
+  }, []);
+
+  useEffect(() => {
     try { localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks)); } catch {}
   }, [dailyTasks]);
 
@@ -997,7 +1011,7 @@ function MobileDesignApp() {
     try {
       window.JinkeAndroid.syncDdlReminders(JSON.stringify(payload), ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays);
     } catch {}
-  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays, defaultAlertMode, defaultSoundId]);
+  }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays, defaultAlertMode, defaultSoundId, nativeSyncRevision]);
 
   useEffect(() => {
     if (!window.JinkeAndroid?.syncDailyReminders) return;
@@ -1027,7 +1041,7 @@ function MobileDesignApp() {
     try {
       window.JinkeAndroid.syncDailyReminders(JSON.stringify(payload));
     } catch {}
-  }, [dailyTasks, dailyCompletionByDate, todayDateKey, defaultAlertMode, defaultSoundId]);
+  }, [dailyTasks, dailyCompletionByDate, todayDateKey, defaultAlertMode, defaultSoundId, nativeSyncRevision]);
 
   useEffect(() => () => {
     if (recognitionRef.current) recognitionRef.current.abort();
@@ -1219,7 +1233,11 @@ function MobileDesignApp() {
 
   const saveDaily = (taskId, changes) => {
     setDailyTasks((current) => current
-      .map((task) => task.id === taskId ? { ...task, ...changes } : task)
+      .map((task) => task.id === taskId ? {
+        ...task,
+        ...changes,
+        reminder: changes.reminder || task.reminder || "到点提醒",
+      } : task)
       .sort((a, b) => a.time.localeCompare(b.time)));
     closeOverlay();
     showToast("日常事务已更新");
@@ -1726,7 +1744,16 @@ function MobileDesignApp() {
     if (route === "history") return <HistoryScreen items={history} onBack={closeSecondary} />;
     if (route === "month") return <ReportScreen type="month" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
     if (route === "year") return <ReportScreen type="year" dailyTasks={dailyTasks} dailyCompletionByDate={dailyCompletionByDate} history={history} todayDateKey={todayDateKey} onBack={closeSecondary} />;
-    if (route === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onBack={closeSecondary} />;
+    if (route === "permissions") return <PermissionsScreen capabilities={nativeCapabilities} onOpenCapability={(key) => { try { window.JinkeAndroid?.openCapabilitySettings?.(key); } catch {} }} onTestReminder={() => {
+      try {
+        if (!window.JinkeAndroid?.scheduleReminderTest) {
+          showToast("测试提醒仅在手机安装版可用");
+          return;
+        }
+        window.JinkeAndroid.scheduleReminderTest();
+        showToast("测试提醒已登记，8 秒后触发");
+      } catch { showToast("测试提醒登记失败"); }
+    }} onBack={closeSecondary} />;
     if (route === "settings") return <SettingsScreen alertMode={defaultAlertMode} defaultSoundId={defaultSoundId} sounds={reminderSounds} onAlertModeChange={(mode) => { setDefaultAlertMode(mode); showToast(mode === "silent" ? "默认改为静音提醒" : "默认改为响铃提醒"); }} onDefaultSoundChange={(soundId) => { setDefaultSoundId(soundId); showToast("默认音效已更新"); }} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onPickSystemAlarm={pickSystemAlarmSound} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "critical-reminders") return <CriticalReminderScreen tasks={activeCriticalTasks} reminderTime={ddlReminderTime} onReminderTimeChange={changeDdlReminderTime} reminderMultiple={ddlReminderMultiple} onReminderMultipleChange={changeDdlReminderMultiple} reminderFinalDays={ddlReminderFinalDays} onReminderFinalDaysChange={changeDdlReminderFinalDays} onOpenPermissions={() => pushSecondary("permissions")} onBack={closeSecondary} />;
     if (route === "version") return <VersionScreen onBack={closeSecondary} />;

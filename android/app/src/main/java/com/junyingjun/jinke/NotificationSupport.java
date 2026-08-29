@@ -23,10 +23,10 @@ final class NotificationSupport {
     // Reminder channels are deliberately soundless. Jinke plays the selected built-in or
     // imported local sound itself, which allows every task to have a different sound on
     // Android 8+ where a notification channel's sound is otherwise immutable.
-    static final String DAILY_RING_CHANNEL = "jinke_daily_ring_v3";
-    static final String DAILY_SILENT_CHANNEL = "jinke_daily_silent_v3";
-    static final String DDL_RING_CHANNEL = "jinke_ddl_ring_v3";
-    static final String DDL_SILENT_CHANNEL = "jinke_ddl_silent_v3";
+    static final String DAILY_RING_CHANNEL = "jinke_daily_ring_v4";
+    static final String DAILY_SILENT_CHANNEL = "jinke_daily_silent_v4";
+    static final String DDL_RING_CHANNEL = "jinke_ddl_ring_v4";
+    static final String DDL_SILENT_CHANNEL = "jinke_ddl_silent_v4";
     static final String UPDATE_CHANNEL = "jinke_update";
     static final String EXTRA_OPEN_TODAY = "jinke_open_today";
     static final String EXTRA_REMINDER_TITLE = "jinke_reminder_title";

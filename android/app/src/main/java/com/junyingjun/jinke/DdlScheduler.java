@@ -36,10 +36,14 @@ final class DdlScheduler {
                 .putInt(KEY_FINAL_DAYS, Math.max(0, finalDays))
                 .putLong(KEY_SYNC_DAY, epochDay)
                 .apply();
-        schedule(context);
+        schedule(context, true);
     }
 
     static void schedule(Context context) {
+        schedule(context, false);
+    }
+
+    private static void schedule(Context context, boolean allowCurrentMinute) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String fallbackTime = normalizeTime(prefs.getString(KEY_TIME, "10:00"));
         AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
@@ -56,11 +60,11 @@ final class DdlScheduler {
             }
         } catch (Exception ignored) {}
 
-        for (String reminderTime : times) scheduleTime(context, manager, reminderTime);
+        for (String reminderTime : times) scheduleTime(context, manager, reminderTime, allowCurrentMinute);
         prefs.edit().putString(KEY_SCHEDULED_TIMES, String.join(",", times)).apply();
     }
 
-    private static void scheduleTime(Context context, AlarmManager manager, String time) {
+    private static void scheduleTime(Context context, AlarmManager manager, String time, boolean allowCurrentMinute) {
         String[] parts = normalizeTime(time).split(":");
         int hour = Integer.parseInt(parts[0]);
         int minute = Integer.parseInt(parts[1]);
@@ -69,10 +73,17 @@ final class DdlScheduler {
         next.set(Calendar.MINUTE, minute);
         next.set(Calendar.SECOND, 0);
         next.set(Calendar.MILLISECOND, 0);
-        if (next.getTimeInMillis() <= System.currentTimeMillis()) next.add(Calendar.DAY_OF_YEAR, 1);
+        long now = System.currentTimeMillis();
+        if (next.getTimeInMillis() <= now) {
+            if (allowCurrentMinute && now - next.getTimeInMillis() < 60000L) {
+                next.setTimeInMillis(now + 3000L);
+            } else {
+                next.add(Calendar.DAY_OF_YEAR, 1);
+            }
+        }
 
         PendingIntent pendingIntent = reminderIntent(context, time, PendingIntent.FLAG_UPDATE_CURRENT);
-        AlarmSchedulingSupport.scheduleWakeup(manager, next.getTimeInMillis(), pendingIntent);
+        AlarmSchedulingSupport.scheduleWakeup(context, manager, next.getTimeInMillis(), pendingIntent);
     }
 
     private static void cancelPreviouslyScheduled(Context context, AlarmManager manager, String savedTimes) {

@@ -32,18 +32,24 @@ function ReminderSoundPicker({ task = {}, sounds = [], defaultAlertMode = "sound
   const builtInSounds = sounds.filter((sound) => sound.source === "built-in");
   const systemAlarmSounds = sounds.filter((sound) => sound.source === "system-alarm");
   const localSounds = sounds.filter((sound) => sound.source === "local");
+  const defaultSoundName = sounds.find((sound) => sound.id === defaultSoundId)?.name || "今刻清音";
   const update = (changes) => onChange({ ...task, ...changes });
   const selectSound = (id) => update({ soundId: id, alertMode: alertMode === "silent" ? "sound" : alertMode });
   return (
     <div className="task-sound-picker" aria-label="任务提醒声音">
       <div className="sound-picker-head"><span>提醒方式</span><strong>{effectiveMode === "silent" ? "静音" : "响铃"}</strong></div>
       <SegmentedChoice label="任务提醒方式" value={alertMode} options={[["inherit", defaultModeLabel], ["sound", "响铃"], ["silent", "静音"]]} onChange={(next) => update({ alertMode: next })} compact />
-      {effectiveMode === "sound" ? <>
+      {alertMode === "inherit" && effectiveMode === "sound" ? (
+        <div className="inherited-sound-summary" aria-label={`跟随默认音效：${defaultSoundName}`}>
+          <span>跟随默认音效</span><strong>{defaultSoundName}</strong>
+        </div>
+      ) : null}
+      {alertMode === "sound" ? <>
         <div className="sound-picker-head sound-picker-subhead"><span>提醒音效</span><strong>{soundId === "inherit" ? "使用默认" : "单独设置"}</strong></div>
         <div className="sound-library-section">
           <div className="sound-library-title">默认</div>
           <div className={`sound-choice ${soundId === "inherit" ? "selected" : ""}`}>
-            <button type="button" className="sound-choice-main" onClick={() => update({ soundId: "inherit" })}><span>默认音效</span><small>{sounds.find((sound) => sound.id === defaultSoundId)?.name || "今刻清音"}</small></button>
+            <button type="button" className="sound-choice-main" onClick={() => update({ soundId: "inherit" })}><span>默认音效</span><small>{defaultSoundName}</small></button>
             <button type="button" className="sound-preview" aria-label="试听默认音效" onClick={() => onPreview(defaultSoundId)}>试听</button>
           </div>
         </div>
@@ -426,6 +432,25 @@ const DAY_ARCHIVE_TABS = [
 const ON_THIS_DAY_MEMORY = new Map();
 const ON_THIS_DAY_REQUESTS = new Map();
 
+function isLivingBirthItem(item) {
+  const year = Number(item?.year);
+  if (!Number.isFinite(year)) return false;
+  const pageText = JSON.stringify(item?.pages || []);
+  const combined = `${item?.text || ""} ${pageText}`;
+  if (/(逝世|去世|病逝|卒于|已故|死亡|遇难|被杀|殉职)/.test(combined)) return false;
+  if (/(?:19|20)\d{2}\s*[年]?\s*[—–－-]\s*(?:19|20)\d{2}/.test(combined)) return false;
+  return year >= new Date().getFullYear() - 110;
+}
+
+function sourceUrlForOnThisDayItem(item) {
+  const pages = Array.isArray(item?.pages) ? item.pages : [];
+  const sourcePage = pages.find((page) => {
+    const title = String(page?.titles?.normalized || page?.title || "").trim();
+    return page?.content_urls?.desktop?.page && !/^\d{1,4}\s*年$/.test(title);
+  }) || pages.find((page) => page?.content_urls?.desktop?.page);
+  return sourcePage?.content_urls?.desktop?.page || "";
+}
+
 function normalizeOnThisDayItems(items, source, kind = "") {
   const seen = new Set();
   return (items || []).filter((item) => {
@@ -437,8 +462,8 @@ function normalizeOnThisDayItems(items, source, kind = "") {
     text: item.text,
     year: Number.isFinite(item.year) ? item.year : null,
     source,
-    kind,
-    url: item.pages?.[0]?.content_urls?.desktop?.page || "",
+    kind: kind === "诞辰" && isLivingBirthItem(item) ? "生日" : kind,
+    url: sourceUrlForOnThisDayItem(item),
   }));
 }
 
@@ -463,7 +488,7 @@ function readArchiveCache(category, month, day) {
   const key = getArchiveCacheKey(category, month, day);
   if (ON_THIS_DAY_MEMORY.has(key)) return ON_THIS_DAY_MEMORY.get(key);
   try {
-    const cached = JSON.parse(localStorage.getItem(`jinke-onthisday-v2-${key}`) || "null");
+    const cached = JSON.parse(localStorage.getItem(`jinke-onthisday-v3-${key}`) || "null");
     if (Array.isArray(cached?.items)) {
       ON_THIS_DAY_MEMORY.set(key, cached.items);
       return cached.items;
@@ -504,7 +529,7 @@ function loadArchiveCategory(category, month, day) {
         ? mergePeopleItems(responses[0]?.births, responses[1]?.deaths)
         : normalizeOnThisDayItems(responses[0]?.[category], `Wikimedia · ${category === "holidays" ? "全球节日" : "历史事件"}`);
       ON_THIS_DAY_MEMORY.set(key, items);
-      try { localStorage.setItem(`jinke-onthisday-v2-${key}`, JSON.stringify({ savedAt: Date.now(), items })); } catch {}
+      try { localStorage.setItem(`jinke-onthisday-v3-${key}`, JSON.stringify({ savedAt: Date.now(), items })); } catch {}
       return items;
     })
     .finally(() => ON_THIS_DAY_REQUESTS.delete(key));
@@ -549,6 +574,11 @@ function CalendarDaySheet({ dateKey, onClose, active, index, onActiveChange, onI
   const items = sections[active] || [];
   const current = items.length ? items[index % items.length] : null;
   const selectTab = (tab) => { onActiveChange(tab); onIndexChange(0); };
+  const openSource = (event, url) => {
+    if (!url || !window.JinkeAndroid?.openExternalUrl) return;
+    event.preventDefault();
+    window.JinkeAndroid.openExternalUrl(url);
+  };
 
   return (
     <Sheet onClose={onClose} labelledBy="day-archive-title">
@@ -566,7 +596,7 @@ function CalendarDaySheet({ dateKey, onClose, active, index, onActiveChange, onI
             {current.year ? <span className="day-archive-year">{current.year > 0 ? `${current.year} 年` : `公元前 ${Math.abs(current.year)} 年`}</span> : null}
             <p className="day-archive-story">{current.text}</p>
             {current.url
-              ? <a className="day-archive-source source-link" href={current.url} target="_blank" rel="noreferrer">{current.source}<Icon name="chevronRight" size={12} /></a>
+              ? <a className="day-archive-source source-link" href={current.url} target="_blank" rel="noreferrer" onClick={(event) => openSource(event, current.url)}>{current.source}<span>查看原文</span><Icon name="chevronRight" size={12} /></a>
               : <span className="day-archive-source">{current.source}</span>}
           </>
         ) : <p className="day-archive-empty">{status === "loading" ? "正在读取全球日期档案…" : "当前分类暂时没有中文条目"}</p>}
@@ -907,7 +937,7 @@ function DeleteConfirmSheet({ target, selectedDateKey, onClose, onConfirm }) {
   );
 }
 
-function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
+function PermissionsScreen({ capabilities, onOpenCapability, onTestReminder, onBack }) {
   const known = Boolean(capabilities);
   const state = (value, yes = "已开启", no = "未开启") => known ? (value ? yes : no) : "仅手机检测";
   const rows = [
@@ -915,6 +945,8 @@ function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
     { key: null, title: "离线中文识别", note: "Vosk 中文模型随 APK 内置", status: known ? (capabilities?.offlineSpeechReady ? "已加载" : capabilities?.offlineSpeechBundled ? "已内置" : "组件缺失") : "APK 内置", ok: capabilities?.offlineSpeechBundled },
     { key: "notifications", title: "通知", note: "锁屏和通知中心提醒", status: state(capabilities?.notifications), ok: capabilities?.notifications },
     { key: "exactAlarm", title: "精确闹钟", note: "按设定时间触发日常与 DDL 提醒", status: state(capabilities?.exactAlarm), ok: capabilities?.exactAlarm },
+    { key: null, title: "日常提醒计划", note: capabilities?.dailyAlarmTimes ? `已登记 ${capabilities.dailyAlarmTimes}` : "尚无开启提醒的定时任务", status: known ? `${Number(capabilities?.dailyReminderCount || 0)} 项` : "仅手机检测", ok: Boolean(capabilities?.dailyAlarmTimes) },
+    { key: null, title: "关键提醒计划", note: capabilities?.ddlAlarmTimes ? `已登记 ${capabilities.ddlAlarmTimes}` : "尚无到期提醒计划", status: known ? `${Number(capabilities?.ddlReminderCount || 0)} 项` : "仅手机检测", ok: Boolean(capabilities?.ddlAlarmTimes) },
     { key: "fullScreenIntent", title: "锁屏提醒", note: "息屏时亮屏并显示任务", status: state(capabilities?.fullScreenIntent), ok: capabilities?.fullScreenIntent },
     { key: "background", title: "ColorOS 后台运行", note: "自启动和后台活动由 ColorOS 管理", status: capabilities?.backgroundConfigured ? "已配置" : "点击管理", ok: true },
     { key: "battery", title: "电池优化", note: "后台提醒不被系统休眠", status: state(capabilities?.batteryUnrestricted, "不限制", "受限制"), ok: capabilities?.batteryUnrestricted },
@@ -936,6 +968,8 @@ function PermissionsScreen({ capabilities, onOpenCapability, onBack }) {
           ? <button type="button" className="permission-row permission-action" onClick={() => onOpenCapability(row.key)} key={row.title}>{content}</button>
           : <div className="permission-row" key={row.title}>{content}</div>;
       })}</div>
+      <button className="primary-button accent pressable reminder-test-button" type="button" onClick={onTestReminder}>8 秒后测试提醒</button>
+      <p className="reminder-test-note">点击后可立即返回桌面；测试提醒与正式任务使用同一套系统闹钟、通知渠道和提示音。</p>
     </main>
   );
 }
@@ -985,9 +1019,19 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
   return (
     <main className="screen secondary critical-reminder-screen">
       <BackHeader title="关键提醒" onBack={onBack} />
-      <div className="reminder-time-card">
-        <span><span className="reminder-setting-title">新任务默认计划</span></span>
+      <div className="reminder-default-card">
+        <div className="reminder-default-head"><span>新任务默认计划</span><strong>智能节点</strong></div>
         <TimePicker label="默认提醒时刻" value={reminderTime} allowUnset={false} onChange={(time) => onReminderTimeChange(time || "10:00")} />
+        <div className="reminder-rule-grid" aria-label="新关键任务默认提醒频率">
+          <div className="reminder-rule-field">
+            <span className="reminder-rule-label">倍数节点</span>
+            <div className="reminder-rule-control"><Stepper label="默认间隔天数" value={reminderMultiple} min={1} max={30} onChange={onReminderMultipleChange} /><span>天一次</span></div>
+          </div>
+          <div className="reminder-rule-field">
+            <span className="reminder-rule-label">临近截止</span>
+            <div className="reminder-rule-control"><Stepper label="默认最后每天提醒天数" value={reminderFinalDays} min={0} max={30} onChange={onReminderFinalDaysChange} /><span>天内每天</span></div>
+          </div>
+        </div>
       </div>
       {reminderTasks.length ? (
         <div className="notice-preview ddl-notice-preview">
@@ -998,16 +1042,6 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
       ) : (
         <div className="reminder-silent-card"><Icon name="bell" size={18} /><span><strong>今天不提醒</strong><small>DDL 仍保留在今日与关键列表</small></span></div>
       )}
-      <div className="reminder-rule-grid" aria-label="新关键任务默认提醒频率">
-        <div className="reminder-rule-field">
-          <span className="reminder-rule-label">倍数节点</span>
-          <span className="reminder-rule-value">每 <Stepper label="默认间隔天数" value={reminderMultiple} min={1} max={30} onChange={onReminderMultipleChange} /> 天</span>
-        </div>
-        <div className="reminder-rule-field">
-          <span className="reminder-rule-label">临近截止</span>
-          <span className="reminder-rule-value">最后 <Stepper label="默认最后每天提醒天数" value={reminderFinalDays} min={0} max={30} onChange={onReminderFinalDaysChange} /> 天</span>
-        </div>
-      </div>
       <SectionHeader title="今天会提醒" note={`${reminderTasks.length} 项`} />
       <div className="reminder-task-list">
         {reminderTasks.map((task) => (
@@ -1028,7 +1062,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.1.2";
+const JINKE_FALLBACK_VERSION = "1.1.3";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

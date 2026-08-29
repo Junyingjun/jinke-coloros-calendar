@@ -32,6 +32,7 @@ for (const permission of [
   "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
   "WAKE_LOCK",
   "SCHEDULE_EXACT_ALARM",
+  "USE_EXACT_ALARM",
   "USE_FULL_SCREEN_INTENT",
   "FOREGROUND_SERVICE",
   "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
@@ -73,8 +74,8 @@ assert.match(scheduler, /cancelPreviouslyScheduled/, "changing reminder plans mu
 assert.match(ddlReceiver, /final-days[\s\S]*deadline-only/, "Android reminder delivery must honor final-days and deadline-only cadence modes");
 assert.match(scheduler, /reminderTimeFor[\s\S]*deadlineLeadMinutes[\s\S]*triggerMinutes/, "deadline-only reminders must derive their alarm time from the deadline lead offset");
 assert.match(scheduler, /reminderDayOffsetFor[\s\S]*deadlineMinutes - leadMinutes < 0/, "deadline lead offsets that cross midnight must target the previous day");
-assert.match(alarmSchedulingSupport, /setExactAndAllowWhileIdle\(AlarmManager\.RTC_WAKEUP/, "daily reminders must use wakeup alarms at the planned time");
-assert.match(alarmSchedulingSupport, /catch \(SecurityException[\s\S]*setAndAllowWhileIdle/, "revoked exact-alarm access must degrade to a delayed wakeup instead of losing the reminder");
+assert.match(alarmSchedulingSupport, /setAlarmClock\(new AlarmManager\.AlarmClockInfo/, "ColorOS reminders must first use the user-visible alarm-clock contract");
+assert.match(alarmSchedulingSupport, /catch \(RuntimeException[\s\S]*setExactAndAllowWhileIdle[\s\S]*setAndAllowWhileIdle[\s\S]*manager\.set\(/, "alarm-clock denial must degrade through exact, idle-safe, and basic wakeup alarms");
 assert.match(dailyScheduler, /FLAG_RECEIVER_FOREGROUND/, "ColorOS must deliver daily alarm broadcasts as foreground work");
 assert.match(scheduler, /FLAG_RECEIVER_FOREGROUND/, "ColorOS must deliver DDL alarm broadcasts as foreground work");
 assert.match(dailyScheduler, /"24:00"\.equals\(value\)[\s\S]*return 1440/, "24:00 daily tasks must remain attached to their logical day");
@@ -83,7 +84,7 @@ assert.match(dailyReceiver, /occursOn\(task, logicalDate\)/, "daily notification
 assert.match(dailyReceiver, /isCompleted\(task, logicalDate\)/, "manually completed daily occurrences must not notify again");
 assert.doesNotMatch(dailyReceiver, /\.edit\(\)|putBoolean|setDailyCompletion|toggleDaily/, "a daily notification receiver must never mark a task complete");
 assert.doesNotMatch(ddlReceiver, /\.edit\(\)|putBoolean|setDailyCompletion|toggleDaily/, "a DDL notification receiver must never mark a task complete");
-assert.match(notificationSupport, /jinke_daily_ring_v3[\s\S]*jinke_daily_silent_v3[\s\S]*jinke_ddl_ring_v3[\s\S]*jinke_ddl_silent_v3/, "ringing and silent reminders must use separate immutable Android channels");
+assert.match(notificationSupport, /jinke_daily_ring_v4[\s\S]*jinke_daily_silent_v4[\s\S]*jinke_ddl_ring_v4[\s\S]*jinke_ddl_silent_v4/, "ringing and silent reminders must use fresh, separate immutable Android channels");
 assert.match(notificationSupport, /setSound\(null, null\)[\s\S]*enableVibration\(vibrate\)[\s\S]*setLockscreenVisibility\(Notification\.VISIBILITY_PUBLIC\)/, "app-controlled reminder channels must preserve vibration policy and public lock-screen content");
 assert.match(notificationSupport, /enqueueReminderSound[\s\S]*SOUND_QUEUE[\s\S]*USAGE_NOTIFICATION_EVENT/, "task sounds must be queued and played as notification sonification");
 assert.match(notificationSupport, /startReminderPlayback[\s\S]*startForegroundService/, "ringing reminders must keep their process alive while audio is playing");
