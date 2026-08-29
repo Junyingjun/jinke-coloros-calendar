@@ -4202,11 +4202,37 @@ function localDateKey() {
   var date = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : new Date();
   return "".concat(date.getFullYear(), "-").concat(String(date.getMonth() + 1).padStart(2, "0"), "-").concat(String(date.getDate()).padStart(2, "0"));
 }
+function readStoredRaw(key) {
+  try {
+    var localValue = localStorage.getItem(key);
+    if (localValue !== null) return localValue;
+  } catch (_unused) {}
+  try {
+    var _window$JinkeAndroid, _window$JinkeAndroid$;
+    var nativeValue = (_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.getAppState) === null || _window$JinkeAndroid$ === void 0 ? void 0 : _window$JinkeAndroid$.call(_window$JinkeAndroid, key);
+    return nativeValue === null || nativeValue === undefined || nativeValue === "" ? null : String(nativeValue);
+  } catch (_unused2) {
+    return null;
+  }
+}
+function writeStoredJson(key, value) {
+  var serialized = JSON.stringify(value);
+  var stored = false;
+  try {
+    localStorage.setItem(key, serialized);
+    stored = true;
+  } catch (_unused3) {}
+  try {
+    var _window$JinkeAndroid2;
+    if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.saveAppState) stored = Boolean(window.JinkeAndroid.saveAppState(key, serialized)) || stored;
+  } catch (_unused4) {}
+  return stored;
+}
 function readStoredJson(key, fallback, validator) {
   try {
-    var parsed = JSON.parse(localStorage.getItem(key) || "null");
+    var parsed = JSON.parse(readStoredRaw(key) || "null");
     if (parsed !== null && (!validator || validator(parsed))) return parsed;
-  } catch (_unused) {}
+  } catch (_unused5) {}
   return fallback;
 }
 function migrateLegacySeedData() {
@@ -4247,7 +4273,7 @@ function migrateLegacySeedData() {
       localStorage.setItem("jinke-daily-completions", JSON.stringify(_retained3));
     }
     localStorage.setItem(markerKey, "1");
-  } catch (_unused2) {}
+  } catch (_unused6) {}
 }
 migrateLegacySeedData();
 function migrateVoiceCreatedNotes() {
@@ -4265,7 +4291,7 @@ function migrateVoiceCreatedNotes() {
       localStorage.setItem(key, JSON.stringify(cleaned));
     });
     localStorage.setItem(markerKey, "1");
-  } catch (_unused3) {}
+  } catch (_unused7) {}
 }
 migrateVoiceCreatedNotes();
 function dateKeyOffset(fromKey, toKey) {
@@ -4291,6 +4317,15 @@ function dateKeyAddDays(dateKey, days) {
     day = _dateKey$split$map2[2];
   var next = new Date(year, month - 1, day + days, 12);
   return localDateKey(next);
+}
+function firstDailyOccurrenceDateKey(task, startDateKey) {
+  var repeatDays = repeatDaysFromValue(task === null || task === void 0 ? void 0 : task.repeat, task === null || task === void 0 ? void 0 : task.repeatDays);
+  if (!repeatDays.length) return (task === null || task === void 0 ? void 0 : task.scheduledDateKey) || (task === null || task === void 0 ? void 0 : task.dateKey) || startDateKey;
+  for (var offset = 0; offset < 7; offset += 1) {
+    var candidate = dateKeyAddDays(startDateKey, offset);
+    if (taskOccursOnDate(task, candidate, startDateKey)) return candidate;
+  }
+  return startDateKey;
 }
 function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
   if (!Number.isFinite(task === null || task === void 0 ? void 0 : task.daysLeft)) return null;
@@ -4319,6 +4354,54 @@ function withCriticalReminderDefaults(task) {
   return _objectSpread(_objectSpread({}, next), {}, {
     reminder: getCriticalReminder(next)
   });
+}
+function normalizeDailyTaskRecord(task) {
+  var index = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+  var todayKey = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : localDateKey();
+  var source = task && _typeof(task) === "object" ? task : {};
+  var repeatDays = repeatDaysFromValue(source.repeat, source.repeatDays);
+  var repeat = repeatLabelFromDays(repeatDays);
+  var rawTime = typeof source.time === "string" ? source.time.trim() : "";
+  var time = rawTime === "待定" || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(rawTime) || rawTime === "24:00" ? rawTime : "待定";
+  var title = String(source.title || source.name || "未命名事项").trim() || "未命名事项";
+  return _objectSpread(_objectSpread({}, source), {}, {
+    id: String(source.id || "recovered-daily-".concat(todayKey, "-").concat(index)),
+    title: title,
+    time: time,
+    endTime: typeof source.endTime === "string" ? source.endTime : null,
+    note: typeof source.note === "string" ? source.note : "",
+    repeat: repeat,
+    repeatDays: repeatDays,
+    scheduledDateKey: repeatDays.length ? null : source.scheduledDateKey || source.dateKey || todayKey,
+    activeFrom: source.activeFrom || todayKey,
+    reminder: typeof source.reminder === "string" && source.reminder ? source.reminder : "到点提醒",
+    alertMode: source.alertMode || "inherit",
+    soundId: source.soundId || "inherit",
+    done: Boolean(source.done)
+  });
+}
+function normalizeCriticalTaskRecord(task) {
+  var index = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+  var todayKey = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : localDateKey();
+  var source = task && _typeof(task) === "object" ? task : {};
+  var title = String(source.title || source.name || "未命名事项").trim() || "未命名事项";
+  var normalized = normalizeCriticalCompletion(_objectSpread(_objectSpread({}, source), {}, {
+    id: String(source.id || "recovered-critical-".concat(todayKey, "-").concat(index)),
+    title: title,
+    note: typeof source.note === "string" ? source.note : "",
+    deadline: source.deadline || null,
+    deadlineTime: typeof source.deadlineTime === "string" ? source.deadlineTime : null,
+    progress: Number.isFinite(Number(source.progress)) ? Number(source.progress) : 0,
+    alertMode: source.alertMode || "inherit",
+    soundId: source.soundId || "inherit"
+  }), todayKey);
+  var anchored = normalized.deadline && Number.isFinite(normalized.daysLeft) && !normalized.anchorDateKey ? _objectSpread(_objectSpread({}, normalized), {}, {
+    anchorDateKey: todayKey
+  }) : normalized;
+  return withCriticalReminderDefaults(anchored);
+}
+function compareDailyTasks(left, right) {
+  return String((left === null || left === void 0 ? void 0 : left.time) || "待定").localeCompare(String((right === null || right === void 0 ? void 0 : right.time) || "待定"), "zh-CN");
 }
 function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
   var completionKey = "".concat(task.id, ":").concat(completionDateKey);
@@ -5094,9 +5177,9 @@ function useViewportScale(width, height) {
 }
 function getNativeWindowState(payload) {
   try {
-    var _window$JinkeAndroid, _window$JinkeAndroid$;
+    var _window$JinkeAndroid3, _window$JinkeAndroid4;
     var previewMode = new URLSearchParams(window.location.search).get("native");
-    var hasNativeBridge = Boolean((_window$JinkeAndroid = window.JinkeAndroid) === null || _window$JinkeAndroid === void 0 || (_window$JinkeAndroid$ = _window$JinkeAndroid.isNativeApp) === null || _window$JinkeAndroid$ === void 0 ? void 0 : _window$JinkeAndroid$.call(_window$JinkeAndroid));
+    var hasNativeBridge = Boolean((_window$JinkeAndroid3 = window.JinkeAndroid) === null || _window$JinkeAndroid3 === void 0 || (_window$JinkeAndroid4 = _window$JinkeAndroid3.isNativeApp) === null || _window$JinkeAndroid4 === void 0 ? void 0 : _window$JinkeAndroid4.call(_window$JinkeAndroid3));
     if (!hasNativeBridge && !["phone", "expanded"].includes(previewMode)) return null;
     if (!hasNativeBridge) {
       var _width = Math.max(1, window.innerWidth || 1);
@@ -5119,24 +5202,24 @@ function getNativeWindowState(payload) {
       ratio: ratio,
       expanded: nativeInfo.expanded === true || ratio >= 0.68
     };
-  } catch (_unused4) {
+  } catch (_unused8) {
     return null;
   }
 }
 function getNativeCapabilities(payload) {
   try {
-    var _window$JinkeAndroid2;
+    var _window$JinkeAndroid5;
     var supplied = typeof payload === "string" ? JSON.parse(payload) : payload;
     if (supplied && _typeof(supplied) === "object") return supplied;
-    if ((_window$JinkeAndroid2 = window.JinkeAndroid) !== null && _window$JinkeAndroid2 !== void 0 && _window$JinkeAndroid2.getSystemCapabilities) return JSON.parse(window.JinkeAndroid.getSystemCapabilities());
-  } catch (_unused5) {}
+    if ((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.getSystemCapabilities) return JSON.parse(window.JinkeAndroid.getSystemCapabilities());
+  } catch (_unused9) {}
   return null;
 }
 function MobileDesignApp() {
   var _useState3 = useState(function () {
       try {
         return localStorage.getItem("jinke-theme") || "dark";
-      } catch (_unused6) {
+      } catch (_unused10) {
         return "dark";
       }
     }),
@@ -5146,7 +5229,7 @@ function MobileDesignApp() {
   var _useState5 = useState(function () {
       try {
         return localStorage.getItem("jinke-default-alert-mode") === "silent" ? "silent" : "sound";
-      } catch (_unused7) {
+      } catch (_unused11) {
         return "sound";
       }
     }),
@@ -5156,7 +5239,7 @@ function MobileDesignApp() {
   var _useState7 = useState(function () {
       try {
         return localStorage.getItem("jinke-default-sound-id") || "chime";
-      } catch (_unused8) {
+      } catch (_unused12) {
         return "chime";
       }
     }),
@@ -5207,13 +5290,9 @@ function MobileDesignApp() {
     selectedDateKey = _useState22[0],
     setSelectedDateKey = _useState22[1];
   var _useState23 = useState(function () {
-      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray).map(function (task) {
-        return _objectSpread(_objectSpread({}, task), {}, {
-          reminder: task.reminder || "到点提醒",
-          alertMode: task.alertMode || "inherit",
-          soundId: task.soundId || "inherit"
-        });
-      });
+      return readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray).map(function (task, index) {
+        return normalizeDailyTaskRecord(task, index, localDateKey());
+      }).sort(compareDailyTasks);
     }),
     _useState24 = _slicedToArray(_useState23, 2),
     dailyTasks = _useState24[0],
@@ -5230,10 +5309,8 @@ function MobileDesignApp() {
     setDailyCompletionByDate = _useState26[1];
   var _useState27 = useState(function () {
       var anchorDateKey = localDateKey();
-      return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map(function (task) {
-        return withCriticalReminderDefaults(normalizeCriticalCompletion(task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? _objectSpread(_objectSpread({}, task), {}, {
-          anchorDateKey: anchorDateKey
-        }) : task, anchorDateKey));
+      return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map(function (task, index) {
+        return normalizeCriticalTaskRecord(task, index, anchorDateKey);
       });
     }),
     _useState28 = _slicedToArray(_useState27, 2),
@@ -5243,7 +5320,7 @@ function MobileDesignApp() {
       var value = "10:00";
       try {
         value = localStorage.getItem("jinke-ddl-reminder-time") || value;
-      } catch (_unused9) {}
+      } catch (_unused13) {}
       window.JINKE_DDL_REMINDER_TIME = value;
       return value;
     }),
@@ -5254,7 +5331,7 @@ function MobileDesignApp() {
       var value = 5;
       try {
         value = Math.max(1, Number(localStorage.getItem("jinke-ddl-reminder-multiple")) || value);
-      } catch (_unused10) {}
+      } catch (_unused14) {}
       window.JINKE_DDL_REMINDER_MULTIPLE = value;
       return value;
     }),
@@ -5266,7 +5343,7 @@ function MobileDesignApp() {
       try {
         var stored = localStorage.getItem("jinke-ddl-reminder-final-days");
         if (stored !== null) value = Math.max(0, Number(stored) || 0);
-      } catch (_unused11) {}
+      } catch (_unused15) {}
       window.JINKE_DDL_REMINDER_FINAL_DAYS = value;
       return value;
     }),
@@ -5453,7 +5530,7 @@ function MobileDesignApp() {
     applyTheme();
     try {
       localStorage.setItem("jinke-theme", themeMode);
-    } catch (_unused12) {}
+    } catch (_unused16) {}
     if (themeMode === "system") media.addEventListener("change", applyTheme);
     return function () {
       return media.removeEventListener("change", applyTheme);
@@ -5477,8 +5554,8 @@ function MobileDesignApp() {
     };
   }, [Boolean(nativeWindow)]);
   useEffect(function () {
-    var _window$JinkeAndroid3;
-    if (!((_window$JinkeAndroid3 = window.JinkeAndroid) !== null && _window$JinkeAndroid3 !== void 0 && _window$JinkeAndroid3.getSystemCapabilities)) return undefined;
+    var _window$JinkeAndroid6;
+    if (!((_window$JinkeAndroid6 = window.JinkeAndroid) !== null && _window$JinkeAndroid6 !== void 0 && _window$JinkeAndroid6.getSystemCapabilities)) return undefined;
     var updateCapabilities = function updateCapabilities(payload) {
       return setNativeCapabilities(getNativeCapabilities(payload));
     };
@@ -5500,24 +5577,16 @@ function MobileDesignApp() {
     };
   }, []);
   useEffect(function () {
-    try {
-      localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks));
-    } catch (_unused13) {}
+    writeStoredJson("jinke-daily-tasks", dailyTasks);
   }, [dailyTasks]);
   useEffect(function () {
-    try {
-      localStorage.setItem("jinke-daily-completions", JSON.stringify(dailyCompletionByDate));
-    } catch (_unused14) {}
+    writeStoredJson("jinke-daily-completions", dailyCompletionByDate);
   }, [dailyCompletionByDate]);
   useEffect(function () {
-    try {
-      localStorage.setItem("jinke-critical-tasks", JSON.stringify(criticalTasks));
-    } catch (_unused15) {}
+    writeStoredJson("jinke-critical-tasks", criticalTasks);
   }, [criticalTasks]);
   useEffect(function () {
-    try {
-      localStorage.setItem("jinke-task-history", JSON.stringify(history));
-    } catch (_unused16) {}
+    writeStoredJson("jinke-task-history", history);
   }, [history]);
   useEffect(function () {
     try {
@@ -5571,8 +5640,8 @@ function MobileDesignApp() {
     } catch (_unused21) {}
   }, [ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays]);
   useEffect(function () {
-    var _window$JinkeAndroid4;
-    if (!((_window$JinkeAndroid4 = window.JinkeAndroid) !== null && _window$JinkeAndroid4 !== void 0 && _window$JinkeAndroid4.syncDdlReminders)) return;
+    var _window$JinkeAndroid7;
+    if (!((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.syncDdlReminders)) return;
     var payload = criticalTasks.filter(function (task) {
       return !task.done;
     }).map(function (task) {
@@ -5597,8 +5666,8 @@ function MobileDesignApp() {
     } catch (_unused22) {}
   }, [criticalTasks, todayDateKey, ddlReminderTime, ddlReminderMultiple, ddlReminderFinalDays, defaultAlertMode, defaultSoundId, nativeSyncRevision]);
   useEffect(function () {
-    var _window$JinkeAndroid5;
-    if (!((_window$JinkeAndroid5 = window.JinkeAndroid) !== null && _window$JinkeAndroid5 !== void 0 && _window$JinkeAndroid5.syncDailyReminders)) return;
+    var _window$JinkeAndroid8;
+    if (!((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.syncDailyReminders)) return;
     var payload = dailyTasks.map(function (task) {
       var reminderLeadMinutes = dailyReminderLeadMinutes(task.reminder);
       var completionPrefix = "".concat(task.id, ":");
@@ -5648,10 +5717,43 @@ function MobileDesignApp() {
       return setToast("");
     }, 2200);
   };
+  var appendDailyTask = function appendDailyTask(rawTask) {
+    var created = normalizeDailyTaskRecord(rawTask, dailyTasks.length, todayDateKey);
+    setDailyTasks(function (current) {
+      var normalizedCurrent = current.map(function (task, index) {
+        return normalizeDailyTaskRecord(task, index, todayDateKey);
+      });
+      var next = [].concat(_toConsumableArray(normalizedCurrent.filter(function (task) {
+        return task.id !== created.id;
+      })), [created]).sort(compareDailyTasks);
+      writeStoredJson("jinke-daily-tasks", next);
+      return next;
+    });
+    return created;
+  };
+  var appendCriticalTasks = function appendCriticalTasks(rawTasks) {
+    var additions = rawTasks.map(function (task, index) {
+      return normalizeCriticalTaskRecord(task, criticalTasks.length + index, todayDateKey);
+    });
+    setCriticalTasks(function (current) {
+      var normalizedCurrent = current.map(function (task, index) {
+        return normalizeCriticalTaskRecord(task, index, todayDateKey);
+      });
+      var additionIds = new Set(additions.map(function (task) {
+        return task.id;
+      }));
+      var next = [].concat(_toConsumableArray(additions), _toConsumableArray(normalizedCurrent.filter(function (task) {
+        return !additionIds.has(task.id);
+      })));
+      writeStoredJson("jinke-critical-tasks", next);
+      return next;
+    });
+    return additions;
+  };
   var previewReminderSound = function previewReminderSound(soundId) {
     try {
-      var _window$JinkeAndroid6;
-      if ((_window$JinkeAndroid6 = window.JinkeAndroid) !== null && _window$JinkeAndroid6 !== void 0 && _window$JinkeAndroid6.previewReminderSound) {
+      var _window$JinkeAndroid9;
+      if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.previewReminderSound) {
         window.JinkeAndroid.previewReminderSound(soundId || "chime");
         return;
       }
@@ -5700,9 +5802,9 @@ function MobileDesignApp() {
     }
   };
   var importReminderSound = function importReminderSound(onSelected) {
-    var _window$JinkeAndroid7;
+    var _window$JinkeAndroid10;
     soundImportCallbackRef.current = onSelected || null;
-    if ((_window$JinkeAndroid7 = window.JinkeAndroid) !== null && _window$JinkeAndroid7 !== void 0 && _window$JinkeAndroid7.pickReminderSound) {
+    if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.pickReminderSound) {
       try {
         window.JinkeAndroid.pickReminderSound();
         return;
@@ -5735,10 +5837,10 @@ function MobileDesignApp() {
     input.click();
   };
   var pickSystemAlarmSound = function pickSystemAlarmSound(onSelected) {
-    var _window$JinkeAndroid8;
+    var _window$JinkeAndroid11;
     var currentSoundId = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "";
     soundImportCallbackRef.current = onSelected || null;
-    if ((_window$JinkeAndroid8 = window.JinkeAndroid) !== null && _window$JinkeAndroid8 !== void 0 && _window$JinkeAndroid8.pickSystemAlarmSound) {
+    if ((_window$JinkeAndroid11 = window.JinkeAndroid) !== null && _window$JinkeAndroid11 !== void 0 && _window$JinkeAndroid11.pickSystemAlarmSound) {
       try {
         window.JinkeAndroid.pickSystemAlarmSound(currentSoundId !== null && currentSoundId !== void 0 && currentSoundId.startsWith("alarm:") ? currentSoundId : "");
         return;
@@ -5975,7 +6077,7 @@ function MobileDesignApp() {
     showToast("DDL \u5DF2\u7EED\u671F ".concat(days, " \u5929"));
   };
   var startVoice = function startVoice() {
-    var _window$JinkeAndroid9;
+    var _window$JinkeAndroid12;
     voiceInputModeRef.current = "offline";
     setTranscript("");
     setVoiceDraft(null);
@@ -5983,7 +6085,7 @@ function MobileDesignApp() {
     setSpeechStatus("starting");
     speechCandidatesRef.current = [];
     setOverlay("voice");
-    if ((_window$JinkeAndroid9 = window.JinkeAndroid) !== null && _window$JinkeAndroid9 !== void 0 && _window$JinkeAndroid9.startSpeechRecognition) {
+    if ((_window$JinkeAndroid12 = window.JinkeAndroid) !== null && _window$JinkeAndroid12 !== void 0 && _window$JinkeAndroid12.startSpeechRecognition) {
       window.JINKE_NATIVE_SPEECH_STATUS = function (status) {
         setSpeechStatus(String(status || "idle"));
         setSpeechAvailable(status !== "error" && status !== "permission-denied");
@@ -6047,7 +6149,7 @@ function MobileDesignApp() {
     }
   };
   var stopVoice = function stopVoice() {
-    var _window$JinkeAndroid10;
+    var _window$JinkeAndroid13;
     if (voiceInputModeRef.current === "input-method") {
       setSpeechStatus("idle");
       window.setTimeout(function () {
@@ -6055,7 +6157,7 @@ function MobileDesignApp() {
       }, 50);
       return;
     }
-    if ((_window$JinkeAndroid10 = window.JinkeAndroid) !== null && _window$JinkeAndroid10 !== void 0 && _window$JinkeAndroid10.stopSpeechRecognition) {
+    if ((_window$JinkeAndroid13 = window.JinkeAndroid) !== null && _window$JinkeAndroid13 !== void 0 && _window$JinkeAndroid13.stopSpeechRecognition) {
       setSpeechStatus("processing");
       try {
         window.JinkeAndroid.stopSpeechRecognition();
@@ -6075,14 +6177,14 @@ function MobileDesignApp() {
     }, 100);
   };
   var useInputMethodVoice = function useInputMethodVoice() {
-    var _window$JinkeAndroid11, _window$JinkeAndroid12;
+    var _window$JinkeAndroid14, _window$JinkeAndroid15;
     if (voiceInputModeRef.current === "input-method") return;
     voiceInputModeRef.current = "input-method";
-    if ((_window$JinkeAndroid11 = window.JinkeAndroid) !== null && _window$JinkeAndroid11 !== void 0 && _window$JinkeAndroid11.cancelSpeechRecognition) {
+    if ((_window$JinkeAndroid14 = window.JinkeAndroid) !== null && _window$JinkeAndroid14 !== void 0 && _window$JinkeAndroid14.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
       } catch (_unused32) {}
-    } else if ((_window$JinkeAndroid12 = window.JinkeAndroid) !== null && _window$JinkeAndroid12 !== void 0 && _window$JinkeAndroid12.stopSpeechRecognition) {
+    } else if ((_window$JinkeAndroid15 = window.JinkeAndroid) !== null && _window$JinkeAndroid15 !== void 0 && _window$JinkeAndroid15.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
       } catch (_unused33) {}
@@ -6102,89 +6204,100 @@ function MobileDesignApp() {
       target = command.target;
     if (intent === "create") {
       var task = command.task;
-      if (task.span) {
-        var spanId = "voice-span-".concat(Date.now());
-        var created = [withCriticalReminderDefaults({
-          id: "".concat(spanId, "-start"),
-          spanId: spanId,
-          spanRole: "start",
-          title: "".concat(task.title, " \xB7 \u51FA\u53D1"),
-          note: task.note || "",
-          deadline: task.span.start.deadline,
-          daysLeft: task.span.start.daysLeft,
-          anchorDateKey: todayDateKey,
-          deadlineTime: task.hasTime && task.time !== "待定" ? task.time : null,
-          alertMode: task.alertMode || "inherit",
-          soundId: task.soundId || "inherit",
-          progress: 0
-        }), withCriticalReminderDefaults({
-          id: "".concat(spanId, "-end"),
-          spanId: spanId,
-          spanRole: "end",
-          title: "".concat(task.title, " \xB7 \u8FD4\u7A0B"),
-          note: task.note || "",
-          deadline: task.span.end.deadline,
-          daysLeft: task.span.end.daysLeft,
-          anchorDateKey: todayDateKey,
-          deadlineTime: task.endTime || null,
-          alertMode: task.alertMode || "inherit",
-          soundId: task.soundId || "inherit",
-          progress: 0
-        })];
-        setCriticalTasks(function (current) {
-          return [].concat(created, _toConsumableArray(current));
-        });
-        setActiveTab("critical");
-      } else if (task.type === "critical") {
-        var _normalizedDeadline$d;
-        var normalizedDeadline = task.deadline ? parseDeadline(task.deadline) : null;
-        var _created = withCriticalReminderDefaults({
-          id: "voice-critical-".concat(Date.now()),
-          title: task.title,
-          note: task.note,
-          deadline: task.deadline,
-          daysLeft: (_normalizedDeadline$d = normalizedDeadline === null || normalizedDeadline === void 0 ? void 0 : normalizedDeadline.daysLeft) !== null && _normalizedDeadline$d !== void 0 ? _normalizedDeadline$d : task.daysLeft,
-          anchorDateKey: task.deadline ? todayDateKey : null,
-          deadlineTime: task.deadlineTime || (task.hasTime && task.time !== "待定" ? task.time : null),
-          reminderEnabled: Boolean(task.deadline && task.reminderEnabled !== false),
-          reminderTime: task.reminderTime,
-          reminderMode: task.reminderMode,
-          reminderMultiple: task.reminderMultiple,
-          reminderFinalDays: task.reminderFinalDays,
-          progress: 0,
-          alertMode: task.alertMode || "inherit",
-          soundId: task.soundId || "inherit"
-        });
-        setCriticalTasks(function (current) {
-          return [_created].concat(_toConsumableArray(current));
-        });
-        setActiveTab("critical");
-      } else {
-        var _created2 = {
-          id: "voice-".concat(Date.now()),
-          time: task.time,
-          endTime: task.endTime || null,
-          spansMidnight: Boolean(task.spansMidnight),
-          title: task.title,
-          note: task.note || "",
-          repeat: task.repeat,
-          repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
-          scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : task.scheduledDateKey && task.scheduledDateKey >= todayDateKey ? task.scheduledDateKey : todayDateKey,
-          reminder: task.reminder || "到点提醒",
-          alertMode: task.alertMode || "inherit",
-          soundId: task.soundId || "inherit",
-          activeFrom: todayDateKey,
-          done: false
-        };
-        setDailyTasks(function (current) {
-          return [].concat(_toConsumableArray(current), [_created2]).sort(function (a, b) {
-            return a.time.localeCompare(b.time);
+      var visibleDateKey = null;
+      try {
+        if (!task || typeof task.title !== "string" || !task.title.trim()) throw new Error("invalid task title");
+        if (task.span) {
+          var spanId = "voice-span-".concat(Date.now());
+          var created = [withCriticalReminderDefaults({
+            id: "".concat(spanId, "-start"),
+            spanId: spanId,
+            spanRole: "start",
+            title: "".concat(task.title, " \xB7 \u51FA\u53D1"),
+            note: task.note || "",
+            deadline: task.span.start.deadline,
+            daysLeft: task.span.start.daysLeft,
+            anchorDateKey: todayDateKey,
+            deadlineTime: task.hasTime && task.time !== "待定" ? task.time : null,
+            alertMode: task.alertMode || "inherit",
+            soundId: task.soundId || "inherit",
+            progress: 0
+          }), withCriticalReminderDefaults({
+            id: "".concat(spanId, "-end"),
+            spanId: spanId,
+            spanRole: "end",
+            title: "".concat(task.title, " \xB7 \u8FD4\u7A0B"),
+            note: task.note || "",
+            deadline: task.span.end.deadline,
+            daysLeft: task.span.end.daysLeft,
+            anchorDateKey: todayDateKey,
+            deadlineTime: task.endTime || null,
+            alertMode: task.alertMode || "inherit",
+            soundId: task.soundId || "inherit",
+            progress: 0
+          })];
+          appendCriticalTasks(created);
+          setActiveTab("critical");
+        } else if (task.type === "critical") {
+          var _normalizedDeadline$d;
+          var normalizedDeadline = task.deadline ? parseDeadline(task.deadline) : null;
+          var _created = withCriticalReminderDefaults({
+            id: "voice-critical-".concat(Date.now()),
+            title: task.title,
+            note: task.note,
+            deadline: task.deadline,
+            daysLeft: (_normalizedDeadline$d = normalizedDeadline === null || normalizedDeadline === void 0 ? void 0 : normalizedDeadline.daysLeft) !== null && _normalizedDeadline$d !== void 0 ? _normalizedDeadline$d : task.daysLeft,
+            anchorDateKey: task.deadline ? todayDateKey : null,
+            deadlineTime: task.deadlineTime || (task.hasTime && task.time !== "待定" ? task.time : null),
+            reminderEnabled: Boolean(task.deadline && task.reminderEnabled !== false),
+            reminderTime: task.reminderTime,
+            reminderMode: task.reminderMode,
+            reminderMultiple: task.reminderMultiple,
+            reminderFinalDays: task.reminderFinalDays,
+            progress: 0,
+            alertMode: task.alertMode || "inherit",
+            soundId: task.soundId || "inherit"
           });
-        });
-        setActiveTab("today");
+          appendCriticalTasks([_created]);
+          setActiveTab("critical");
+        } else {
+          var _created2 = {
+            id: "voice-".concat(Date.now()),
+            time: task.time,
+            endTime: task.endTime || null,
+            spansMidnight: Boolean(task.spansMidnight),
+            title: task.title,
+            note: task.note || "",
+            repeat: task.repeat,
+            repeatDays: repeatDaysFromValue(task.repeat, task.repeatDays),
+            scheduledDateKey: repeatDaysFromValue(task.repeat, task.repeatDays).length ? null : task.scheduledDateKey && task.scheduledDateKey >= todayDateKey ? task.scheduledDateKey : todayDateKey,
+            reminder: task.reminder || "到点提醒",
+            alertMode: task.alertMode || "inherit",
+            soundId: task.soundId || "inherit",
+            activeFrom: todayDateKey,
+            done: false
+          };
+          var storedTask = appendDailyTask(_created2);
+          visibleDateKey = firstDailyOccurrenceDateKey(storedTask, todayDateKey);
+          setSelectedDateKey(visibleDateKey);
+          setViewMode("day");
+          setActiveTab("today");
+        }
+        setSecondary(null);
+        if (visibleDateKey && visibleDateKey !== todayDateKey) {
+          var _visibleDateKey$split = visibleDateKey.split("-").map(Number),
+            _visibleDateKey$split2 = _slicedToArray(_visibleDateKey$split, 3),
+            month = _visibleDateKey$split2[1],
+            day = _visibleDateKey$split2[2];
+          showToast("\u5DF2\u521B\u5EFA\uFF1A".concat(task.title, " \xB7 \u5DF2\u5207\u6362\u5230 ").concat(month, "\u6708").concat(day, "\u65E5"));
+        } else {
+          showToast("\u5DF2\u521B\u5EFA\uFF1A".concat(task.title));
+        }
+      } catch (error) {
+        console.error("[今刻任务创建失败]", error);
+        showToast("创建失败：任务未保存，请重试或检查应用存储空间");
+        return;
       }
-      setSecondary(null);
-      showToast("\u5DF2\u521B\u5EFA\uFF1A".concat(task.title));
     } else if (intent === "clear-all") {
       if (command.scope !== "critical") {
         setDailyTasks([]);
@@ -6367,13 +6480,13 @@ function MobileDesignApp() {
     closeOverlay();
   };
   var closeOverlay = function closeOverlay(afterClose) {
-    var _window$JinkeAndroid13, _window$JinkeAndroid14;
+    var _window$JinkeAndroid16, _window$JinkeAndroid17;
     if (overlayClosingRef.current) return;
-    if ((_window$JinkeAndroid13 = window.JinkeAndroid) !== null && _window$JinkeAndroid13 !== void 0 && _window$JinkeAndroid13.cancelSpeechRecognition) {
+    if ((_window$JinkeAndroid16 = window.JinkeAndroid) !== null && _window$JinkeAndroid16 !== void 0 && _window$JinkeAndroid16.cancelSpeechRecognition) {
       try {
         window.JinkeAndroid.cancelSpeechRecognition();
       } catch (_unused35) {}
-    } else if ((_window$JinkeAndroid14 = window.JinkeAndroid) !== null && _window$JinkeAndroid14 !== void 0 && _window$JinkeAndroid14.stopSpeechRecognition) {
+    } else if ((_window$JinkeAndroid17 = window.JinkeAndroid) !== null && _window$JinkeAndroid17 !== void 0 && _window$JinkeAndroid17.stopSpeechRecognition) {
       try {
         window.JinkeAndroid.stopSpeechRecognition();
       } catch (_unused36) {}
@@ -6562,14 +6675,14 @@ function MobileDesignApp() {
       capabilities: nativeCapabilities,
       onOpenCapability: function onOpenCapability(key) {
         try {
-          var _window$JinkeAndroid15, _window$JinkeAndroid16;
-          (_window$JinkeAndroid15 = window.JinkeAndroid) === null || _window$JinkeAndroid15 === void 0 || (_window$JinkeAndroid16 = _window$JinkeAndroid15.openCapabilitySettings) === null || _window$JinkeAndroid16 === void 0 || _window$JinkeAndroid16.call(_window$JinkeAndroid15, key);
+          var _window$JinkeAndroid18, _window$JinkeAndroid19;
+          (_window$JinkeAndroid18 = window.JinkeAndroid) === null || _window$JinkeAndroid18 === void 0 || (_window$JinkeAndroid19 = _window$JinkeAndroid18.openCapabilitySettings) === null || _window$JinkeAndroid19 === void 0 || _window$JinkeAndroid19.call(_window$JinkeAndroid18, key);
         } catch (_unused38) {}
       },
       onTestReminder: function onTestReminder() {
         try {
-          var _window$JinkeAndroid17;
-          if (!((_window$JinkeAndroid17 = window.JinkeAndroid) !== null && _window$JinkeAndroid17 !== void 0 && _window$JinkeAndroid17.scheduleReminderTest)) {
+          var _window$JinkeAndroid20;
+          if (!((_window$JinkeAndroid20 = window.JinkeAndroid) !== null && _window$JinkeAndroid20 !== void 0 && _window$JinkeAndroid20.scheduleReminderTest)) {
             showToast("测试提醒仅在手机安装版可用");
             return;
           }
@@ -6713,7 +6826,7 @@ function MobileDesignApp() {
       onClose: closeOverlay,
       onConfirm: confirmDelete
     }) : null, toast ? React.createElement("div", {
-      className: "sr-only",
+      className: "app-toast",
       role: "status",
       "aria-live": "polite"
     }, toast) : null);

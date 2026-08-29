@@ -29,6 +29,7 @@ final class NotificationSupport {
     static final String DDL_SILENT_CHANNEL = "jinke_ddl_silent_v4";
     static final String UPDATE_CHANNEL = "jinke_update";
     static final String EXTRA_OPEN_TODAY = "jinke_open_today";
+    static final String EXTRA_NOTIFICATION_ID = "jinke_notification_id";
     static final String EXTRA_REMINDER_TITLE = "jinke_reminder_title";
     static final String EXTRA_REMINDER_MESSAGE = "jinke_reminder_message";
     static final String SOUND_DIRECTORY = "reminder_sounds";
@@ -79,32 +80,54 @@ final class NotificationSupport {
     }
 
     static Intent openTodayActivityIntent(Context context, String action) {
+        return openTodayActivityIntent(context, action, -1);
+    }
+
+    static Intent openTodayActivityIntent(Context context, String action, int notificationId) {
         return new Intent(context, MainActivity.class)
                 .setAction(action)
                 .putExtra(EXTRA_OPEN_TODAY, true)
+                .putExtra(EXTRA_NOTIFICATION_ID, notificationId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
     static PendingIntent openTodayPendingIntent(Context context, int requestCode, String action) {
+        return openTodayPendingIntent(context, requestCode, action, -1);
+    }
+
+    static PendingIntent openTodayPendingIntent(
+            Context context, int requestCode, String action, int notificationId) {
         return PendingIntent.getActivity(
                 context,
                 requestCode,
-                openTodayActivityIntent(context, action),
+                openTodayActivityIntent(context, action, notificationId),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     static PendingIntent fullScreenPendingIntent(
-            Context context, int requestCode, String action, String title, String message) {
+            Context context, int requestCode, String action, String title, String message, int notificationId) {
         Intent intent = new Intent(context, ReminderAlertActivity.class)
                 .setAction(action)
                 .putExtra(EXTRA_REMINDER_TITLE, title)
                 .putExtra(EXTRA_REMINDER_MESSAGE, message)
+                .putExtra(EXTRA_NOTIFICATION_ID, notificationId)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(
                 context,
                 requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    static void dismissReminder(Context context, Intent sourceIntent) {
+        if (sourceIntent == null) return;
+        int notificationId = sourceIntent.getIntExtra(EXTRA_NOTIFICATION_ID, -1);
+        if (notificationId < 0) return;
+        // ColorOS can keep a notification alive while its short foreground audio service
+        // is attached to the same id. Stop that service before cancelling the clicked item.
+        context.stopService(new Intent(context, ReminderPlaybackService.class));
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager != null) manager.cancel(notificationId);
     }
 
     static void enqueueReminderSound(Context context, String soundId) {

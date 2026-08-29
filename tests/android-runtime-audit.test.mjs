@@ -107,6 +107,8 @@ assert.match(ddlReceiver, /setFullScreenIntent[\s\S]*setVisibility\(Notification
 assert.match(reminderAlert, /setShowWhenLocked\(true\)[\s\S]*setTurnScreenOn\(true\)/, "the reminder alert must wake a locked device");
 assert.match(activity, /syncDailyReminders[\s\S]*DailyScheduler\.saveAndSchedule/, "daily task plans must cross the WebView/native boundary");
 assert.match(activity, /onNewIntent[\s\S]*deliverOpenToday/, "notification taps must route an already-running app to today's home screen");
+assert.match(notificationSupport, /EXTRA_NOTIFICATION_ID[\s\S]*dismissReminder[\s\S]*stopService[\s\S]*manager\.cancel\(notificationId\)/, "opening a reminder must stop its playback service and remove the clicked notification");
+assert.match(activity, /onCreate[\s\S]*NotificationSupport\.dismissReminder\(this, getIntent\(\)\)[\s\S]*onNewIntent[\s\S]*NotificationSupport\.dismissReminder\(this, intent\)/, "cold and warm notification opens must both clear the clicked reminder");
 assert.match(activity, /JINKE_OPEN_TODAY/, "the native activity must deliver the today navigation event to the WebView");
 const openTodayHandler = webApp.match(/const openTodayFromNotification = \(\) => \{([\s\S]*?)\n    \};/);
 assert.ok(openTodayHandler, "the web app must expose a notification navigation handler");

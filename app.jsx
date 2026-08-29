@@ -53,9 +53,35 @@ function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function readStoredRaw(key) {
+  try {
+    const localValue = localStorage.getItem(key);
+    if (localValue !== null) return localValue;
+  } catch {}
+  try {
+    const nativeValue = window.JinkeAndroid?.getAppState?.(key);
+    return nativeValue === null || nativeValue === undefined || nativeValue === "" ? null : String(nativeValue);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredJson(key, value) {
+  const serialized = JSON.stringify(value);
+  let stored = false;
+  try {
+    localStorage.setItem(key, serialized);
+    stored = true;
+  } catch {}
+  try {
+    if (window.JinkeAndroid?.saveAppState) stored = Boolean(window.JinkeAndroid.saveAppState(key, serialized)) || stored;
+  } catch {}
+  return stored;
+}
+
 function readStoredJson(key, fallback, validator) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    const parsed = JSON.parse(readStoredRaw(key) || "null");
     if (parsed !== null && (!validator || validator(parsed))) return parsed;
   } catch {}
   return fallback;
@@ -132,6 +158,17 @@ function dateKeyAddDays(dateKey, days) {
   return localDateKey(next);
 }
 
+function firstDailyOccurrenceDateKey(task, startDateKey) {
+  const repeatDays = repeatDaysFromValue(task?.repeat, task?.repeatDays);
+  if (!repeatDays.length) return task?.scheduledDateKey || task?.dateKey || startDateKey;
+  // Every weekly pattern must occur within the next seven logical dates.
+  for (let offset = 0; offset < 7; offset += 1) {
+    const candidate = dateKeyAddDays(startDateKey, offset);
+    if (taskOccursOnDate(task, candidate, startDateKey)) return candidate;
+  }
+  return startDateKey;
+}
+
 function criticalDaysLeftOn(task, dateKey, fallbackAnchorKey) {
   if (!Number.isFinite(task?.daysLeft)) return null;
   const anchorKey = task.anchorDateKey || fallbackAnchorKey;
@@ -153,6 +190,55 @@ function withCriticalReminderDefaults(task) {
     : normalizedPlan;
   const next = { ...task, alertMode: task.alertMode || "inherit", soundId: task.soundId || "inherit", deadlineTime, time: deadlineTime, ...plan };
   return { ...next, reminder: getCriticalReminder(next) };
+}
+
+function normalizeDailyTaskRecord(task, index = 0, todayKey = localDateKey()) {
+  const source = task && typeof task === "object" ? task : {};
+  const repeatDays = repeatDaysFromValue(source.repeat, source.repeatDays);
+  const repeat = repeatLabelFromDays(repeatDays);
+  const rawTime = typeof source.time === "string" ? source.time.trim() : "";
+  const time = rawTime === "待定" || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(rawTime) || rawTime === "24:00" ? rawTime : "待定";
+  const title = String(source.title || source.name || "未命名事项").trim() || "未命名事项";
+  return {
+    ...source,
+    id: String(source.id || `recovered-daily-${todayKey}-${index}`),
+    title,
+    time,
+    endTime: typeof source.endTime === "string" ? source.endTime : null,
+    note: typeof source.note === "string" ? source.note : "",
+    repeat,
+    repeatDays,
+    scheduledDateKey: repeatDays.length ? null : (source.scheduledDateKey || source.dateKey || todayKey),
+    activeFrom: source.activeFrom || todayKey,
+    reminder: typeof source.reminder === "string" && source.reminder ? source.reminder : "到点提醒",
+    alertMode: source.alertMode || "inherit",
+    soundId: source.soundId || "inherit",
+    done: Boolean(source.done),
+  };
+}
+
+function normalizeCriticalTaskRecord(task, index = 0, todayKey = localDateKey()) {
+  const source = task && typeof task === "object" ? task : {};
+  const title = String(source.title || source.name || "未命名事项").trim() || "未命名事项";
+  const normalized = normalizeCriticalCompletion({
+    ...source,
+    id: String(source.id || `recovered-critical-${todayKey}-${index}`),
+    title,
+    note: typeof source.note === "string" ? source.note : "",
+    deadline: source.deadline || null,
+    deadlineTime: typeof source.deadlineTime === "string" ? source.deadlineTime : null,
+    progress: Number.isFinite(Number(source.progress)) ? Number(source.progress) : 0,
+    alertMode: source.alertMode || "inherit",
+    soundId: source.soundId || "inherit",
+  }, todayKey);
+  const anchored = normalized.deadline && Number.isFinite(normalized.daysLeft) && !normalized.anchorDateKey
+    ? { ...normalized, anchorDateKey: todayKey }
+    : normalized;
+  return withCriticalReminderDefaults(anchored);
+}
+
+function compareDailyTasks(left, right) {
+  return String(left?.time || "待定").localeCompare(String(right?.time || "待定"), "zh-CN");
 }
 
 function criticalHistoryEntry(task, completionDateKey, fallbackAnchorKey) {
@@ -756,12 +842,9 @@ function MobileDesignApp() {
   const [viewMode, setViewMode] = useState("day");
   const [todayDateKey, setTodayDateKey] = useState(() => localDateKey());
   const [selectedDateKey, setSelectedDateKey] = useState(() => localDateKey());
-  const [dailyTasks, setDailyTasks] = useState(() => readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray).map((task) => ({
-    ...task,
-    reminder: task.reminder || "到点提醒",
-    alertMode: task.alertMode || "inherit",
-    soundId: task.soundId || "inherit",
-  })));
+  const [dailyTasks, setDailyTasks] = useState(() => readStoredJson("jinke-daily-tasks", APP_DATA.dailyTasks, Array.isArray)
+    .map((task, index) => normalizeDailyTaskRecord(task, index, localDateKey()))
+    .sort(compareDailyTasks));
   const [dailyCompletionByDate, setDailyCompletionByDate] = useState(() => readStoredJson(
     "jinke-daily-completions",
     Object.fromEntries(APP_DATA.dailyTasks.map((task) => [`${task.id}:${localDateKey()}`, Boolean(task.done)])),
@@ -769,12 +852,8 @@ function MobileDesignApp() {
   ));
   const [criticalTasks, setCriticalTasks] = useState(() => {
     const anchorDateKey = localDateKey();
-    return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray).map((task) => (
-      withCriticalReminderDefaults(normalizeCriticalCompletion(
-        task.deadline && Number.isFinite(task.daysLeft) && !task.anchorDateKey ? { ...task, anchorDateKey } : task,
-        anchorDateKey,
-      ))
-    ));
+    return readStoredJson("jinke-critical-tasks", APP_DATA.criticalTasks, Array.isArray)
+      .map((task, index) => normalizeCriticalTaskRecord(task, index, anchorDateKey));
   });
   const [ddlReminderTime, setDdlReminderTime] = useState(() => {
     let value = "10:00";
@@ -937,19 +1016,19 @@ function MobileDesignApp() {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem("jinke-daily-tasks", JSON.stringify(dailyTasks)); } catch {}
+    writeStoredJson("jinke-daily-tasks", dailyTasks);
   }, [dailyTasks]);
 
   useEffect(() => {
-    try { localStorage.setItem("jinke-daily-completions", JSON.stringify(dailyCompletionByDate)); } catch {}
+    writeStoredJson("jinke-daily-completions", dailyCompletionByDate);
   }, [dailyCompletionByDate]);
 
   useEffect(() => {
-    try { localStorage.setItem("jinke-critical-tasks", JSON.stringify(criticalTasks)); } catch {}
+    writeStoredJson("jinke-critical-tasks", criticalTasks);
   }, [criticalTasks]);
 
   useEffect(() => {
-    try { localStorage.setItem("jinke-task-history", JSON.stringify(history)); } catch {}
+    writeStoredJson("jinke-task-history", history);
   }, [history]);
 
   useEffect(() => {
@@ -1054,6 +1133,29 @@ function MobileDesignApp() {
     setToast(message);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(""), 2200);
+  };
+
+  const appendDailyTask = (rawTask) => {
+    const created = normalizeDailyTaskRecord(rawTask, dailyTasks.length, todayDateKey);
+    setDailyTasks((current) => {
+      const normalizedCurrent = current.map((task, index) => normalizeDailyTaskRecord(task, index, todayDateKey));
+      const next = [...normalizedCurrent.filter((task) => task.id !== created.id), created].sort(compareDailyTasks);
+      writeStoredJson("jinke-daily-tasks", next);
+      return next;
+    });
+    return created;
+  };
+
+  const appendCriticalTasks = (rawTasks) => {
+    const additions = rawTasks.map((task, index) => normalizeCriticalTaskRecord(task, criticalTasks.length + index, todayDateKey));
+    setCriticalTasks((current) => {
+      const normalizedCurrent = current.map((task, index) => normalizeCriticalTaskRecord(task, index, todayDateKey));
+      const additionIds = new Set(additions.map((task) => task.id));
+      const next = [...additions, ...normalizedCurrent.filter((task) => !additionIds.has(task.id))];
+      writeStoredJson("jinke-critical-tasks", next);
+      return next;
+    });
+    return additions;
   };
 
   const previewReminderSound = (soundId) => {
@@ -1408,7 +1510,10 @@ function MobileDesignApp() {
 
     if (intent === "create") {
       const task = command.task;
-      if (task.span) {
+      let visibleDateKey = null;
+      try {
+        if (!task || typeof task.title !== "string" || !task.title.trim()) throw new Error("invalid task title");
+        if (task.span) {
         const spanId = `voice-span-${Date.now()}`;
         const created = [
           withCriticalReminderDefaults({
@@ -1440,7 +1545,7 @@ function MobileDesignApp() {
             progress: 0,
           }),
         ];
-        setCriticalTasks((current) => [...created, ...current]);
+        appendCriticalTasks(created);
         setActiveTab("critical");
       } else if (task.type === "critical") {
         const normalizedDeadline = task.deadline ? parseDeadline(task.deadline) : null;
@@ -1461,7 +1566,7 @@ function MobileDesignApp() {
            alertMode: task.alertMode || "inherit",
            soundId: task.soundId || "inherit",
          });
-        setCriticalTasks((current) => [created, ...current]);
+        appendCriticalTasks([created]);
         setActiveTab("critical");
       } else {
         const created = {
@@ -1482,11 +1587,24 @@ function MobileDesignApp() {
            activeFrom: todayDateKey,
           done: false,
         };
-        setDailyTasks((current) => [...current, created].sort((a, b) => a.time.localeCompare(b.time)));
+        const storedTask = appendDailyTask(created);
+        visibleDateKey = firstDailyOccurrenceDateKey(storedTask, todayDateKey);
+        setSelectedDateKey(visibleDateKey);
+        setViewMode("day");
         setActiveTab("today");
       }
       setSecondary(null);
-      showToast(`已创建：${task.title}`);
+      if (visibleDateKey && visibleDateKey !== todayDateKey) {
+        const [, month, day] = visibleDateKey.split("-").map(Number);
+        showToast(`已创建：${task.title} · 已切换到 ${month}月${day}日`);
+      } else {
+        showToast(`已创建：${task.title}`);
+      }
+      } catch (error) {
+        console.error("[今刻任务创建失败]", error);
+        showToast("创建失败：任务未保存，请重试或检查应用存储空间");
+        return;
+      }
     } else if (intent === "clear-all") {
       if (command.scope !== "critical") {
         setDailyTasks([]);
@@ -1777,7 +1895,7 @@ function MobileDesignApp() {
       {overlay === "critical-detail" ? <CriticalDetailSheet task={selectedCritical} draft={criticalDraft} renewDays={renewDays} onRenewDaysChange={setRenewDays} onDraftChange={setCriticalDraft} onClose={closeOverlay} onRenew={renewCritical} onSave={saveCritical} sounds={reminderSounds} defaultAlertMode={defaultAlertMode} defaultSoundId={defaultSoundId} onPreviewSound={previewReminderSound} onImportSound={importReminderSound} onPickSystemAlarm={pickSystemAlarmSound} /> : null}
       {overlay === "day-archive" ? <CalendarDaySheet dateKey={selectedDateKey} active={archiveActive} index={archiveIndex} onActiveChange={setArchiveActive} onIndexChange={setArchiveIndex} onClose={closeOverlay} /> : null}
       {overlay === "delete-confirm" ? <DeleteConfirmSheet target={deleteTarget} selectedDateKey={selectedDateKey} onClose={closeOverlay} onConfirm={confirmDelete} /> : null}
-      {toast ? <div className="sr-only" role="status" aria-live="polite">{toast}</div> : null}
+      {toast ? <div className="app-toast" role="status" aria-live="polite">{toast}</div> : null}
     </PhoneFrame>
   );
 

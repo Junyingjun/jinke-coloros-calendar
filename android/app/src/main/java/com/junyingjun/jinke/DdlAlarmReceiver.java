@@ -57,12 +57,14 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
                 }
             }
             int minuteOfDay = Integer.parseInt(triggerTime.substring(0, 2)) * 60 + Integer.parseInt(triggerTime.substring(3));
+            int notificationId = 7000 + minuteOfDay;
             String title = "关键事项 · " + eligible.size() + " 项";
             String message = String.join("\n", eligible);
             android.app.PendingIntent openToday = NotificationSupport.openTodayPendingIntent(
                     context,
                     8500 + minuteOfDay,
-                    "com.junyingjun.jinke.OPEN_DDL." + triggerTime);
+                    "com.junyingjun.jinke.OPEN_DDL." + triggerTime,
+                    notificationId);
             Notification.InboxStyle style = new Notification.InboxStyle();
             for (String line : eligible) style.addLine(line);
             Notification.Builder builder = new Notification.Builder(context, NotificationSupport.ddlChannel(ringing))
@@ -76,7 +78,8 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
                             9000 + minuteOfDay,
                             "com.junyingjun.jinke.ALERT_DDL." + triggerTime,
                             title,
-                            message), true)
+                            message,
+                            notificationId), true)
                     .setAutoCancel(true)
                     .addAction(new Notification.Action.Builder(R.drawable.ic_notification, "打开今刻", openToday).build())
                     .setCategory(Notification.CATEGORY_REMINDER)
@@ -88,7 +91,6 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
             NotificationSupport.wakeForReminder(context);
             Notification notification = builder.build();
             NotificationManager manager = context.getSystemService(NotificationManager.class);
-            int notificationId = 7000 + minuteOfDay;
             if (manager != null) manager.notify(notificationId, notification);
             ArrayList<String> sounds = new ArrayList<>();
             for (JSONObject task : eligibleTasks) {

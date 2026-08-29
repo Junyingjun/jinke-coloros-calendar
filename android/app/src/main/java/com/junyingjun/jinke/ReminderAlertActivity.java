@@ -63,9 +63,11 @@ public class ReminderAlertActivity extends Activity {
 
         Button open = button("打开今刻", Color.rgb(255, 96, 72), Color.WHITE);
         open.setOnClickListener(view -> {
+            int notificationId = getIntent().getIntExtra(NotificationSupport.EXTRA_NOTIFICATION_ID, -1);
             startActivity(NotificationSupport.openTodayActivityIntent(
                     this,
-                    "com.junyingjun.jinke.OPEN_FROM_LOCK_SCREEN"));
+                    "com.junyingjun.jinke.OPEN_FROM_LOCK_SCREEN",
+                    notificationId));
             finish();
         });
         LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(

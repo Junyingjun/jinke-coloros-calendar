@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
     private static final int REQUEST_REMINDER_SOUND = 9024;
     private static final int REQUEST_SYSTEM_ALARM_SOUND = 9025;
     private static final String SYSTEM_PREFS = "jinke-system-state";
+    private static final String APP_STATE_PREFS = "jinke-app-state";
     private static final String BACKGROUND_SETTINGS_OPENED = "background-settings-opened";
     private WebView webView;
     private OfflineSpeechEngine offlineSpeechEngine;
@@ -72,6 +73,7 @@ public class MainActivity extends Activity {
         DdlScheduler.schedule(this);
         DailyScheduler.schedule(this);
         cleanupInstalledUpdateApk();
+        NotificationSupport.dismissReminder(this, getIntent());
         pendingOpenToday = getIntent() != null
                 && getIntent().getBooleanExtra(NotificationSupport.EXTRA_OPEN_TODAY, false);
 
@@ -557,6 +559,7 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        NotificationSupport.dismissReminder(this, intent);
         if (intent != null && intent.getBooleanExtra(NotificationSupport.EXTRA_OPEN_TODAY, false)) {
             pendingOpenToday = true;
             if (webView != null) webView.post(this::deliverOpenToday);
@@ -632,6 +635,21 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String getSystemCapabilities() {
             return currentSystemCapabilities();
+        }
+
+        @JavascriptInterface
+        public String getAppState(String key) {
+            if (key == null || !key.startsWith("jinke-")) return "";
+            return getSharedPreferences(APP_STATE_PREFS, MODE_PRIVATE).getString(key, "");
+        }
+
+        @JavascriptInterface
+        public boolean saveAppState(String key, String value) {
+            if (key == null || !key.startsWith("jinke-") || value == null) return false;
+            return getSharedPreferences(APP_STATE_PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(key, value)
+                    .commit();
         }
 
         @JavascriptInterface

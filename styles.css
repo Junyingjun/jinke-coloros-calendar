@@ -635,3 +635,30 @@ button:disabled { cursor: default; }
   width: 60vw;
   transform: translate(-50%, var(--sheet-drag-y, 0));
 }
+
+.app-toast {
+  position: absolute;
+  z-index: 120;
+  left: 50%;
+  bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  max-width: min(82%, 360px);
+  transform: translateX(-50%);
+  padding: 11px 16px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+  animation: toast-in 180ms cubic-bezier(.2, .8, .2, 1) both;
+  pointer-events: none;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}

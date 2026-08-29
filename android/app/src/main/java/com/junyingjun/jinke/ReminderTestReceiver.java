@@ -28,7 +28,8 @@ public class ReminderTestReceiver extends BroadcastReceiver {
         android.app.PendingIntent openToday = NotificationSupport.openTodayPendingIntent(
                 context,
                 REQUEST_CODE + 1,
-                "com.junyingjun.jinke.OPEN_TEST_REMINDER");
+                "com.junyingjun.jinke.OPEN_TEST_REMINDER",
+                NOTIFICATION_ID);
         Notification notification = new Notification.Builder(
                 context,
                 NotificationSupport.dailyChannel(true))
@@ -41,7 +42,8 @@ public class ReminderTestReceiver extends BroadcastReceiver {
                         REQUEST_CODE + 2,
                         "com.junyingjun.jinke.ALERT_TEST_REMINDER",
                         title,
-                        message), true)
+                        message,
+                        NOTIFICATION_ID), true)
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setShowWhen(true)
