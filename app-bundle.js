@@ -3576,6 +3576,12 @@ function PermissionsScreen(_ref33) {
     status: known ? "".concat(Number((capabilities === null || capabilities === void 0 ? void 0 : capabilities.ddlReminderCount) || 0), " \u9879") : "仅手机检测",
     ok: Boolean(capabilities === null || capabilities === void 0 ? void 0 : capabilities.ddlAlarmTimes)
   }, {
+    key: null,
+    title: "后台提醒保障",
+    note: "划掉任务卡片后仍由原生服务守护提醒",
+    status: capabilities !== null && capabilities !== void 0 && capabilities.guardianActive ? "运行中" : "等待启动",
+    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.guardianActive
+  }, {
     key: "fullScreenIntent",
     title: "锁屏提醒",
     note: "息屏时亮屏并显示任务",
@@ -3890,7 +3896,7 @@ function CriticalReminderScreen(_ref35) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.1.3";
+var JINKE_FALLBACK_VERSION = "1.1.5";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }

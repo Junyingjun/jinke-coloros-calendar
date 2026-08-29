@@ -29,6 +29,19 @@ final class DailyScheduler {
                 .putString(KEY_TASKS, tasksJson == null ? "[]" : tasksJson)
                 .apply();
         schedule(context, true);
+        ReminderGuardianService.updateState(context);
+    }
+
+    static boolean hasEnabledReminders(Context context) {
+        try {
+            JSONArray tasks = new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getString(KEY_TASKS, "[]"));
+            for (int index = 0; index < tasks.length(); index++) {
+                JSONObject task = tasks.optJSONObject(index);
+                if (task != null && task.optBoolean("reminderEnabled", true) && triggerTimeFor(task) != null) return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
     static void schedule(Context context) {

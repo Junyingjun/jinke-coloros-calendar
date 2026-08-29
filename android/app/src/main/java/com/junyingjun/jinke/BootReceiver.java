@@ -9,5 +9,6 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         DdlScheduler.schedule(context);
         DailyScheduler.schedule(context);
+        ReminderGuardianService.updateState(context);
     }
 }

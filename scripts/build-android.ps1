@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $sourceApk = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $releaseDir = Join-Path $projectRoot "release"
-$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.1.4.apk"
+$releaseApk = Join-Path $releaseDir "jinke-coloros-v1.1.5.apk"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 
@@ -45,6 +45,7 @@ $requiredPermissions = @(
     "android.permission.WAKE_LOCK",
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+    "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
     "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
     "android.permission.REQUEST_INSTALL_PACKAGES"
 )

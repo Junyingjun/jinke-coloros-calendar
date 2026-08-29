@@ -72,6 +72,7 @@ public class MainActivity extends Activity {
         NotificationSupport.createChannels(this);
         DdlScheduler.schedule(this);
         DailyScheduler.schedule(this);
+        ReminderGuardianService.updateState(this);
         cleanupInstalledUpdateApk();
         NotificationSupport.dismissReminder(this, getIntent());
         pendingOpenToday = getIntent() != null
@@ -361,6 +362,8 @@ public class MainActivity extends Activity {
             payload.put("offlineSpeechBundled", true);
             payload.put("offlineSpeechReady", offlineSpeechEngine != null && offlineSpeechEngine.isReady());
             payload.put("bootRestore", true);
+            payload.put("guardianActive", ReminderGuardianService.isHealthy(this));
+            payload.put("guardianLastTick", ReminderGuardianService.lastTick(this));
             android.content.SharedPreferences dailyPrefs = getSharedPreferences(DailyScheduler.PREFS, MODE_PRIVATE);
             android.content.SharedPreferences ddlPrefs = getSharedPreferences(DdlScheduler.PREFS, MODE_PRIVATE);
             payload.put("dailyReminderCount", new JSONArray(dailyPrefs.getString(DailyScheduler.KEY_TASKS, "[]")).length());

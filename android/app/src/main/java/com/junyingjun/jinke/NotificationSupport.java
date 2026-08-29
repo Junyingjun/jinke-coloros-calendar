@@ -28,6 +28,7 @@ final class NotificationSupport {
     static final String DDL_RING_CHANNEL = "jinke_ddl_ring_v4";
     static final String DDL_SILENT_CHANNEL = "jinke_ddl_silent_v4";
     static final String UPDATE_CHANNEL = "jinke_update";
+    static final String GUARDIAN_CHANNEL = "jinke_guardian_v1";
     static final String EXTRA_OPEN_TODAY = "jinke_open_today";
     static final String EXTRA_NOTIFICATION_ID = "jinke_notification_id";
     static final String EXTRA_REMINDER_TITLE = "jinke_reminder_title";
@@ -47,6 +48,15 @@ final class NotificationSupport {
         manager.createNotificationChannel(reminderChannel(DAILY_SILENT_CHANNEL, "日常提醒（静音）", "日常事项按设定时间静音提醒", false));
         manager.createNotificationChannel(reminderChannel(DDL_RING_CHANNEL, "关键提醒（响铃）", "关键事项按提醒计划响铃提醒", true));
         manager.createNotificationChannel(reminderChannel(DDL_SILENT_CHANNEL, "关键提醒（静音）", "关键事项按提醒计划静音提醒", false));
+        NotificationChannel guardian = new NotificationChannel(
+                GUARDIAN_CHANNEL,
+                "后台提醒保障",
+                NotificationManager.IMPORTANCE_LOW);
+        guardian.setDescription("存在待提醒任务时，保持今刻的系统闹钟登记有效");
+        guardian.setSound(null, null);
+        guardian.enableVibration(false);
+        guardian.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
+        manager.createNotificationChannel(guardian);
         NotificationChannel update = new NotificationChannel(
                 UPDATE_CHANNEL,
                 context.getString(R.string.update_channel_name),
@@ -128,6 +138,19 @@ final class NotificationSupport {
         context.stopService(new Intent(context, ReminderPlaybackService.class));
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager != null) manager.cancel(notificationId);
+    }
+
+    static boolean claimReminderDelivery(Context context, String deliveryKey) {
+        if (deliveryKey == null || deliveryKey.isEmpty()) return false;
+        android.content.SharedPreferences preferences = context.getSharedPreferences(
+                "jinke-reminder-delivery",
+                Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        synchronized (NotificationSupport.class) {
+            long previous = preferences.getLong(deliveryKey, 0L);
+            if (now >= previous && now - previous < 55000L) return false;
+            return preferences.edit().putLong(deliveryKey, now).commit();
+        }
     }
 
     static void enqueueReminderSound(Context context, String soundId) {

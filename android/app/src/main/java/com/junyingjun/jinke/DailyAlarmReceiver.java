@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -18,14 +19,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DailyAlarmReceiver extends BroadcastReceiver {
+    private static final String LOG_TAG = "JinkeReminder";
     @Override
     public void onReceive(Context context, Intent intent) {
         NotificationSupport.createChannels(context);
         SharedPreferences prefs = context.getSharedPreferences(DailyScheduler.PREFS, Context.MODE_PRIVATE);
         String triggerTime = intent.getStringExtra(DailyScheduler.EXTRA_REMINDER_TIME);
+        Log.i(LOG_TAG, "Daily receiver invoked for " + triggerTime
+                + ", guardian=" + intent.getBooleanExtra(ReminderGuardianService.EXTRA_GUARDIAN_TICK, false));
         // Re-arm first. ColorOS may reclaim this short-lived receiver process immediately
         // after delivery, so tomorrow's alarm must not depend on notification/audio work.
-        DailyScheduler.schedule(context);
+        if (!intent.getBooleanExtra(ReminderGuardianService.EXTRA_GUARDIAN_TICK, false)) {
+            DailyScheduler.schedule(context);
+        }
         if (triggerTime == null || !triggerTime.matches("(?:[01]\\d|2[0-3]):[0-5]\\d")) return;
         List<String> eligible = new ArrayList<>();
         List<JSONObject> eligibleTasks = new ArrayList<>();
@@ -43,7 +49,9 @@ public class DailyAlarmReceiver extends BroadcastReceiver {
             }
         } catch (Exception ignored) {}
 
-        if (!eligible.isEmpty() && canNotify(context)) {
+        String deliveryKey = "daily:" + LocalDate.now() + ":" + triggerTime;
+        if (!eligible.isEmpty() && canNotify(context)
+                && NotificationSupport.claimReminderDelivery(context, deliveryKey)) {
             boolean ringing = false;
             for (JSONObject task : eligibleTasks) {
                 if (NotificationSupport.isRinging(task.optString("alertMode", "sound"))) {
@@ -88,6 +96,7 @@ public class DailyAlarmReceiver extends BroadcastReceiver {
             Notification notification = builder.build();
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) manager.notify(notificationId, notification);
+            Log.i(LOG_TAG, "Posted daily reminder notification " + notificationId);
             ArrayList<String> sounds = new ArrayList<>();
             for (JSONObject task : eligibleTasks) {
                 if (NotificationSupport.isRinging(task.optString("alertMode", "sound"))) {
@@ -95,6 +104,8 @@ public class DailyAlarmReceiver extends BroadcastReceiver {
                 }
             }
             NotificationSupport.startReminderPlayback(context, notificationId, notification, sounds);
+        } else {
+            Log.i(LOG_TAG, "Daily receiver had no deliverable task or notification permission");
         }
     }
 
