@@ -1428,6 +1428,7 @@ var _window = window,
   getWeekDates = _window.getWeekDates,
   getMonthDates = _window.getMonthDates,
   shiftDateKeyByMonth = _window.shiftDateKeyByMonth,
+  shiftDateKeyByDays = _window.shiftDateKeyByDays,
   repeatDaysFromValue = _window.repeatDaysFromValue,
   repeatLabelFromDays = _window.repeatLabelFromDays,
   Icon = _window.Icon,
@@ -2147,10 +2148,128 @@ function WeekStrip(_ref14) {
     todayDateKey = _ref14.todayDateKey,
     onSelectDate = _ref14.onSelectDate,
     getDateLoad = _ref14.getDateLoad;
+  var gesture = React.useRef({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    width: 0,
+    currentX: 0,
+    horizontal: false,
+    suppressClick: false
+  });
+  var timers = React.useRef([]);
+  var _React$useState = React.useState(0),
+    _React$useState2 = _slicedToArray(_React$useState, 2),
+    dragX = _React$useState2[0],
+    setDragX = _React$useState2[1];
+  var _React$useState3 = React.useState(false),
+    _React$useState4 = _slicedToArray(_React$useState3, 2),
+    settling = _React$useState4[0],
+    setSettling = _React$useState4[1];
+  var weekDates = getWeekDates(selectedDateKey);
+  var weekStart = weekDates[0];
+  var weekEnd = weekDates[weekDates.length - 1];
+  React.useEffect(function () {
+    return function () {
+      return timers.current.forEach(function (timer) {
+        return window.clearTimeout(timer);
+      });
+    };
+  }, []);
+  var resetGesture = function resetGesture() {
+    gesture.current.pointerId = null;
+    gesture.current.horizontal = false;
+  };
+  var finishSwipe = function finishSwipe(direction) {
+    var distance = Math.min(Math.max(gesture.current.width * 0.18, 42), 72);
+    setSettling(true);
+    setDragX(direction > 0 ? -distance : distance);
+    var swapTimer = window.setTimeout(function () {
+      onSelectDate(shiftDateKeyByDays(selectedDateKey, direction * 7));
+      setSettling(false);
+      setDragX(direction > 0 ? distance * 0.58 : -distance * 0.58);
+      window.requestAnimationFrame(function () {
+        return window.requestAnimationFrame(function () {
+          setSettling(true);
+          setDragX(0);
+        });
+      });
+      var settleTimer = window.setTimeout(function () {
+        return setSettling(false);
+      }, 230);
+      timers.current.push(settleTimer);
+    }, 115);
+    timers.current.push(swapTimer);
+  };
+  var releasePointer = function releasePointer(event) {
+    var cancelled = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+    if (gesture.current.pointerId !== event.pointerId) return;
+    var threshold = Math.min(Math.max(gesture.current.width * 0.12, 34), 52);
+    var currentX = gesture.current.currentX;
+    var shouldShift = !cancelled && gesture.current.horizontal && Math.abs(currentX) >= threshold;
+    if (gesture.current.horizontal) {
+      gesture.current.suppressClick = true;
+      window.setTimeout(function () {
+        gesture.current.suppressClick = false;
+      }, 0);
+    }
+    resetGesture();
+    if (shouldShift) finishSwipe(currentX < 0 ? 1 : -1);else {
+      setSettling(true);
+      setDragX(0);
+      var timer = window.setTimeout(function () {
+        return setSettling(false);
+      }, 190);
+      timers.current.push(timer);
+    }
+  };
+  var selectDay = function selectDay(dateKey) {
+    if (!gesture.current.suppressClick) onSelectDate(dateKey);
+  };
   return React.createElement("div", {
-    className: "week-strip",
-    "aria-label": "\u672C\u5468"
-  }, getWeekDates(selectedDateKey).map(function (item) {
+    className: "week-strip-block"
+  }, React.createElement("div", {
+    className: "week-strip-viewport ".concat(gesture.current.horizontal ? "is-dragging" : ""),
+    "aria-label": "".concat(weekStart.month, "\u6708").concat(weekStart.date, "\u65E5\u81F3").concat(weekEnd.month, "\u6708").concat(weekEnd.date, "\u65E5\uFF0C\u5DE6\u53F3\u6ED1\u52A8\u5207\u6362\u5468"),
+    onPointerDown: function onPointerDown(event) {
+      var _event$currentTarget$, _event$currentTarget;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      gesture.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        width: event.currentTarget.getBoundingClientRect().width,
+        currentX: 0,
+        horizontal: false,
+        suppressClick: false
+      };
+      setSettling(false);
+      (_event$currentTarget$ = (_event$currentTarget = event.currentTarget).setPointerCapture) === null || _event$currentTarget$ === void 0 || _event$currentTarget$.call(_event$currentTarget, event.pointerId);
+    },
+    onPointerMove: function onPointerMove(event) {
+      if (gesture.current.pointerId !== event.pointerId) return;
+      var deltaX = event.clientX - gesture.current.startX;
+      var deltaY = event.clientY - gesture.current.startY;
+      if (!gesture.current.horizontal && Math.abs(deltaX) > 9 && Math.abs(deltaX) > Math.abs(deltaY) + 5) gesture.current.horizontal = true;
+      if (!gesture.current.horizontal) return;
+      event.preventDefault();
+      var limit = Math.max(48, gesture.current.width * 0.34);
+      var nextDragX = Math.max(-limit, Math.min(limit, deltaX * 0.78));
+      gesture.current.currentX = nextDragX;
+      setDragX(nextDragX);
+    },
+    onPointerUp: function onPointerUp(event) {
+      return releasePointer(event);
+    },
+    onPointerCancel: function onPointerCancel(event) {
+      return releasePointer(event, true);
+    }
+  }, React.createElement("div", {
+    className: "week-strip ".concat(settling ? "is-settling" : ""),
+    style: {
+      "--week-drag-x": "".concat(dragX, "px")
+    }
+  }, weekDates.map(function (item) {
     var isToday = item.dateKey === todayDateKey;
     var isSelected = item.dateKey === selectedDateKey;
     var load = Math.max(0, Number(getDateLoad === null || getDateLoad === void 0 ? void 0 : getDateLoad(item.dateKey)) || 0);
@@ -2159,7 +2278,7 @@ function WeekStrip(_ref14) {
       "aria-current": isToday ? "date" : undefined,
       "aria-pressed": isSelected,
       onClick: function onClick() {
-        return onSelectDate(item.dateKey);
+        return selectDay(item.dateKey);
       },
       key: item.dateKey
     }, React.createElement("span", {
@@ -2175,7 +2294,13 @@ function WeekStrip(_ref14) {
         key: index
       });
     })));
-  }));
+  }))), selectedDateKey !== todayDateKey ? React.createElement("button", {
+    className: "week-today-action pressable",
+    type: "button",
+    onClick: function onClick() {
+      return onSelectDate(todayDateKey);
+    }
+  }, "\u56DE\u5230\u4ECA\u5929") : null);
 }
 function MonthPeekPanel(_ref15) {
   var selectedDateKey = _ref15.selectedDateKey,
@@ -2546,18 +2671,18 @@ function CalendarDaySheet(_ref18) {
     index = _ref18.index,
     onActiveChange = _ref18.onActiveChange,
     onIndexChange = _ref18.onIndexChange;
-  var _React$useState = React.useState({
+  var _React$useState5 = React.useState({
       holidays: [],
       events: [],
       people: []
     }),
-    _React$useState2 = _slicedToArray(_React$useState, 2),
-    remote = _React$useState2[0],
-    setRemote = _React$useState2[1];
-  var _React$useState3 = React.useState(active === "china" ? "ready" : "loading"),
-    _React$useState4 = _slicedToArray(_React$useState3, 2),
-    status = _React$useState4[0],
-    setStatus = _React$useState4[1];
+    _React$useState6 = _slicedToArray(_React$useState5, 2),
+    remote = _React$useState6[0],
+    setRemote = _React$useState6[1];
+  var _React$useState7 = React.useState(active === "china" ? "ready" : "loading"),
+    _React$useState8 = _slicedToArray(_React$useState7, 2),
+    status = _React$useState8[0],
+    setStatus = _React$useState8[1];
   var marker = getCalendarMarker(dateKey);
   var _dateKey$split = dateKey.split("-"),
     _dateKey$split2 = _slicedToArray(_dateKey$split, 3),
@@ -3896,7 +4021,7 @@ function CriticalReminderScreen(_ref35) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.1.5";
+var JINKE_FALLBACK_VERSION = "1.1.6";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
@@ -3922,15 +4047,15 @@ function VersionScreen(_ref36) {
       return JINKE_FALLBACK_VERSION;
     }
   }();
-  var _React$useState5 = React.useState({
+  var _React$useState9 = React.useState({
       status: "idle",
       latest: "",
       apkUrl: "",
       error: ""
     }),
-    _React$useState6 = _slicedToArray(_React$useState5, 2),
-    state = _React$useState6[0],
-    setState = _React$useState6[1];
+    _React$useState10 = _slicedToArray(_React$useState9, 2),
+    state = _React$useState10[0],
+    setState = _React$useState10[1];
   var checkVersion = function checkVersion() {
     setState({
       status: "checking",

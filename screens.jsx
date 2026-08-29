@@ -1,4 +1,4 @@
-const { APP_DATA, getCalendarMarker, getCriticalReminder, normalizeCriticalReminderPlan, shouldRemindCritical, getDateMeta, getWeekDates, getMonthDates, shiftDateKeyByMonth, repeatDaysFromValue, repeatLabelFromDays, Icon, IconButton, SectionHeader, DailyTaskRow, CriticalTaskRow, Sheet, BackHeader, BarRow } = window;
+const { APP_DATA, getCalendarMarker, getCriticalReminder, normalizeCriticalReminderPlan, shouldRemindCritical, getDateMeta, getWeekDates, getMonthDates, shiftDateKeyByMonth, shiftDateKeyByDays, repeatDaysFromValue, repeatLabelFromDays, Icon, IconButton, SectionHeader, DailyTaskRow, CriticalTaskRow, Sheet, BackHeader, BarRow } = window;
 
 const WEEKDAY_BUTTONS = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -302,20 +302,112 @@ function CriticalReminderPlanPicker({ task, onChange }) {
 }
 
 function WeekStrip({ selectedDateKey, todayDateKey, onSelectDate, getDateLoad }) {
+  const gesture = React.useRef({ pointerId: null, startX: 0, startY: 0, width: 0, currentX: 0, horizontal: false, suppressClick: false });
+  const timers = React.useRef([]);
+  const [dragX, setDragX] = React.useState(0);
+  const [settling, setSettling] = React.useState(false);
+  const weekDates = getWeekDates(selectedDateKey);
+  const weekStart = weekDates[0];
+  const weekEnd = weekDates[weekDates.length - 1];
+
+  React.useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
+
+  const resetGesture = () => {
+    gesture.current.pointerId = null;
+    gesture.current.horizontal = false;
+  };
+
+  const finishSwipe = (direction) => {
+    const distance = Math.min(Math.max(gesture.current.width * 0.18, 42), 72);
+    setSettling(true);
+    setDragX(direction > 0 ? -distance : distance);
+    const swapTimer = window.setTimeout(() => {
+      onSelectDate(shiftDateKeyByDays(selectedDateKey, direction * 7));
+      setSettling(false);
+      setDragX(direction > 0 ? distance * 0.58 : -distance * 0.58);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        setSettling(true);
+        setDragX(0);
+      }));
+      const settleTimer = window.setTimeout(() => setSettling(false), 230);
+      timers.current.push(settleTimer);
+    }, 115);
+    timers.current.push(swapTimer);
+  };
+
+  const releasePointer = (event, cancelled = false) => {
+    if (gesture.current.pointerId !== event.pointerId) return;
+    const threshold = Math.min(Math.max(gesture.current.width * 0.12, 34), 52);
+    const currentX = gesture.current.currentX;
+    const shouldShift = !cancelled && gesture.current.horizontal && Math.abs(currentX) >= threshold;
+    if (gesture.current.horizontal) {
+      gesture.current.suppressClick = true;
+      window.setTimeout(() => { gesture.current.suppressClick = false; }, 0);
+    }
+    resetGesture();
+    if (shouldShift) finishSwipe(currentX < 0 ? 1 : -1);
+    else {
+      setSettling(true);
+      setDragX(0);
+      const timer = window.setTimeout(() => setSettling(false), 190);
+      timers.current.push(timer);
+    }
+  };
+
+  const selectDay = (dateKey) => {
+    if (!gesture.current.suppressClick) onSelectDate(dateKey);
+  };
+
   return (
-    <div className="week-strip" aria-label="本周">
-      {getWeekDates(selectedDateKey).map((item) => {
-        const isToday = item.dateKey === todayDateKey;
-        const isSelected = item.dateKey === selectedDateKey;
-        const load = Math.max(0, Number(getDateLoad?.(item.dateKey)) || 0);
-        return (
-        <button className={`day-cell ${isToday ? "today" : ""} ${isSelected && !isToday ? "selected" : ""}`} aria-current={isToday ? "date" : undefined} aria-pressed={isSelected} onClick={() => onSelectDate(item.dateKey)} key={item.dateKey}>
-          <span className="day-name">{item.day}</span>
-          <span className="day-number">{item.date}</span>
-          <span className="load-dots">{Array.from({ length: Math.min(load, 3) }).map((_, index) => <span key={index} />)}</span>
-        </button>
-        );
-      })}
+    <div className="week-strip-block">
+      <div
+        className={`week-strip-viewport ${gesture.current.horizontal ? "is-dragging" : ""}`}
+        aria-label={`${weekStart.month}月${weekStart.date}日至${weekEnd.month}月${weekEnd.date}日，左右滑动切换周`}
+        onPointerDown={(event) => {
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+          gesture.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            width: event.currentTarget.getBoundingClientRect().width,
+            currentX: 0,
+            horizontal: false,
+            suppressClick: false,
+          };
+          setSettling(false);
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (gesture.current.pointerId !== event.pointerId) return;
+          const deltaX = event.clientX - gesture.current.startX;
+          const deltaY = event.clientY - gesture.current.startY;
+          if (!gesture.current.horizontal && Math.abs(deltaX) > 9 && Math.abs(deltaX) > Math.abs(deltaY) + 5) gesture.current.horizontal = true;
+          if (!gesture.current.horizontal) return;
+          event.preventDefault();
+          const limit = Math.max(48, gesture.current.width * 0.34);
+          const nextDragX = Math.max(-limit, Math.min(limit, deltaX * 0.78));
+          gesture.current.currentX = nextDragX;
+          setDragX(nextDragX);
+        }}
+        onPointerUp={(event) => releasePointer(event)}
+        onPointerCancel={(event) => releasePointer(event, true)}
+      >
+        <div className={`week-strip ${settling ? "is-settling" : ""}`} style={{ "--week-drag-x": `${dragX}px` }}>
+          {weekDates.map((item) => {
+            const isToday = item.dateKey === todayDateKey;
+            const isSelected = item.dateKey === selectedDateKey;
+            const load = Math.max(0, Number(getDateLoad?.(item.dateKey)) || 0);
+            return (
+            <button className={`day-cell ${isToday ? "today" : ""} ${isSelected && !isToday ? "selected" : ""}`} aria-current={isToday ? "date" : undefined} aria-pressed={isSelected} onClick={() => selectDay(item.dateKey)} key={item.dateKey}>
+              <span className="day-name">{item.day}</span>
+              <span className="day-number">{item.date}</span>
+              <span className="load-dots">{Array.from({ length: Math.min(load, 3) }).map((_, index) => <span key={index} />)}</span>
+            </button>
+            );
+          })}
+        </div>
+      </div>
+      {selectedDateKey !== todayDateKey ? <button className="week-today-action pressable" type="button" onClick={() => onSelectDate(todayDateKey)}>回到今天</button> : null}
     </div>
   );
 }
@@ -1063,7 +1155,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.1.5";
+const JINKE_FALLBACK_VERSION = "1.1.6";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
