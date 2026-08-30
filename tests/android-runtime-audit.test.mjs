@@ -19,6 +19,9 @@ const reminderAlert = read("android/app/src/main/java/com/junyingjun/jinke/Remin
 const alarmSchedulingSupport = read("android/app/src/main/java/com/junyingjun/jinke/AlarmSchedulingSupport.java");
 const playbackService = read("android/app/src/main/java/com/junyingjun/jinke/ReminderPlaybackService.java");
 const guardianService = read("android/app/src/main/java/com/junyingjun/jinke/ReminderGuardianService.java");
+const backupJobService = read("android/app/src/main/java/com/junyingjun/jinke/ReminderBackupJobService.java");
+const bootReceiver = read("android/app/src/main/java/com/junyingjun/jinke/BootReceiver.java");
+const directBootPreferences = read("android/app/src/main/java/com/junyingjun/jinke/DirectBootPreferences.java");
 const webApp = read("app.jsx");
 const screens = read("screens.jsx");
 const modelRoot = path.join(root, "android/app/src/main/assets/vosk-model-small-cn-0.22");
@@ -60,6 +63,7 @@ assert.match(engine, /copyAssetTree[\s\S]*MODEL_ASSET_DIR/, "bundled model must 
 assert.match(activity, /getSystemCapabilities/, "native bridge must expose live permission and component states");
 assert.match(activity, /ACTION_REQUEST_SCHEDULE_EXACT_ALARM/, "exact-alarm settings must be actionable");
 assert.match(activity, /ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS/, "battery restriction settings must be actionable");
+assert.match(activity, /scheduleReminderTest[\s\S]*AlarmSchedulingSupport\.scheduleWakeup[\s\S]*ReminderBackupJobService\.scheduleTest/, "the user-visible test must exercise both system reminder paths");
 assert.match(activity, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/, "APK update installation permission must be actionable");
 assert.match(activity, /backgroundConfigured/, "native capabilities must expose the ColorOS background configuration state");
 assert.match(activity, /openBackgroundSettings[\s\S]*com\.oplus\.safecenter[\s\S]*com\.coloros\.safecenter/, "background management must deep-link through known OPlus and ColorOS settings");
@@ -67,7 +71,12 @@ assert.match(activity, /BACKGROUND_SETTINGS_OPENED/, "returning from the OEM bac
 assert.match(activity, /deliverSystemTimeChanged[\s\S]*JINKE_REFRESH_SYSTEM_TIME/, "returning to the app must refresh the JavaScript system clock");
 assert.match(manifest, /android\.intent\.action\.DATE_CHANGED/, "date rollover must reschedule Android reminders");
 assert.match(manifest, /android\.intent\.action\.MY_PACKAGE_REPLACED/, "an installed update must restore persisted reminders");
+assert.match(manifest, /android\.app\.action\.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED/, "granting exact-alarm access must restore every system reminder");
+assert.match(manifest, /android\.intent\.action\.USER_UNLOCKED/, "unlocking after restart must restore credential-protected reminder data");
+assert.match(manifest, /android\.intent\.action\.LOCKED_BOOT_COMPLETED/, "system reminders must restore before the first unlock after reboot");
+assert.match(manifest, /\.BootReceiver[^>]*directBootAware="true"/, "the reminder restore receiver must run during direct boot");
 assert.match(manifest, /\.DailyAlarmReceiver/, "daily reminders must have a native broadcast receiver");
+assert.match(manifest, /\.ReminderBackupJobService[\s\S]*android\.permission\.BIND_JOB_SERVICE/, "reminders must have a persisted system JobScheduler fallback");
 assert.match(manifest, /\.ReminderPlaybackService[\s\S]*foregroundServiceType="mediaPlayback"/, "background reminder audio must run in a short media playback service");
 assert.match(manifest, /\.ReminderGuardianService[\s\S]*foregroundServiceType="specialUse"[\s\S]*stopWithTask="false"[\s\S]*PROPERTY_SPECIAL_USE_FGS_SUBTYPE/, "ColorOS reminder guardian must remain independent from the task card");
 assert.match(manifest, /\.ReminderAlertActivity[\s\S]*showWhenLocked="true"[\s\S]*turnScreenOn="true"/, "lock-screen reminders must wake and render above the keyguard");
@@ -79,8 +88,17 @@ assert.match(scheduler, /reminderTimeFor[\s\S]*deadlineLeadMinutes[\s\S]*trigger
 assert.match(scheduler, /reminderDayOffsetFor[\s\S]*deadlineMinutes - leadMinutes < 0/, "deadline lead offsets that cross midnight must target the previous day");
 assert.match(alarmSchedulingSupport, /setAlarmClock\(new AlarmManager\.AlarmClockInfo/, "ColorOS reminders must first use the user-visible alarm-clock contract");
 assert.match(alarmSchedulingSupport, /catch \(RuntimeException[\s\S]*setExactAndAllowWhileIdle[\s\S]*setAndAllowWhileIdle[\s\S]*manager\.set\(/, "alarm-clock denial must degrade through exact, idle-safe, and basic wakeup alarms");
+assert.match(alarmSchedulingSupport, /canScheduleExactAlarms\(\)[\s\S]*recordRegistration/, "native scheduling must verify exact access and persist the actual registration mode");
+assert.match(backupJobService, /setMinimumLatency[\s\S]*setOverrideDeadline[\s\S]*setPersisted\(true\)/, "the fallback must remain system-owned after the app process exits");
+assert.match(backupJobService, /DailyAlarmReceiver[\s\S]*DdlAlarmReceiver[\s\S]*sendBroadcast/, "the backup job must re-enter the same tested native delivery receivers");
+assert.match(bootReceiver, /DdlScheduler\.schedule[\s\S]*DailyScheduler\.schedule/, "system restore broadcasts must rebuild both alarm families");
+assert.match(directBootPreferences, /createDeviceProtectedStorageContext[\s\S]*moveSharedPreferencesFrom/, "native task plans must remain readable before the first unlock after reboot");
+assert.match(dailyScheduler, /DirectBootPreferences\.get/, "daily alarms must use direct-boot reminder storage");
+assert.match(scheduler, /DirectBootPreferences\.get/, "DDL alarms must use direct-boot reminder storage");
 assert.match(dailyScheduler, /FLAG_RECEIVER_FOREGROUND/, "ColorOS must deliver daily alarm broadcasts as foreground work");
 assert.match(scheduler, /FLAG_RECEIVER_FOREGROUND/, "ColorOS must deliver DDL alarm broadcasts as foreground work");
+assert.match(dailyScheduler, /ReminderBackupJobService\.scheduleDaily/, "every daily alarm time must receive a persisted system backup job");
+assert.match(scheduler, /ReminderBackupJobService\.scheduleDdl/, "every DDL alarm time must receive a persisted system backup job");
 assert.match(guardianService, /startForeground\([\s\S]*START_STICKY[\s\S]*onTaskRemoved[\s\S]*deliverCurrentMinuteFallback/, "background reminders must have a sticky native guardian and minute fallback");
 assert.match(guardianService, /DailyScheduler\.schedule\(this\)[\s\S]*DdlScheduler\.schedule\(this\)/, "guardian startup must restore both native alarm plans");
 assert.match(activity, /guardianActive[\s\S]*ReminderGuardianService\.isHealthy/, "permissions UI must expose live guardian health");

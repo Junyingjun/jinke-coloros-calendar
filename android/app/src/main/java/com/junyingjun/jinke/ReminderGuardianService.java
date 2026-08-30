@@ -51,7 +51,7 @@ public class ReminderGuardianService extends Service {
     }
 
     static long lastTick(Context context) {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_LAST_TICK, 0L);
+        return DirectBootPreferences.get(context, PREFS).getLong(KEY_LAST_TICK, 0L);
     }
 
     static boolean isHealthy(Context context) {
@@ -122,7 +122,7 @@ public class ReminderGuardianService extends Service {
     }
 
     private void recordTick() {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+        DirectBootPreferences.get(this, PREFS).edit()
                 .putLong(KEY_LAST_TICK, System.currentTimeMillis())
                 .apply();
     }

@@ -23,7 +23,7 @@ public class DdlAlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         NotificationSupport.createChannels(context);
-        SharedPreferences prefs = context.getSharedPreferences(DdlScheduler.PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = DirectBootPreferences.get(context, DdlScheduler.PREFS);
         String triggerTime = DdlScheduler.normalizeTime(intent.getStringExtra(DdlScheduler.EXTRA_REMINDER_TIME));
         Log.i(LOG_TAG, "DDL receiver invoked for " + triggerTime
                 + ", guardian=" + intent.getBooleanExtra(ReminderGuardianService.EXTRA_GUARDIAN_TICK, false));

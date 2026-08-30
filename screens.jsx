@@ -1039,7 +1039,8 @@ function PermissionsScreen({ capabilities, onOpenCapability, onTestReminder, onB
     { key: "exactAlarm", title: "精确闹钟", note: "按设定时间触发日常与 DDL 提醒", status: state(capabilities?.exactAlarm), ok: capabilities?.exactAlarm },
     { key: null, title: "日常提醒计划", note: capabilities?.dailyAlarmTimes ? `已登记 ${capabilities.dailyAlarmTimes}` : "尚无开启提醒的定时任务", status: known ? `${Number(capabilities?.dailyReminderCount || 0)} 项` : "仅手机检测", ok: Boolean(capabilities?.dailyAlarmTimes) },
     { key: null, title: "关键提醒计划", note: capabilities?.ddlAlarmTimes ? `已登记 ${capabilities.ddlAlarmTimes}` : "尚无到期提醒计划", status: known ? `${Number(capabilities?.ddlReminderCount || 0)} 项` : "仅手机检测", ok: Boolean(capabilities?.ddlAlarmTimes) },
-    { key: null, title: "后台提醒保障", note: "划掉任务卡片后仍由原生服务守护提醒", status: capabilities?.guardianActive ? "运行中" : "等待启动", ok: capabilities?.guardianActive },
+    { key: null, title: "系统级双重保障", note: "系统闹钟精确触发，持久化系统任务在异常延迟时补发", status: Number(capabilities?.backupJobCount || 0) > 0 ? `已登记 ${capabilities.backupJobCount} 组` : "等待任务", ok: Number(capabilities?.backupJobCount || 0) > 0 || (!capabilities?.dailyAlarmTimes && !capabilities?.ddlAlarmTimes) },
+    { key: null, title: "后台提醒保障", note: "常驻时负责分钟级检查；即使未运行仍保留系统闹钟与备用任务", status: capabilities?.guardianActive ? "运行中" : "由系统接管", ok: Boolean(capabilities?.systemAlarmMode && capabilities.systemAlarmMode !== "failed" && capabilities.systemAlarmMode !== "none") },
     { key: "fullScreenIntent", title: "锁屏提醒", note: "息屏时亮屏并显示任务", status: state(capabilities?.fullScreenIntent), ok: capabilities?.fullScreenIntent },
     { key: "background", title: "ColorOS 后台运行", note: "自启动和后台活动由 ColorOS 管理", status: capabilities?.backgroundConfigured ? "已配置" : "点击管理", ok: true },
     { key: "battery", title: "电池优化", note: "后台提醒不被系统休眠", status: state(capabilities?.batteryUnrestricted, "不限制", "受限制"), ok: capabilities?.batteryUnrestricted },
@@ -1155,7 +1156,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.1.6";
+const JINKE_FALLBACK_VERSION = "1.1.7";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

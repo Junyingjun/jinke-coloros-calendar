@@ -142,9 +142,9 @@ final class NotificationSupport {
 
     static boolean claimReminderDelivery(Context context, String deliveryKey) {
         if (deliveryKey == null || deliveryKey.isEmpty()) return false;
-        android.content.SharedPreferences preferences = context.getSharedPreferences(
-                "jinke-reminder-delivery",
-                Context.MODE_PRIVATE);
+        android.content.SharedPreferences preferences = DirectBootPreferences.get(
+                context,
+                "jinke-reminder-delivery");
         long now = System.currentTimeMillis();
         synchronized (NotificationSupport.class) {
             long previous = preferences.getLong(deliveryKey, 0L);

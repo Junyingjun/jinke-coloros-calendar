@@ -1,4 +1,4 @@
-const CACHE_NAME = "jinke-v1.1.6";
+const CACHE_NAME = "jinke-v1.1.7";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",

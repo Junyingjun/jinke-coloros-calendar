@@ -25,7 +25,7 @@ final class DailyScheduler {
     private DailyScheduler() {}
 
     static void saveAndSchedule(Context context, String tasksJson) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        DirectBootPreferences.get(context, PREFS).edit()
                 .putString(KEY_TASKS, tasksJson == null ? "[]" : tasksJson)
                 .apply();
         schedule(context, true);
@@ -34,7 +34,7 @@ final class DailyScheduler {
 
     static boolean hasEnabledReminders(Context context) {
         try {
-            JSONArray tasks = new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            JSONArray tasks = new JSONArray(DirectBootPreferences.get(context, PREFS)
                     .getString(KEY_TASKS, "[]"));
             for (int index = 0; index < tasks.length(); index++) {
                 JSONObject task = tasks.optJSONObject(index);
@@ -49,7 +49,7 @@ final class DailyScheduler {
     }
 
     private static void schedule(Context context, boolean allowCurrentMinute) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = DirectBootPreferences.get(context, PREFS);
         AlarmManager manager = context.getSystemService(AlarmManager.class);
         if (manager == null) return;
         cancelPreviouslyScheduled(context, manager, prefs.getString(KEY_SCHEDULED_TIMES, ""));
@@ -86,7 +86,9 @@ final class DailyScheduler {
         }
 
         PendingIntent pendingIntent = reminderIntent(context, time, PendingIntent.FLAG_UPDATE_CURRENT);
-        AlarmSchedulingSupport.scheduleWakeup(context, manager, next.getTimeInMillis(), pendingIntent);
+        long triggerAtMillis = next.getTimeInMillis();
+        AlarmSchedulingSupport.scheduleWakeup(context, manager, triggerAtMillis, pendingIntent);
+        ReminderBackupJobService.scheduleDaily(context, time, triggerAtMillis);
     }
 
     private static void cancelPreviouslyScheduled(Context context, AlarmManager manager, String savedTimes) {
@@ -98,6 +100,7 @@ final class DailyScheduler {
                 manager.cancel(existing);
                 existing.cancel();
             }
+            ReminderBackupJobService.cancelDaily(context, time);
         }
     }
 
@@ -105,6 +108,7 @@ final class DailyScheduler {
         int minutes = minutesFromClock(time);
         Intent intent = new Intent(context, DailyAlarmReceiver.class)
                 .setAction(ACTION_PREFIX + time.replace(":", ""))
+                .setPackage(context.getPackageName())
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(EXTRA_REMINDER_TIME, time);
         return PendingIntent.getBroadcast(

@@ -3702,10 +3702,16 @@ function PermissionsScreen(_ref33) {
     ok: Boolean(capabilities === null || capabilities === void 0 ? void 0 : capabilities.ddlAlarmTimes)
   }, {
     key: null,
+    title: "系统级双重保障",
+    note: "系统闹钟精确触发，持久化系统任务在异常延迟时补发",
+    status: Number((capabilities === null || capabilities === void 0 ? void 0 : capabilities.backupJobCount) || 0) > 0 ? "\u5DF2\u767B\u8BB0 ".concat(capabilities.backupJobCount, " \u7EC4") : "等待任务",
+    ok: Number((capabilities === null || capabilities === void 0 ? void 0 : capabilities.backupJobCount) || 0) > 0 || !(capabilities !== null && capabilities !== void 0 && capabilities.dailyAlarmTimes) && !(capabilities !== null && capabilities !== void 0 && capabilities.ddlAlarmTimes)
+  }, {
+    key: null,
     title: "后台提醒保障",
-    note: "划掉任务卡片后仍由原生服务守护提醒",
-    status: capabilities !== null && capabilities !== void 0 && capabilities.guardianActive ? "运行中" : "等待启动",
-    ok: capabilities === null || capabilities === void 0 ? void 0 : capabilities.guardianActive
+    note: "常驻时负责分钟级检查；即使未运行仍保留系统闹钟与备用任务",
+    status: capabilities !== null && capabilities !== void 0 && capabilities.guardianActive ? "运行中" : "由系统接管",
+    ok: Boolean((capabilities === null || capabilities === void 0 ? void 0 : capabilities.systemAlarmMode) && capabilities.systemAlarmMode !== "failed" && capabilities.systemAlarmMode !== "none")
   }, {
     key: "fullScreenIntent",
     title: "锁屏提醒",
@@ -4021,7 +4027,7 @@ function CriticalReminderScreen(_ref35) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.1.6";
+var JINKE_FALLBACK_VERSION = "1.1.7";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }

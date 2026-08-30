@@ -364,8 +364,12 @@ public class MainActivity extends Activity {
             payload.put("bootRestore", true);
             payload.put("guardianActive", ReminderGuardianService.isHealthy(this));
             payload.put("guardianLastTick", ReminderGuardianService.lastTick(this));
-            android.content.SharedPreferences dailyPrefs = getSharedPreferences(DailyScheduler.PREFS, MODE_PRIVATE);
-            android.content.SharedPreferences ddlPrefs = getSharedPreferences(DdlScheduler.PREFS, MODE_PRIVATE);
+            payload.put("systemAlarmMode", AlarmSchedulingSupport.latestMode(this));
+            payload.put("systemAlarmTriggerAt", AlarmSchedulingSupport.latestTriggerAt(this));
+            payload.put("systemAlarmRegisteredAt", AlarmSchedulingSupport.latestRegisteredAt(this));
+            payload.put("backupJobCount", ReminderBackupJobService.pendingCount(this));
+            android.content.SharedPreferences dailyPrefs = DirectBootPreferences.get(this, DailyScheduler.PREFS);
+            android.content.SharedPreferences ddlPrefs = DirectBootPreferences.get(this, DdlScheduler.PREFS);
             payload.put("dailyReminderCount", new JSONArray(dailyPrefs.getString(DailyScheduler.KEY_TASKS, "[]")).length());
             payload.put("dailyAlarmTimes", dailyPrefs.getString(DailyScheduler.KEY_SCHEDULED_TIMES, ""));
             payload.put("ddlReminderCount", new JSONArray(ddlPrefs.getString(DdlScheduler.KEY_TASKS, "[]")).length());
@@ -416,11 +420,13 @@ public class MainActivity extends Activity {
                 ReminderTestReceiver.REQUEST_CODE,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        long triggerAtMillis = System.currentTimeMillis() + 8000L;
         AlarmSchedulingSupport.scheduleWakeup(
                 this,
                 manager,
-                System.currentTimeMillis() + 8000L,
+                triggerAtMillis,
                 pendingIntent);
+        ReminderBackupJobService.scheduleTest(this, triggerAtMillis);
         Toast.makeText(this, "测试提醒已登记，请在 8 秒内返回桌面", Toast.LENGTH_LONG).show();
     }
 

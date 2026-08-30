@@ -18,6 +18,7 @@ public class ReminderTestReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        ReminderBackupJobService.cancelTest(context);
         NotificationSupport.createChannels(context);
         if (Build.VERSION.SDK_INT >= 33
                 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)

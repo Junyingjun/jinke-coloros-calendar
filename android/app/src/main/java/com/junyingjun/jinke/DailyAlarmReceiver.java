@@ -23,7 +23,7 @@ public class DailyAlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         NotificationSupport.createChannels(context);
-        SharedPreferences prefs = context.getSharedPreferences(DailyScheduler.PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = DirectBootPreferences.get(context, DailyScheduler.PREFS);
         String triggerTime = intent.getStringExtra(DailyScheduler.EXTRA_REMINDER_TIME);
         Log.i(LOG_TAG, "Daily receiver invoked for " + triggerTime
                 + ", guardian=" + intent.getBooleanExtra(ReminderGuardianService.EXTRA_GUARDIAN_TICK, false));

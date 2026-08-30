@@ -29,7 +29,7 @@ final class DdlScheduler {
 
     static void saveAndSchedule(Context context, String tasksJson, String time, int multiple, int finalDays) {
         long epochDay = java.time.LocalDate.now().toEpochDay();
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        DirectBootPreferences.get(context, PREFS).edit()
                 .putString(KEY_TASKS, tasksJson == null ? "[]" : tasksJson)
                 .putString(KEY_TIME, normalizeTime(time))
                 .putInt(KEY_MULTIPLE, Math.max(1, multiple))
@@ -42,7 +42,7 @@ final class DdlScheduler {
 
     static boolean hasEnabledReminders(Context context) {
         try {
-            JSONArray tasks = new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            JSONArray tasks = new JSONArray(DirectBootPreferences.get(context, PREFS)
                     .getString(KEY_TASKS, "[]"));
             for (int index = 0; index < tasks.length(); index++) {
                 JSONObject task = tasks.optJSONObject(index);
@@ -57,7 +57,7 @@ final class DdlScheduler {
     }
 
     private static void schedule(Context context, boolean allowCurrentMinute) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = DirectBootPreferences.get(context, PREFS);
         String fallbackTime = normalizeTime(prefs.getString(KEY_TIME, "10:00"));
         AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (manager == null) return;
@@ -96,7 +96,9 @@ final class DdlScheduler {
         }
 
         PendingIntent pendingIntent = reminderIntent(context, time, PendingIntent.FLAG_UPDATE_CURRENT);
-        AlarmSchedulingSupport.scheduleWakeup(context, manager, next.getTimeInMillis(), pendingIntent);
+        long triggerAtMillis = next.getTimeInMillis();
+        AlarmSchedulingSupport.scheduleWakeup(context, manager, triggerAtMillis, pendingIntent);
+        ReminderBackupJobService.scheduleDdl(context, time, triggerAtMillis);
     }
 
     private static void cancelPreviouslyScheduled(Context context, AlarmManager manager, String savedTimes) {
@@ -107,6 +109,7 @@ final class DdlScheduler {
                 manager.cancel(existing);
                 existing.cancel();
             }
+            ReminderBackupJobService.cancelDdl(context, normalizeTime(time));
         }
     }
 
@@ -114,6 +117,7 @@ final class DdlScheduler {
         int minutes = Integer.parseInt(time.substring(0, 2)) * 60 + Integer.parseInt(time.substring(3));
         Intent intent = new Intent(context, DdlAlarmReceiver.class)
                 .setAction(ACTION_PREFIX + time.replace(":", ""))
+                .setPackage(context.getPackageName())
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(EXTRA_REMINDER_TIME, time);
         return PendingIntent.getBroadcast(context, REQUEST_BASE + minutes, intent, lookupFlag | PendingIntent.FLAG_IMMUTABLE);

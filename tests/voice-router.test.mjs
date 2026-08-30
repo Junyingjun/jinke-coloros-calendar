@@ -383,8 +383,8 @@ assert.match(stylesSource, /\.section-note\.is-complete\s*\{[^}]*color:\s*var\(-
 assert.match(screensSource, /className="fold-divider"/g, "expanded primary screens must render a dedicated fold divider");
 assert.match(stylesSource, /\.phone-shell-expanded \.fold-divider\s*\{[^}]*top:\s*19\.1%[^}]*height:\s*61\.8%/, "the expanded fold divider must be a centered golden-ratio segment");
 assert.doesNotMatch(stylesSource, /\.phone-shell-expanded \.today-daily-pane[^}]*border-left|\.phone-shell-expanded \.critical-without-ddl[^}]*border-left/, "expanded dividers must not inherit either column's content height");
-assert.match(indexSource, /app-bundle\.js\?v=1\.1\.6/, "release HTML must cache-bust the current reminder-settings bundle");
-assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.1\.6"/, "the service worker cache must advance with the APK version");
+assert.match(indexSource, /app-bundle\.js\?v=1\.1\.7/, "release HTML must cache-bust the current reminder-settings bundle");
+assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.1\.7"/, "the service worker cache must advance with the APK version");
 assert.match(screensSource, /function ReminderSoundPicker[\s\S]*默认响铃[\s\S]*响铃[\s\S]*静音[\s\S]*导入本地音效/, "every task editor must expose inherit, ring, silent, sound, and local import controls");
 assert.match(screensSource, /function SettingsScreen[\s\S]*响铃提醒[\s\S]*静音提醒[\s\S]*默认音效[\s\S]*导入本地音效/, "settings must expose global reminder mode and sound-library controls");
 assert.match(appSource, /jinke-default-alert-mode[\s\S]*jinke-default-sound-id[\s\S]*jinke-custom-reminder-sounds/, "global reminder policy and custom sound library must persist locally");
