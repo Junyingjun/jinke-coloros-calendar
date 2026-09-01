@@ -42,6 +42,9 @@ const routerCriticalTasks = [
   { id: "passport", title: "旅行证件续期", deadline: "9月8日", daysLeft: 15, time: null, note: "准备材料" },
 ];
 const route = (text) => context.parseVoiceCommand(text, routerDailyTasks, routerCriticalTasks);
+const currentDate = new Date();
+const currentDayOfMonth = currentDate.getDate();
+const currentDateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDayOfMonth).padStart(2, "0")}`;
 
 const cases = [
   ["清除所有的安排", "clear-all"],
@@ -55,7 +58,7 @@ const cases = [
   ["把DDL默认提醒时间改为早上九点", "set-ddl-reminder-time"],
   ["把DDL提醒倍数改成7天", "set-ddl-reminder-policy"],
   ["把DDL最后连续提醒改成3天", "set-ddl-reminder-policy"],
-  ["切换到25号", "select-date"],
+  [`切换到${currentDayOfMonth}号`, "select-date"],
   ["查看历史记录", "navigate"],
   ["切换到周视图", "navigate"],
   ["把健身改为关键事项", "edit"],
@@ -93,7 +96,7 @@ assert.equal(route("把DDL提醒倍数改成7天").value, 7);
 assert.equal(route("把DDL提醒倍数改成7天").policy, "multiple");
 assert.equal(route("把DDL最后连续提醒改成3天").value, 3);
 assert.equal(route("把DDL最后连续提醒改成3天").policy, "final-days");
-assert.equal(route("切换到25号").dateKey, "2026-08-25");
+assert.equal(route(`切换到${currentDayOfMonth}号`).dateKey, currentDateKey);
 assert.equal(route("切换到周视图").route, "today");
 assert.equal(route("把健身改为关键事项").changes.type, "critical");
 assert.equal(route("我想在九月十五号下午三点的时候去考驾照").task.title, "考驾照");
@@ -383,8 +386,8 @@ assert.match(stylesSource, /\.section-note\.is-complete\s*\{[^}]*color:\s*var\(-
 assert.match(screensSource, /className="fold-divider"/g, "expanded primary screens must render a dedicated fold divider");
 assert.match(stylesSource, /\.phone-shell-expanded \.fold-divider\s*\{[^}]*top:\s*19\.1%[^}]*height:\s*61\.8%/, "the expanded fold divider must be a centered golden-ratio segment");
 assert.doesNotMatch(stylesSource, /\.phone-shell-expanded \.today-daily-pane[^}]*border-left|\.phone-shell-expanded \.critical-without-ddl[^}]*border-left/, "expanded dividers must not inherit either column's content height");
-assert.match(indexSource, /app-bundle\.js\?v=1\.1\.7/, "release HTML must cache-bust the current reminder-settings bundle");
-assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.1\.7"/, "the service worker cache must advance with the APK version");
+assert.match(indexSource, /app-bundle\.js\?v=1\.1\.8/, "release HTML must cache-bust the current reminder-settings bundle");
+assert.match(serviceWorkerSource, /CACHE_NAME = "jinke-v1\.1\.8"/, "the service worker cache must advance with the APK version");
 assert.match(screensSource, /function ReminderSoundPicker[\s\S]*默认响铃[\s\S]*响铃[\s\S]*静音[\s\S]*导入本地音效/, "every task editor must expose inherit, ring, silent, sound, and local import controls");
 assert.match(screensSource, /function SettingsScreen[\s\S]*响铃提醒[\s\S]*静音提醒[\s\S]*默认音效[\s\S]*导入本地音效/, "settings must expose global reminder mode and sound-library controls");
 assert.match(appSource, /jinke-default-alert-mode[\s\S]*jinke-default-sound-id[\s\S]*jinke-custom-reminder-sounds/, "global reminder policy and custom sound library must persist locally");

@@ -173,6 +173,7 @@ function DailyTaskRow({ task, onToggle, onEdit, onDelete }) {
 
 function CriticalTaskRow({ task, onToggle, onOpen, onDelete }) {
   const dueCopy = task.done ? "已完成" : task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? `逾期 ${Math.abs(task.daysLeft)} 天` : task.daysLeft === 0 ? "今天" : `剩 ${task.daysLeft} 天`;
+  const isUrgent = !task.done && Number.isFinite(task.daysLeft) && task.daysLeft <= 5;
   return (
     <SwipeTaskActions label={`${task.title}，向左滑动可编辑或删除`} onEdit={() => onOpen(task)} onDelete={() => onDelete(task)}>
       <button className={`critical-row pressable ${task.done ? "done" : ""}`} aria-label={task.done ? `取消完成 ${task.title}` : `完成 ${task.title}`} onClick={() => onToggle(task.id)}>
@@ -184,7 +185,7 @@ function CriticalTaskRow({ task, onToggle, onOpen, onDelete }) {
             {task.note ? <div className="critical-note">{task.note}</div> : null}
             </div>
           </div>
-          <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
+          <span className={`days-left ${isUrgent ? "urgent" : ""}`}>{dueCopy}</span>
         </div>
         <div className="critical-meta">
           <span>{task.done ? `${Number(task.completedDateKey?.slice(5, 7))}月${Number(task.completedDateKey?.slice(8, 10))}日完成` : task.deadline ? [displayDeadline(task.deadline), task.time].filter(Boolean).join(" · ") : task.reminder}</span>

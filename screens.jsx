@@ -891,10 +891,11 @@ function CriticalDetailSheet({ task, draft, renewDays, onRenewDaysChange, onDraf
   const update = (field, value) => onDraftChange({ ...draft, [field]: value });
   const updateDeadlineTime = (deadlineTime) => onDraftChange({ ...draft, deadlineTime: deadlineTime || null, time: deadlineTime || null });
   const dueCopy = task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? `逾期 ${Math.abs(task.daysLeft)} 天` : task.daysLeft === 0 ? "今天截止" : `剩 ${task.daysLeft} 天`;
+  const isUrgent = !task.done && Number.isFinite(task.daysLeft) && task.daysLeft <= 5;
   return (
     <Sheet onClose={onClose} label="编辑关键事项">
       <div className="top-row">
-        <span className={`days-left ${task.daysLeft <= 0 ? "today" : ""}`}>{dueCopy}</span>
+        <span className={`days-left ${isUrgent ? "urgent" : ""}`}>{dueCopy}</span>
         <IconButton name="close" label="关闭" onClick={onClose} />
       </div>
       <div className="edit-form critical-edit-form">
@@ -1156,7 +1157,7 @@ function CriticalReminderScreen({ tasks, reminderTime, onReminderTimeChange, rem
 }
 
 const JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-const JINKE_FALLBACK_VERSION = "1.1.7";
+const JINKE_FALLBACK_VERSION = "1.1.8";
 
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];

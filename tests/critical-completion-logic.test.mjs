@@ -56,6 +56,8 @@ assert.equal(criticalTaskVisibleOnTodayDate(movedCompletion, "2026-08-26"), fals
 
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const screensSource = fs.readFileSync(path.join(root, "screens.jsx"), "utf8");
+const primitivesSource = fs.readFileSync(path.join(root, "primitives.jsx"), "utf8");
+const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const detailStart = screensSource.indexOf("function CriticalDetailSheet");
 const detailEnd = screensSource.indexOf("function HistoryScreen");
 const detailSource = screensSource.slice(detailStart, detailEnd);
@@ -67,5 +69,9 @@ assert.doesNotMatch(detailSource, /label="完成时刻"|completionTime/, "comple
 assert.match(detailSource, /DatePicker value=\{draft\.deadline\}[\s\S]{0,160}allowPast=\{task\.done\}/, "only completed critical tasks may move their deadline into the past");
 assert.match(appSource, /const iso = text\.match\(\/\(\\d\{4\}\)-\(\\d\{2\}\)-\(\\d\{2\}\)\//, "deadline parsing must preserve an explicitly edited historical year");
 assert.match(appSource, /editableCriticalDeadline\(storedTask, todayDateKey\)/, "opening an old completed task must reconstruct its original deadline instead of rolling it into next year");
+assert.match(primitivesSource, /!task\.done && Number\.isFinite\(task\.daysLeft\) && task\.daysLeft <= 5/, "only unfinished DDL tasks within five days may use the urgent state");
+assert.match(screensSource, /!task\.done && Number\.isFinite\(task\.daysLeft\) && task\.daysLeft <= 5/, "the critical editor must use the same five-day urgent boundary");
+assert.match(stylesSource, /\.days-left\.urgent\s*\{[^}]*var\(--accent-soft\)[^}]*var\(--accent\)/, "the urgent deadline badge must use the red accent treatment");
+assert.doesNotMatch(primitivesSource, /task\.daysLeft <= 0 \? "today"/, "null no-DDL values must never be coerced into the red deadline state");
 
 console.log("critical completion logic: DDL/no-DDL completion date retention and undo passed");

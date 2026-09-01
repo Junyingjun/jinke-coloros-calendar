@@ -1153,6 +1153,7 @@ function CriticalTaskRow(_ref7) {
     onOpen = _ref7.onOpen,
     _onDelete2 = _ref7.onDelete;
   var dueCopy = task.done ? "已完成" : task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? "\u903E\u671F ".concat(Math.abs(task.daysLeft), " \u5929") : task.daysLeft === 0 ? "今天" : "\u5269 ".concat(task.daysLeft, " \u5929");
+  var isUrgent = !task.done && Number.isFinite(task.daysLeft) && task.daysLeft <= 5;
   return React.createElement(SwipeTaskActions, {
     label: "".concat(task.title, "\uFF0C\u5411\u5DE6\u6ED1\u52A8\u53EF\u7F16\u8F91\u6216\u5220\u9664"),
     onEdit: function onEdit() {
@@ -1182,7 +1183,7 @@ function CriticalTaskRow(_ref7) {
   }, task.title), task.note ? React.createElement("div", {
     className: "critical-note"
   }, task.note) : null)), React.createElement("span", {
-    className: "days-left ".concat(task.daysLeft <= 0 ? "today" : "")
+    className: "days-left ".concat(isUrgent ? "urgent" : "")
   }, dueCopy)), React.createElement("div", {
     className: "critical-meta"
   }, React.createElement("span", null, task.done ? "".concat(Number((_task$completedDateKe = task.completedDateKey) === null || _task$completedDateKe === void 0 ? void 0 : _task$completedDateKe.slice(5, 7)), "\u6708").concat(Number((_task$completedDateKe2 = task.completedDateKey) === null || _task$completedDateKe2 === void 0 ? void 0 : _task$completedDateKe2.slice(8, 10)), "\u65E5\u5B8C\u6210") : task.deadline ? [displayDeadline(task.deadline), task.time].filter(Boolean).join(" · ") : task.reminder), React.createElement("div", {
@@ -3347,13 +3348,14 @@ function CriticalDetailSheet(_ref29) {
     }));
   };
   var dueCopy = task.daysLeft === null ? "无 DDL" : task.daysLeft < 0 ? "\u903E\u671F ".concat(Math.abs(task.daysLeft), " \u5929") : task.daysLeft === 0 ? "今天截止" : "\u5269 ".concat(task.daysLeft, " \u5929");
+  var isUrgent = !task.done && Number.isFinite(task.daysLeft) && task.daysLeft <= 5;
   return React.createElement(Sheet, {
     onClose: onClose,
     label: "\u7F16\u8F91\u5173\u952E\u4E8B\u9879"
   }, React.createElement("div", {
     className: "top-row"
   }, React.createElement("span", {
-    className: "days-left ".concat(task.daysLeft <= 0 ? "today" : "")
+    className: "days-left ".concat(isUrgent ? "urgent" : "")
   }, dueCopy), React.createElement(IconButton, {
     name: "close",
     label: "\u5173\u95ED",
@@ -4027,7 +4029,7 @@ function CriticalReminderScreen(_ref35) {
   })));
 }
 var JINKE_GITHUB_REPOSITORY = "Junyingjun/jinke-coloros-calendar";
-var JINKE_FALLBACK_VERSION = "1.1.7";
+var JINKE_FALLBACK_VERSION = "1.1.8";
 function normalizeVersion(value) {
   return String(value || "0.0.0").trim().replace(/^v/i, "").split("-")[0];
 }
